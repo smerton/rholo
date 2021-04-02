@@ -4,7 +4,7 @@
 // Author S. R. Merton
 
 #define DTSTART 0.01  // insert a macro for the first time step
-#define ENDTIME 1.0 // insert a macro for the end time
+#define ENDTIME 0.25 // insert a macro for the end time
 #define GAMMA 1.4 // ration of specific heats for ideal gases
 
 #include <iostream>
