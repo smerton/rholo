@@ -10,11 +10,16 @@
 #include <iostream>
 #include <vector>
 #include <iomanip>
+#include "riemann.h"
 
-// eos lookups
+// sigantures for eos lookups
 
 double P(double d,double e); // return pressure as a function of energy
 double E(double d,double p); // return energy as a function of pressure
+
+// signature for emptying a vector
+
+void vempty(vector<double>&v);
 
 using namespace std;
 
@@ -24,7 +29,7 @@ int main(){
 
 // global data
 
-  int const n(10),ng(n+2);            // no. ncells and ghosts
+  int const n(100),ng(n+2);            // no. ncells and ghosts
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng); // pressure, density, volume, mass
   vector<double> e0(2*ng),e1(2*ng);   // fe energy
   vector<double> ec0(2*ng),ec1(2*ng); // cell energy
@@ -32,6 +37,7 @@ int main(){
   vector<double> x0(2*ng),x1(2*ng);   // coordinates
   double time(0.0),dt(DTSTART);       // start time and time step
   int step(0);                        // step number
+  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1}; // left/right flux states for Riemann solver
 
 // initialise the problem (Sod's shock tube)
 
@@ -45,13 +51,25 @@ int main(){
   for(int i=0;i<ng;i++){m.at(i)=d[i]*V0[i];}
   for(int i=0;i<2*ng;i++){u0.at(i)=0.0;u1.at(i)=0.0;}
 
-  cout<<fixed<<setprecision(17);      // set output precision
+// start the Riemann solver
+
+  Riemann R(Riemann::exact,l,r);
+
+// set output precision
+
+  cout<<fixed<<setprecision(17);
 
 // time integration
 
   while(time<ENDTIME+dt){
 
     cout<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<endl;
+
+// evolve the Riemann problem to start of the time step
+
+    vector<double> rx;vempty(rx); // sample coordinates
+    for(int i=1;i<=n;i++){rx.push_back(x0[2*i]);rx.push_back(x0[2*i+1]);}
+    R.profile(&rx,time);
 
 // move nodes to full step position
 
@@ -75,8 +93,11 @@ int main(){
 
 // update node velocity at the full step
 
+// ...
 
+// some output
 
+    for(long i=0;i<2*n;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<endl;}
 
 // advance the time step
 
@@ -97,3 +118,7 @@ double P(double d,double e){return (GAMMA-1.0)*d*e;}
 // return energy given the pressure
 
 double E(double d,double p){return p/((GAMMA-1.0)*d);}
+
+// empty a vector
+
+void vempty(vector<double>&v){vector<double> e;v.swap(e);return;}
