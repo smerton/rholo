@@ -3,7 +3,7 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.002  // insert a macro for the first time step
+#define DTSTART 0.0005  // insert a macro for the first time step
 #define ENDTIME 0.25 // insert a macro for the end time
 #define GAMMA 1.4 // ration of specific heats for ideal gases
 
@@ -30,7 +30,7 @@ int main(){
 
 // global data
 
-  int const n(15),ng(n+2);            // no. ncells and ghosts
+  int const n(400),ng(n+2);            // no. ncells and ghosts
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng); // pressure, density, volume, mass
   vector<double> e0(2*ng),e1(2*ng);   // fe energy
   vector<double> ec0(ng),ec1(ng); // cell energy
@@ -94,13 +94,13 @@ int main(){
 
       l[0]=d[i-1];l[1]=R.velocity(i-1);l[2]=p[i-1];
       r[0]=d[i];r[1]=R.velocity(i);r[2]=p[i];
-      Riemann f0(Riemann::pvrs,l,r);
+      Riemann f0(Riemann::exact,l,r);
 
 // fluxes on face 1 (right boundary of cell)
 
       l[0]=d[i];l[1]=R.velocity(i);l[2]=p[i];
       r[0]=d[i+1];r[1]=R.velocity(i+1);r[2]=p[i+1];
-      Riemann f1(Riemann::pvrs,l,r);
+      Riemann f1(Riemann::exact,l,r);
 
       cout<<"el "<<i<<" u left= "<<f0.ustar<<" u right "<<f1.ustar;
       cout<<" l= "<<l[0]<<" "<<l[1]<<" "<<l[2];
@@ -121,7 +121,7 @@ int main(){
 
 // update cell volumes at the full step
 
-    for(int i=0;i<ng;i++){V1.at(i)=x1[2*i+1]-x1[2*i];} 
+    for(int i=0;i<ng;i++){V1.at(i)=x1[2*i+1]-x1[2*i];if(V1[i]<0.0){cout<<"ERROR:  -'ve volume in cell "<<i<<endl;exit(1);}} 
 
 // update cell density at the full step
 
@@ -129,7 +129,7 @@ int main(){
 
 // update cell energy at the full step
 
-    for(int i=0;i<ng;i++){ec1.at(i)=ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i];}
+    for(int i=0;i<ng;i++){ec1.at(i)=max(0.0,ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i]);}
 
 // fe energy field
 
@@ -173,7 +173,7 @@ int main(){
 // some output
 
     for(int i=0;i<ng;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;}
-//    for(long i=1;i<=n;i++){cout<<0.5*(x1[2*i]+x1[2*i+1])<<" "<<d[i]<<" "<<ec1[i]<<endl;}
+//    for(long i=1;i<=n;i++){cout<<0.5*(x1[2*i]+x1[2*i+1])<<" "<<d[i]<<" "<<p[i]<<" "<<" "<<ec1[i]<<endl;}
 
 // advance the time step
 
