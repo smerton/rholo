@@ -11,6 +11,7 @@
 #include <vector>
 #include <iomanip>
 #include "riemann.h"
+#include <cmath>
 
 // sigantures for eos lookups
 
@@ -38,6 +39,9 @@ int main(){
   double time(0.0),dt(DTSTART);       // start time and time step
   int step(0);                        // step number
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1}; // left/right flux states for Riemann solver
+  int const nloc(2);ngi(2);            // number of local nodes and integration points
+  double N[nloc][ngi],NX[nloc][ngi];dw[ngi]; // fe shape function, derivatives and weight
+  vector<double> normal(2*ng);         // face normal
 
 // initialise the problem (Sod's shock tube)
 
@@ -50,6 +54,13 @@ int main(){
   for(int i=0;i<ng;i++){V0.at(i)=x0[2*i+1]-x0[2*i];}
   for(int i=0;i<ng;i++){m.at(i)=d[i]*V0[i];}
   for(int i=0;i<2*ng;i++){u0.at(i)=0.0;u1.at(i)=0.0;}
+  for(int i=0;i<2*ng;i++){normal.at(i)=-1.0?i%2:1.0;}
+
+// fe spaces
+
+  N[0][0]=0.5*(1.0+1.0/sqrt(3.0));N[0][1]=0.5*(1.0-1.0/sqrt(3.0));
+  N[1][0]=0.5*(1.0-1.0/sqrt(3.0));N[1][1]=0.5*(1.0+1.0/sqrt(3.0));
+  NX[0][0]=-0.5;NX[0][1]=-0.5;NX[1][0]=0.5;NX[1][1]=0.5;
 
 // start the Riemann solver
 
