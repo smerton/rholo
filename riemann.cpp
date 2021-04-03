@@ -28,7 +28,7 @@ Riemann::Riemann(solver s,double*l,double*r){
 // l of type double* containg the left state of the contact
 // r of type double* containg the right state of the contact
 
-  cout<<"Riemann::Riemann(): Starting up a Riemann solver of type "<<solvername[s]<<"..."<<endl;
+//  cout<<"Riemann::Riemann(): Starting up a Riemann solver of type "<<solvername[s]<<"..."<<endl;
 
 // set up the left state
 
@@ -42,8 +42,8 @@ Riemann::Riemann(solver s,double*l,double*r){
   mur=r[1];
   mPr=r[2];
 
-  cout<<"Riemann::Riemann(): left state (d,u,p) = "<<mDl<<","<<mul<<","<<mPl<<endl;
-  cout<<"Riemann::Riemann(): right state (d,u,p) = "<<mDr<<","<<mur<<","<<mPr<<endl;
+//  cout<<"Riemann::Riemann(): left state (d,u,p) = "<<mDl<<","<<mul<<","<<mPl<<endl;
+//  cout<<"Riemann::Riemann(): right state (d,u,p) = "<<mDr<<","<<mur<<","<<mPr<<endl;
 
 // load the selevcted solver
 

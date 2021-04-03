@@ -30,7 +30,7 @@ int main(){
 
 // global data
 
-  int const n(100),ng(n+2);            // no. ncells and ghosts
+  int const n(15),ng(n+2);            // no. ncells and ghosts
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng); // pressure, density, volume, mass
   vector<double> e0(2*ng),e1(2*ng);   // fe energy
   vector<double> ec0(ng),ec1(ng); // cell energy
@@ -39,8 +39,9 @@ int main(){
   double time(0.0),dt(DTSTART);       // start time and time step
   int step(0);                        // step number
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1}; // left/right flux states for Riemann solver
-  int const nloc(2);ngi(2);            // number of local nodes and integration points
-  double N[nloc][ngi],NX[nloc][ngi];dw[ngi]; // fe shape function, derivatives and weight
+  int const nloc(2),ngi(2);            // number of local nodes and integration points
+  double N[nloc][ngi],NX[nloc][ngi]; // fe shape function, derivatives and weight
+  double NN[nloc][nloc];              // mass matrix
   vector<double> normal(2*ng);         // face normal
 
 // initialise the problem (Sod's shock tube)
@@ -65,6 +66,8 @@ int main(){
 // start the Riemann solver
 
   Riemann R(Riemann::exact,l,r);
+  cout<<" pstar= "<<R.pstar<<endl;
+  cout<<" ustar= "<<R.ustar<<endl;
 
 // set output precision
 
@@ -79,18 +82,42 @@ int main(){
 // evolve the Riemann problem to start of the time step
 
     vector<double> rx;vempty(rx); // sample coordinates
-    for(int i=1;i<=n;i++){rx.push_back(x0[2*i]);rx.push_back(x0[2*i+1]);}
+    for(long i=0;i<ng;i++){rx.push_back(0.5*(x0[2*i]+x0[2*i+1]));}
     R.profile(&rx,time);
 
-// move nodes to full step position
+// move nodes to full-step position
 
-    for(long i=0;i<n;i++){x1.at(2*i+2)=x0[2*i+2]+R.velocity(2*i)*dt;x1.at(2*i+3)=x0[2*i+3]+R.velocity(2*i+1)*dt;}
+//    for(long i=0;i<n;i++){x1.at(2*i+2)=x0[2*i+2]+R.velocity(2*i)*dt;x1.at(2*i+3)=x0[2*i+3]+R.velocity(2*i+1)*dt;}
+    for(long i=1;i<=n;i++){
+
+// fluxes on face 0 (left boundary of cell)
+
+      l[0]=d[i-1];l[1]=R.velocity(i-1);l[2]=p[i-1];
+      r[0]=d[i];r[1]=R.velocity(i);r[2]=p[i];
+      Riemann f0(Riemann::pvrs,l,r);
+
+// fluxes on face 1 (right boundary of cell)
+
+      l[0]=d[i];l[1]=R.velocity(i);l[2]=p[i];
+      r[0]=d[i+1];r[1]=R.velocity(i+1);r[2]=p[i+1];
+      Riemann f1(Riemann::pvrs,l,r);
+
+      cout<<"el "<<i<<" u left= "<<f0.ustar<<" u right "<<f1.ustar;
+      cout<<" l= "<<l[0]<<" "<<l[1]<<" "<<l[2];
+      cout<<" r= "<<r[0]<<" "<<r[1]<<" "<<r[2]<<endl;
+
+      if(i==1){x1.at(1)=x0[1]+f0.ustar*dt;x1.at(0)=x0[0];}
+
+      x1.at(2*i)=x0[2*i]+f0.ustar*dt;x1.at(2*i+1)=x0[2*i+1]+f1.ustar*dt;
+
+      if(i==n){x1.at(2*(n+1))=x0[2*(n+1)]+f1.ustar*dt;x1.at(2*(n+1)+1)=x0[2*(n+1)+1];}
+
+    }
 
 //    l[0]=R.density(2*i);l[1]=R.velocity(2*i);l[2]=R.pressure(2*i);
 //    r[0]=R.density(2*i+1);r[1]=R.velocity(2*i+1);r[2]=R.pressure(2*i+1);
 //    Riemann R1(Riemann::exact,l,r);
 //    for(long i=0;i<n;i++){x1.at(2*i+2)=x0[2*i+2]+R.velocity(2*i)*dt;x1.at(2*i+3)=x0[2*i+3]+R1.ustar*dt;}
-//    exit(1);
 
 // update cell volumes at the full step
 
@@ -104,6 +131,37 @@ int main(){
 
     for(int i=0;i<ng;i++){ec1.at(i)=ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i];}
 
+// fe energy field
+
+    for(int i=0;i<ng;i++){
+
+      double dx(x1[2*i+1]-x1[2*i]); // cell width for Jacobian
+
+      for(int iloc=0;iloc<nloc;iloc++){
+        for(int jloc=0;jloc<nloc;jloc++){
+          NN[iloc][jloc]=0.0;
+          for(int gi=0;gi<ngi;gi++){
+            NN[iloc][jloc]+=N[iloc][gi]*N[jloc][gi]*2.0/dx;
+          }
+
+        }
+      }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    }
+
 // update cell pressure at the full step
 
     for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);}
@@ -114,7 +172,7 @@ int main(){
 
 // some output
 
-    for(long i=0;i<2*n;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;}
+    for(int i=0;i<ng;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;}
 //    for(long i=1;i<=n;i++){cout<<0.5*(x1[2*i]+x1[2*i+1])<<" "<<d[i]<<" "<<ec1[i]<<endl;}
 
 // advance the time step
