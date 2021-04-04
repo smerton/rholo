@@ -134,7 +134,7 @@ void Riemann::exact_solver(){
 
 }
 
-// function to return initial guess for pressure iteration
+// function to code for the initial guess in the pressure iteration
 
 double Riemann::starte(){
 
@@ -177,7 +177,7 @@ double Riemann::starte(){
 
 }
 
-// pressure functions are solved
+// this codes for the pressure function
 
 void Riemann::prefun(double*f,double*fd,double p,double dk,double pk,double ck){
 
@@ -203,7 +203,7 @@ void Riemann::prefun(double*f,double*fd,double p,double dk,double pk,double ck){
 
 }
 
-// function to implement emptying of a vector
+// function to implement the action to empty a vector
 
 void empty(vector<double> &v){
 
@@ -215,7 +215,7 @@ void empty(vector<double> &v){
 
 }
 
-// profiles at each sample point (x,t)
+// codes for the profile at each sample point (x,t)
 
 void Riemann::profile(vector<double>*x,double time){
 
@@ -251,19 +251,19 @@ void Riemann::profile(vector<double>*x,double time){
 
 }
 
-// density field at position i
+// this function codes for the density field at position i
 
 double Riemann::density(long i){return mdensity[i];}
 
-// pressure field at position i
+// codes for the pressure field at position i
 
 double Riemann::pressure(long i){return mpressure[i];}
 
-// energy field at position i
+// codes energy field at position i
 
 double Riemann::energy(long i){return menergy[i];}
 
-// velocity field at position i
+// codes for velocity field at position i
 
 double Riemann::velocity(long i){return mvelocity[i];}
 
