@@ -1,13 +1,14 @@
 // Main program for rholo - an ultra simple 1-D discontinuous finite element (DG) hydrodynamics test code
 // Solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
 // using Riemann boundary coniditions on each element, initial implementation is only first order in time
-// Riemann-based Hydro One-dimensional Low Order (rholo)
+// Riemann-based Hydro in One-dimensional at Low Order (rholo)
 
 // Author S. R. Merton
 
 #define DTSTART 0.0005  // insert a macro for the first time step
-#define ENDTIME 0.25 // insert a macro for the end time
-#define GAMMA 1.4 // ratio of specific heats for ideal gases
+#define ENDTIME 0.25    // insert a macro for the end time
+#define GAMMA 1.4       // ratio of specific heats for ideal gases
+#define ECUT 1.0-8      // cut-off on the energy field
 
 #include <iostream>
 #include <vector>
@@ -17,8 +18,8 @@
 
 // sigantures for eos lookups
 
-double P(double d,double e); // return pressure as a function of energy
-double E(double d,double p); // return energy as a function of pressure
+double P(double d,double e); // eos returns pressure as a function of energy
+double E(double d,double p); // invert the eos to get energy if we only have pressure
 
 // signature for emptying a vector
 
@@ -32,21 +33,22 @@ int main(){
 
 // global data
 
-  int const n(400),ng(n+2);            // no. ncells and ghosts
-  vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng); // pressure, density, volume, mass
-  vector<double> e0(2*ng),e1(2*ng);   // fe energy
-  vector<double> ec0(ng),ec1(ng); // cell energy
-  vector<double> u0(2*ng),u1(2*ng);   // velocity
-  vector<double> x0(2*ng),x1(2*ng);   // coordinates
-  double time(0.0),dt(DTSTART);       // start time and time step
-  int step(0);                        // step number
-  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1}; // left/right flux states for Riemann solver
-  int const nloc(2),ngi(2);            // number of local nodes and integration points
-  double N[nloc][ngi],NX[nloc][ngi]; // fe shape function, derivatives and weight
-  double NN[nloc][nloc];              // mass matrix
-  vector<double> normal(2*ng);         // face normal
+  int const n(200),ng(n+2);                               // no. ncells and ghosts
+  vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
+  vector<double> e0(2*ng),e1(2*ng);                     // fe DG energy field
+  vector<double> ec0(ng),ec1(ng);                       // cell energy field
+  vector<double> u0(2*ng),u1(2*ng);                     // velocity field
+  vector<double> x0(2*ng),x1(2*ng);                     // spatial coordinates
+  double time(0.0),dt(DTSTART);                         // start time and time step
+  int step(0);                                          // step number
+  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for Riemann solver
+  int const nloc(2),ngi(2);                             // no. of local nodes and integration points
+  double N[nloc][ngi],NX[nloc][ngi];                    // fe shapes and their derivatives
+  double NN[nloc][nloc],NXN[nloc][nloc],SN[nloc][nloc]; // mass matrix, divergence term and surface block
+  double A[nloc][nloc],b[nloc],soln[nloc];              // matrix equation for one element
+  vector<double> normal(2*ng);                          // normal to each face
 
-// initialise the problem (Sod's shock tube)
+// initialise the problem (Sod's shock tube) - hack this to run something else
 
   double dx(1.0/n);x0.at(0)=0.0-dx;x0.at(1)=0.0;
   for(int i=1;i<ng;i++){x0.at(2*i)=x0[2*(i-1)+1];x0.at(2*i+1)=x0[2*i]+dx;}
@@ -57,15 +59,16 @@ int main(){
   for(int i=0;i<ng;i++){V0.at(i)=x0[2*i+1]-x0[2*i];}
   for(int i=0;i<ng;i++){m.at(i)=d[i]*V0[i];}
   for(int i=0;i<2*ng;i++){u0.at(i)=0.0;u1.at(i)=0.0;}
-  for(int i=0;i<2*ng;i++){normal.at(i)=-1.0?i%2:1.0;}
+  for(int i=0;i<2*ng;i++){normal.at(i)=(i%2)?1.0:-1.0;}
 
-// fe spaces
+// fe spaces for p1 DG element type - hack this for high order
 
   N[0][0]=0.5*(1.0+1.0/sqrt(3.0));N[0][1]=0.5*(1.0-1.0/sqrt(3.0));
   N[1][0]=0.5*(1.0-1.0/sqrt(3.0));N[1][1]=0.5*(1.0+1.0/sqrt(3.0));
   NX[0][0]=-0.5;NX[0][1]=-0.5;NX[1][0]=0.5;NX[1][1]=0.5;
+  SN[0][0]=1.0;SN[0][1]=0.0;SN[1][0]=0.0;SN[1][1]=1.0;
 
-// start the Riemann solver
+// start the Riemann solver from initial flux states
 
   Riemann R(Riemann::exact,l,r);
   cout<<" pstar= "<<R.pstar<<endl;
@@ -81,32 +84,32 @@ int main(){
 
     cout<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<endl;
 
-// evolve the Riemann problem to start of the time step
+// evolve the Riemann problem to the current time level
 
     vector<double> rx;vempty(rx); // sample point coordinates
     for(long i=0;i<ng;i++){rx.push_back(0.5*(x0[2*i]+x0[2*i+1]));}
     R.profile(&rx,time);
 
-// move nodes to full-step position
+// move the nodes to their full-step position
 
 //    for(long i=0;i<n;i++){x1.at(2*i+2)=x0[2*i+2]+R.velocity(2*i)*dt;x1.at(2*i+3)=x0[2*i+3]+R.velocity(2*i+1)*dt;}
     for(long i=1;i<=n;i++){
 
-// fluxes on face 0 (left boundary of cell)
+// fluxes on left and right sides of face 0 (left boundary of cell)
 
       l[0]=d[i-1];l[1]=R.velocity(i-1);l[2]=p[i-1];
       r[0]=d[i];r[1]=R.velocity(i);r[2]=p[i];
       Riemann f0(Riemann::exact,l,r);
 
-// fluxes on face 1 (right boundary of cell)
+// fluxes on left and right sides of face 1 (right boundary of cell)
 
       l[0]=d[i];l[1]=R.velocity(i);l[2]=p[i];
       r[0]=d[i+1];r[1]=R.velocity(i+1);r[2]=p[i+1];
       Riemann f1(Riemann::exact,l,r);
 
-      cout<<"el "<<i<<" u left= "<<f0.ustar<<" u right "<<f1.ustar;
-      cout<<" l= "<<l[0]<<" "<<l[1]<<" "<<l[2];
-      cout<<" r= "<<r[0]<<" "<<r[1]<<" "<<r[2]<<endl;
+//      cout<<"el "<<i<<" u left= "<<f0.ustar<<" u right "<<f1.ustar;
+//      cout<<" l= "<<l[0]<<" "<<l[1]<<" "<<l[2];
+//      cout<<" r= "<<r[0]<<" "<<r[1]<<" "<<r[2]<<endl;
 
       if(i==1){x1.at(1)=x0[1]+f0.ustar*dt;x1.at(0)=x0[0];}
 
@@ -131,44 +134,73 @@ int main(){
 
 // update cell energy at the full-step
 
-    for(int i=0;i<ng;i++){ec1.at(i)=max(0.0,ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i]);}
+    for(int i=0;i<ng;i++){ec1.at(i)=max(ECUT,ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i]);}
 
-// fe energy field
+// construct the DG energy field
 
     for(int i=0;i<ng;i++){
 
       double dx(x1[2*i+1]-x1[2*i]); // cell width for Jacobian
 
-      for(int iloc=0;iloc<nloc;iloc++){
-        for(int jloc=0;jloc<nloc;jloc++){
-          NN[iloc][jloc]=0.0;
-          for(int gi=0;gi<ngi;gi++){
-            NN[iloc][jloc]+=N[iloc][gi]*N[jloc][gi]*2.0/dx;
-          }
+// fluxes on face 0 (left boundary of cell)
 
+      l[0]=d[i-1];l[1]=R.velocity(i-1);l[2]=p[i-1];
+      r[0]=d[i];r[1]=R.velocity(i);r[2]=p[i];
+      Riemann f0(Riemann::exact,l,r);
+
+// fluxes on face 1 (right boundary of cell)
+
+      l[0]=d[i];l[1]=R.velocity(i);l[2]=p[i];
+      r[0]=d[i+1];r[1]=R.velocity(i+1);r[2]=p[i+1];
+      Riemann f1(Riemann::exact,l,r);
+
+// pressure and velocity on each face
+
+      double pstar[2]={f0.pstar,f1.pstar};
+      double ustar[2]={f0.ustar,f1.ustar};
+
+// assemble DG matrix equation for the energy field in one element
+
+      for(int iloc=0;iloc<nloc;iloc++){
+        b[iloc]=0.0;soln[iloc]=0.0;
+        for(int jloc=0;jloc<nloc;jloc++){
+          A[iloc][jloc]=0.0;NXN[iloc][jloc]=0.0;
+          for(int gi=0;gi<ngi;gi++){
+            A[iloc][jloc]+=N[iloc][gi]*N[jloc][gi]*2.0/dx; // mass matrix
+            NXN[iloc][jloc]+=NX[iloc][gi]*N[jloc][gi]*2.0; // divergence term
+          }
+          b[iloc]+=(NXN[iloc][jloc]*ustar[jloc]-normal[2*i+iloc]*SN[iloc][jloc]*pstar[jloc])*p[i]/d[i]; // source
         }
       }
 
+// solution for one element
 
+//      smlinn(A,b,&soln); e1[2*i]=max(ECUT,e0[2*i]+soln[0]*dt; e1[2*i+1]=e0[2*i+1]+soln[1]*dt);
 
+// debug
+      cout<<"el "<<i<<" n= "<<normal[2*i]<<" "<<normal[2*i+1]<<endl;
+      for(int iloc=0;iloc<nloc;iloc++){
+        cout<<iloc<<" ";
+        for(int jloc=0;jloc<nloc;jloc++){cout<<NN[iloc][jloc]<<" ";}
+        cout<<endl;
+      }
+      cout<<endl;
+      for(int iloc=0;iloc<nloc;iloc++){
+        cout<<iloc<<" ";
+        for(int jloc=0;jloc<nloc;jloc++){cout<<NXN[iloc][jloc]<<" ";}
+        cout<<endl;
+      }
+      cout<<endl;
 
-
-
-
-
-
-
-
-
-
+// debug
 
     }
 
-// update cell pressure at the full-step
+// update cell pressure at the full-step using either energy field
 
-    for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);}
+    for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // use PdV
 
-// update node velocity at the full step
+// update nodal velocities at the full step
 
 // ...
 
@@ -182,7 +214,7 @@ int main(){
     time+=dt;
     step++;
 
-// update start-of-step information for the new time step
+// advance the solution for the new time step
 
     for(int i=0;i<2*ng;i++){x0.at(i)=x1[i];}
     for(int i=0;i<2*ng;i++){e0.at(i)=e1[i];}
@@ -201,7 +233,7 @@ int main(){
 
 double P(double d,double e){return (GAMMA-1.0)*d*e;}
 
-// return energy given the pressure
+// invert the eos to return energy given the pressure
 
 double E(double d,double p){return p/((GAMMA-1.0)*d);}
 
