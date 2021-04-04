@@ -5,7 +5,7 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0005  // insert a macro for the first time step
+#define DTSTART 0.0001  // insert a macro for the first time step
 #define ENDTIME 0.25    // insert a macro for the end time
 #define GAMMA 1.4       // ratio of specific heats for ideal gases
 #define ECUT 1.0-8      // cut-off on the energy field
@@ -34,7 +34,7 @@ int main(){
 
 // global data
 
-  int const n(100),ng(n+2);                               // no. ncells and ghosts
+  int const n(200),ng(n+2);                               // no. ncells and ghosts
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
   vector<double> e0(2*ng),e1(2*ng);                     // fe DG energy field
   vector<double> ec0(ng),ec1(ng);                       // cell energy field
@@ -89,7 +89,7 @@ int main(){
 // evolve the Riemann problem to the current time level
 
     vector<double> rx;vempty(rx); // sample point coordinates
-    for(long i=0;i<ng;i++){rx.push_back(0.5*(x0[2*i]+x0[2*i+1]));}
+    for(long i=0;i<ng;i++){rx.push_back(x0[2*i]);rx.push_back(0.5*(x0[2*i]+x0[2*i+1]));rx.push_back(x0[2*i+1]);}
     R.profile(&rx,time);
 
 // move the nodes to their full-step position
@@ -99,14 +99,14 @@ int main(){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=R.velocity(i-1);l[2]=p[i-1];
-      r[0]=d[i];r[1]=R.velocity(i);r[2]=p[i];
+      l[0]=d[i-1];l[1]=R.velocity(3*(i-1)+2);l[2]=p[i-1];
+      r[0]=d[i];r[1]=R.velocity(3*i);r[2]=p[i];
       Riemann f0(Riemann::exact,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=R.velocity(i);l[2]=p[i];
-      r[0]=d[i+1];r[1]=R.velocity(i+1);r[2]=p[i+1];
+      l[0]=d[i];l[1]=R.velocity(3*i+2);l[2]=p[i];
+      r[0]=d[i+1];r[1]=R.velocity(3*(i+1));r[2]=p[i+1];
       Riemann f1(Riemann::exact,l,r);
 
 //      cout<<"el "<<i<<" u left= "<<f0.ustar<<" u right "<<f1.ustar;
@@ -212,8 +212,8 @@ int main(){
 
 // some output
 
-//    for(int i=0;i<ng;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;}
-    for(long i=1;i<=n;i++){cout<<0.5*(x1[2*i]+x1[2*i+1])<<" "<<d[i]<<" "<<p[i]<<" "<<" "<<ec1[i]<<endl;}
+    for(int i=0;i<3*ng;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;}
+//    for(long i=1;i<=n;i++){cout<<0.5*(x1[2*i]+x1[2*i+1])<<" "<<d[i]<<" "<<p[i]<<" "<<" "<<ec1[i]<<" "<<V1[i]<<endl;}
 //    for(long i=1;i<=n;i++){cout<<x1[2*i]<<" "<<e1[i]<<endl;cout<<x1[2*i+1]<<" "<<e1[2*i+1]<<endl;}
 
 // advance the time step
