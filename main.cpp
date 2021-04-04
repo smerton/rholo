@@ -34,7 +34,7 @@ int main(){
 
 // global data
 
-  int const n(200),ng(n+2);                               // no. ncells and ghosts
+  int const n(50),ng(n+2);                               // no. ncells and ghosts
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
   vector<double> e0(2*ng),e1(2*ng);                     // fe DG energy field
   vector<double> ec0(ng),ec1(ng);                       // cell energy field
@@ -46,9 +46,7 @@ int main(){
   int const nloc(2),ngi(2);                             // no. of local nodes and integration points
   double N[nloc][ngi],NX[nloc][ngi];                    // fe shapes and their derivatives
   double NN[nloc][nloc],NXN[nloc][nloc],NNX[nloc][nloc],SN[nloc][nloc]; // mass matrix, divergence term and surface block
-  double b[nloc],soln[nloc];                            // matrix equation for one element
   vector<double> normal(2*ng);                          // normal to each face
-  Matrix A(nloc);                                       // matrix for one element
 
 // initialise the problem (Sod's shock tube) - hack this to run something else
 
@@ -146,57 +144,109 @@ int main(){
 
 // fluxes on face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=R.velocity(i-1);l[2]=p[i-1];
-      r[0]=d[i];r[1]=R.velocity(i);r[2]=p[i];
+      l[0]=d[i-1];l[1]=R.velocity(3*(i-1)+2);l[2]=p[i-1];
+      r[0]=d[i];r[1]=R.velocity(3*i);r[2]=p[i];
       Riemann f0(Riemann::exact,l,r);
 
 // fluxes on face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=R.velocity(i);l[2]=p[i];
-      r[0]=d[i+1];r[1]=R.velocity(i+1);r[2]=p[i+1];
+      l[0]=d[i];l[1]=R.velocity(3*i+2);l[2]=p[i];
+      r[0]=d[i+1];r[1]=R.velocity(3*(i+1));r[2]=p[i+1];
       Riemann f1(Riemann::exact,l,r);
 
 // pressure and velocity on each face
 
       double pstar[2]={f0.pstar,f1.pstar};
       double ustar[2]={f0.ustar,f1.ustar};
+      double vel[2]={R.velocity(3*i),R.velocity(3*i+2)};
+      Matrix A(nloc);
+      double b[nloc],soln[nloc];
 
 // assemble DG matrix equation for the energy field in one element
 
+//      for(int iloc=0;iloc<nloc;iloc++){
+//        b[iloc]=0.0;soln[iloc]=0.0;
+//        for(int jloc=0;jloc<nloc;jloc++){
+//          NN[iloc][jloc]=0.0;NXN[iloc][jloc]=0.0;NNX[iloc][jloc]=0.0;A.write(iloc,jloc,0.0);
+//          for(int gi=0;gi<ngi;gi++){
+//            NN[iloc][jloc]+=N[iloc][gi]*N[jloc][gi]*dx/2.0; // mass matrix
+//            NXN[iloc][jloc]+=NX[iloc][gi]*N[jloc][gi];  // divergence term (for use if by parts)
+//            NNX[jloc][iloc]-=N[iloc][gi]*NX[jloc][gi];  // divergence term
+//          }
+//          A.write(iloc,jloc,NN[iloc][jloc]);                // commit to the matrix class
+//          b[iloc]+=(NXN[iloc][jloc]*vel[jloc]-normal[2*i+iloc]*SN[iloc][jloc]*pstar[jloc])*p[i]/d[i]; // source (by parts)
+//          b[iloc]+=NNX[iloc][jloc]*vel[jloc]*p[i]/d[i]; // source
+//        }
+//      }
+
       for(int iloc=0;iloc<nloc;iloc++){
-        b[iloc]=0.0;soln[iloc]=0.0;
         for(int jloc=0;jloc<nloc;jloc++){
-          NN[iloc][jloc]=0.0;NXN[iloc][jloc]=0.0;NNX[iloc][jloc]=0.0;A.write(iloc,jloc,0.0);
+          NN[iloc][jloc]=0.0;NXN[iloc][jloc]=0.0;NNX[iloc][jloc]=0.0;
           for(int gi=0;gi<ngi;gi++){
             NN[iloc][jloc]+=N[iloc][gi]*N[jloc][gi]*dx/2.0; // mass matrix
-//            NXN[iloc][jloc]+=NX[iloc][gi]*N[jloc][gi];  // divergence term (for use if by parts)
-            NNX[jloc][iloc]-=N[iloc][gi]*NX[jloc][gi];  // divergence term
+            NNX[iloc][jloc]-=N[iloc][gi]*NX[jloc][gi];  // divergence term
+            NXN[iloc][jloc]+=NX[iloc][gi]*N[jloc][gi];  // divergence term (for use if by parts)
           }
-          A.write(iloc,jloc,NN[iloc][jloc]);                // commit to the matrix class
-//          b[iloc]+=(NXN[iloc][jloc]*ustar[jloc]-normal[2*i+iloc]*SN[iloc][jloc]*pstar[jloc])/d[i]; // source (by parts)
-          b[iloc]+=NNX[iloc][jloc]*ustar[jloc]/d[i]; // source
+          A.write(iloc,jloc,NN[iloc][jloc]);
         }
       }
 
-// solution for one element
+
+      for(int iloc=0;iloc<nloc;iloc++){
+        b[iloc]=0.0;
+        for(int jloc=0;jloc<nloc;jloc++){
+//          b[iloc]+=NNX[iloc][jloc]*ustar[jloc]*p[i]/d[i]; // source
+          b[iloc]+=(NXN[iloc][jloc]*ustar[jloc]-normal[2*i+jloc]*SN[iloc][jloc]*ustar[jloc])*p[i]/d[i]; // source (by parts)
+        }
+      }
 
       A.solve(soln,b);e1[2*i]=max(ECUT,e0[2*i]+soln[0]*dt); e1[2*i+1]=max(ECUT,e0[2*i+1]+soln[1]*dt);
 
+
+
 // debug
-//      cout<<"el "<<i<<" n= "<<normal[2*i]<<" "<<normal[2*i+1]<<" (xl,xr)= "<<x1[2*i]<<" "<<x1[2*i+1]<<endl;
-//      cout<<"         ustar[]="<<ustar[0]<<" "<<ustar[1]<<" pstar[]="<<pstar[0]<<" "<<pstar[1]<<endl;
-//      for(int iloc=0;iloc<nloc;iloc++){
-//        cout<<iloc<<" ";
-//        for(int jloc=0;jloc<nloc;jloc++){cout<<NN[iloc][jloc]<<" ";}
-//        cout<<endl;
-//      }
-//      cout<<endl;
-//      for(int iloc=0;iloc<nloc;iloc++){
-//        cout<<iloc<<" ";
-//        for(int jloc=0;jloc<nloc;jloc++){cout<<NXN[iloc][jloc]<<" ";}
-//        cout<<endl;
-//     }
-//      cout<<endl;
+
+//      A.write(0,0,2.0);A.write(0,1,3.0);
+//      A.write(1,0,10.0);A.write(1,1,16.0);
+//      b[0]=1.0;b[1]=2.0;
+//      A.solve(soln,b);
+//
+//      cout<<" "<<endl;
+//      cout<<" "<<soln[0]<<" "<<soln[1]<<endl;
+//      cout<<" "<<endl;
+        cout<<"e0= "<<i<<" "<<e0[2*i]<<" "<<e0[2*i+1]<<" "<<ec0[i]<<endl;
+        cout<<"e1= "<<i<<" "<<e1[2*i]<<" "<<e1[2*i+1]<<" "<<ec1[i]<<endl;
+        cout<<"p[i-1]= "<<p[i-1]<<" p[i] "<<p[i-1]<<" p[i+1} "<<p[i+1]<<endl;
+      cout<<x1[2*i]<<" "<<vel[0]<<" "<<p[i]/d[i]<<" "<<ustar[0]<<" "<<pstar[0]<<endl;
+      cout<<x1[2*i+1]<<" "<<vel[1]<<" "<<p[i]/d[i]<<" "<<ustar[1]<<" "<<pstar[1]<<endl;;
+      cout<<"         ustar[]="<<ustar[0]<<" "<<ustar[1]<<" pstar[]="<<pstar[0]<<" "<<pstar[1]<<endl;
+      for(int iloc=0;iloc<nloc;iloc++){
+        cout<<iloc<<" ";
+        for(int jloc=0;jloc<nloc;jloc++){cout<<NN[iloc][jloc]<<" ";}
+        cout<<endl;
+      }
+      cout<<endl;
+      for(int iloc=0;iloc<nloc;iloc++){
+        cout<<iloc<<" ";
+        for(int jloc=0;jloc<nloc;jloc++){cout<<NXN[iloc][jloc]<<" ";}
+        cout<<endl;
+      }
+      cout<<endl;
+      for(int iloc=0;iloc<nloc;iloc++){
+        cout<<iloc<<" ";
+        for(int jloc=0;jloc<nloc;jloc++){cout<<NNX[iloc][jloc]<<" ";}
+        cout<<endl;
+      }
+      cout<<endl;
+      for(int iloc=0;iloc<nloc;iloc++){
+        cout<<iloc<<" ";
+        for(int jloc=0;jloc<nloc;jloc++){cout<<SN[iloc][jloc]<<" ";}
+        cout<<endl;
+      }
+      cout<<endl;
+      for(int iloc=0;iloc<nloc;iloc++){
+        cout<<normal[2*i+iloc]<<endl;
+      }
 //      exit(1);
 // debug
 
@@ -212,9 +262,9 @@ int main(){
 
 // some output
 
-    for(int i=0;i<3*ng;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;}
-//    for(long i=1;i<=n;i++){cout<<0.5*(x1[2*i]+x1[2*i+1])<<" "<<d[i]<<" "<<p[i]<<" "<<" "<<ec1[i]<<" "<<V1[i]<<endl;}
-//    for(long i=1;i<=n;i++){cout<<x1[2*i]<<" "<<e1[i]<<endl;cout<<x1[2*i+1]<<" "<<e1[2*i+1]<<endl;}
+//    for(int i=0;i<3*ng;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;}
+    for(long i=1;i<=n;i++){cout<<0.5*(x1[2*i]+x1[2*i+1])<<" "<<d[i]<<" "<<p[i]<<" "<<" "<<ec1[i]<<" "<<endl;}
+//    for(long i=1;i<=n;i++){cout<<x1[2*i]<<" "<<e1[2*i]<<endl;cout<<x1[2*i+1]<<" "<<e1[2*i+1]<<endl;}
 
 // advance the time step
 
