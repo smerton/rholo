@@ -228,7 +228,7 @@ int main(){
 
     }
 
-// impose constraint on acceleration field at domain boundaries
+// impose a constraint on the acceleration field at domain boundaries to stop the mesh taking off
 
     u1[0]=u0[0];
     u1[2*ng]=u0[2*ng];
