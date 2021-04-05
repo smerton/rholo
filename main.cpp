@@ -5,7 +5,7 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0001  // insert a macro for the first time step
+#define DTSTART 0.00005  // insert a macro for the first time step
 #define ENDTIME 0.25    // insert a macro for the end time
 #define GAMMA 1.4       // ratio of specific heats for ideal gases
 #define ECUT 1.0-8      // cut-off on the energy field
@@ -145,13 +145,19 @@ int main(){
 // fluxes on face 0 of i (left boundary of cell)
 
       l[0]=d[i-1];l[1]=R.velocity(3*(i-1)+2);l[2]=p[i-1];
+//      l[0]=d[i-1];l[1]=u0[2*(i-1)+1];l[2]=p[i-1];
       r[0]=d[i];r[1]=R.velocity(3*i);r[2]=p[i];
+//      r[0]=d[i];r[1]=u0[2*i];r[2]=p[i];
+
       Riemann f0(Riemann::exact,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
       l[0]=d[i];l[1]=R.velocity(3*i+2);l[2]=p[i];
+//      l[0]=d[i];l[1]=u0[2*i+1];l[2]=p[i];
       r[0]=d[i+1];r[1]=R.velocity(3*(i+1));r[2]=p[i+1];
+//      r[0]=d[i+1];r[1]=u0[2*(i+1)];r[2]=p[i+1];
+
       Riemann f1(Riemann::exact,l,r);
 
 // pressure and velocity on each face
@@ -196,18 +202,14 @@ int main(){
 
 // fluxes on face 0 of i (left boundary of cell)
 
-//      l[0]=d[i-1];l[1]=R.velocity(3*(i-1)+2);l[2]=p[i-1];
       l[0]=d[i-1];l[1]=u0[2*(i-1)+1];l[2]=p[i-1];
-//      r[0]=d[i];r[1]=R.velocity(3*i);r[2]=p[i];
       r[0]=d[i];r[1]=u0[2*i];r[2]=p[i];
 
       Riemann f0(Riemann::exact,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
-//      l[0]=d[i];l[1]=R.velocity(3*i+2);l[2]=p[i];
       l[0]=d[i];l[1]=u0[2*i+1];l[2]=p[i];
-//      r[0]=d[i+1];r[1]=R.velocity(3*(i+1));r[2]=p[i+1];
       r[0]=d[i+1];r[1]=u0[2*(i+1)];r[2]=p[i+1];
 
       Riemann f1(Riemann::exact,l,r);
@@ -242,13 +244,16 @@ int main(){
 
     }
 
+// impose constraint on acceleration field at domain boundaries
+
+    u1[0]=u0[0];
+    u1[2*ng]=u0[2*ng];
+
 // some output
 
 //    for(int i=0;i<3*ng;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
 //    for(long i=1;i<=n;i++){cout<<0.5*(x1[2*i]+x1[2*i+1])<<" "<<d[i]<<" "<<p[i]<<" "<<" "<<ec1[i]<<" "<<endl;} // cell-centred stuff
-    for(long i=1;i<=n;i++){cout<<x1[2*i]<<" "<<e1[2*i]<<" "<<u1[2*i]<<endl;cout<<x1[2*i+1]<<" "<<e1[2*i+1]<<" "<<u1[2*i+1]<<endl; // DG stuff
-
-}
+    for(long i=1;i<=n;i++){cout<<x1[2*i]<<" "<<e1[2*i]<<" "<<u1[2*i]<<endl;cout<<x1[2*i+1]<<" "<<e1[2*i+1]<<" "<<u1[2*i+1]<<endl;} // DG stuff
 
 // advance the time step
 
