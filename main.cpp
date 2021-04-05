@@ -161,11 +161,11 @@ int main(){
           NN[iloc][jloc]=0.0;NXN[iloc][jloc]=0.0;NNX[iloc][jloc]=0.0;
           for(int gi=0;gi<ngi;gi++){
             NN[iloc][jloc]+=N[iloc][gi]*N[jloc][gi]*dx/2.0; // mass matrix
-            NNX[iloc][jloc]-=N[iloc][gi]*NX[jloc][gi];      // divergence term (for a continuous finite element energy field)
+            NNX[iloc][jloc]-=N[iloc][gi]*NX[jloc][gi];      // divergence term (for continuous finite elements)
             NXN[iloc][jloc]+=NX[iloc][gi]*N[jloc][gi];      // divergence term (if by parts, use this for DG)
           }
           A.write(iloc,jloc,NN[iloc][jloc]);                // commit to address space in the matrix class
-//          b[iloc]+=NNX[iloc][jloc]*ustar[jloc]*p[i]/d[i]; // source - for continuous finite element
+//          b[iloc]+=NNX[iloc][jloc]*ustar[jloc]*p[i]/d[i]; // source - for continuous finite elements
           b[iloc]+=(NXN[iloc][jloc]*ustar[jloc]-normal[2*i+jloc]*SN[iloc][jloc]*ustar[jloc])*p[i]/d[i]; // source - discontinuous, for DG
         }
       }
@@ -215,11 +215,11 @@ int main(){
           NN[iloc][jloc]=0.0;NXN[iloc][jloc]=0.0;NNX[iloc][jloc]=0.0;
           for(int gi=0;gi<ngi;gi++){
             NN[iloc][jloc]+=N[iloc][gi]*N[jloc][gi]*dx/2.0; // mass matrix
-            NNX[iloc][jloc]-=N[iloc][gi]*NX[jloc][gi];      // grad term (for a continuous finite element energy field)
+            NNX[iloc][jloc]-=N[iloc][gi]*NX[jloc][gi];      // grad term (for continuous finite elements)
             NXN[iloc][jloc]+=NX[iloc][gi]*N[jloc][gi];      // grad term (if by parts, use this for DG)
           }
           A.write(iloc,jloc,NN[iloc][jloc]);                // commit to address space in the matrix class
-//          b[iloc]+=NNX[iloc][jloc]*pstar[jloc]/d[i]; // source - for continuous finite element
+//          b[iloc]+=NNX[iloc][jloc]*pstar[jloc]/d[i]; // source - for continuous finite elements
           b[iloc]+=(NXN[iloc][jloc]*pstar[jloc]-normal[2*i+jloc]*SN[iloc][jloc]*pstar[jloc])/d[i]; // source - discontinuous, for DG
         }
       }
