@@ -40,9 +40,10 @@ int main(){
   Shape S1(order),S2(order),S3(order+1);                // load FE stencils for energy/momentum equation
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
   vector<double> e0(S1.nloc()*ng),e1(S1.nloc()*ng);     // fe DG energy field
+  vector<double> eh0(S3.nloc()*ng),eh1(S3.nloc()*ng);     // fe DG energy field (high-order)
   vector<double> ec0(ng),ec1(ng);                       // cell energy field
   vector<double> u0(S2.nloc()*ng),u1(S2.nloc()*ng);     // velocity field
-  vector<double> uh0(S3.nloc()*ng),uh1(S3.nloc()*ng);     // velocity field
+  vector<double> uh0(S3.nloc()*ng),uh1(S3.nloc()*ng);     // velocity field (high-order)
   vector<double> x0(S2.nloc()*ng),x1(S2.nloc()*ng);     // spatial coordinates
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -59,6 +60,7 @@ int main(){
   for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[S2.nloc()*i]+x0[S2.nloc()*(i+1)-1])<=0.5)?1.0:0.1;}
   for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[S2.nloc()*i]+x0[S2.nloc()*(i+1)-1])<=0.5)?1.0:0.125;}
   for(int i=0;i<ng;i++){for(int j=0;j<S1.nloc();j++){e0.at(S1.nloc()*i+j)=E(d[i],p[i]);}}
+  for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){eh0.at(S3.nloc()*i+j)=E(d[i],p[i]);}}
   for(int i=0;i<ng;i++){ec0.at(i)=E(d[i],p[i]);}
   for(int i=0;i<ng;i++){V0.at(i)=x0[S2.nloc()*(i+1)-1]-x0[S2.nloc()*i];}
   for(int i=0;i<ng;i++){m.at(i)=d[i]*V0[i];}
@@ -186,6 +188,68 @@ int main(){
 
     }
 
+/////////////////////////////////////////
+// high-order energy field - only to test
+/////////////////////////////////////////
+
+    for(int i=1;i<=n;i++){
+
+      double dx(x1[S2.nloc()*(i+1)-1]-x1[S2.nloc()*i]); // cell width for Jacobian
+
+// fluxes on face 0 of i (left boundary of cell)
+
+      l[0]=d[i-1];l[1]=uh0[S3.nloc()*i-1];l[2]=p[i-1];
+      r[0]=d[i];r[1]=uh0[S3.nloc()*i];r[2]=p[i];
+      Riemann f0(Riemann::exact,l,r);
+
+// fluxes on face 1 of i (right boundary of cell)
+
+      l[0]=d[i];l[1]=uh0[S3.nloc()*(i+1)-1];l[2]=p[i];
+      r[0]=d[i+1];r[1]=uh0[S3.nloc()*(i+1)];r[2]=p[i+1];
+      Riemann f1(Riemann::exact,l,r);
+
+// pressure and velocity on each face
+
+      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
+//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=uh1[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
+      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
+
+// matrix problem for one element
+
+      Matrix A(S3.nloc());double b[S3.nloc()],soln[S3.nloc()];
+
+// assemble DG energy field for one element
+
+      for(int iloc=0;iloc<S3.nloc();iloc++){
+        b[iloc]=0.0;
+        for(int jloc=0;jloc<S3.nloc();jloc++){
+          double nn(0.0),nxn(0.0),nnx(0.0);
+          for(int gi=0;gi<S3.ngi();gi++){
+            nn+=S3.value(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi)*dx/2.0; // mass matrix
+            nnx-=S3.value(iloc,gi)*S3.dvalue(jloc,gi)*S3.wgt(gi);      // divergence term (for continuous finite elements)
+            nxn+=S3.dvalue(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi);      // divergence term (if by parts, use this for DG)
+          }
+          A.write(iloc,jloc,nn);                // commit to address space in the matrix class
+//          b[iloc]+=nnx*ustar[jloc]*p[i]/d[i]; // source - for continuous finite elements
+          b[iloc]+=(nxn*ustar[jloc]-S3S[iloc][jloc]*ustar[jloc])*p[i]/d[i]; // source - discontinuous, for DG
+        }
+      }
+
+      A.solve(soln,b);
+
+// advance the solution
+
+      for(int iloc=0;iloc<S3.nloc();iloc++){
+        eh1[S3.nloc()*i+iloc]=max(ECUT,eh0[S3.nloc()*i+iloc]+soln[iloc]*dt);
+      }
+
+    }
+
+/////////////////////////////////////////
+// high-order energy field - only to test
+/////////////////////////////////////////
+
+
 // update cell pressure at the full-step using PdV / DG energy field
 
     for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // use PdV
@@ -252,15 +316,12 @@ int main(){
 
     for(int i=0;i<S2.nloc();i++){u1.at(i)=u0[i];u1.at(S2.nloc()*(n+1)+i)=u0[S2.nloc()*(n+1)+i];}
 
-
-
 ///////////////////////////////////////////
 // high-order velocity field - only to test
 ///////////////////////////////////////////
     for(int i=1;i<=n;i++){
 
       double dx(x1[S2.nloc()*(i+1)-1]-x1[S2.nloc()*i]); // cell width for Jacobian
-
 
 // fluxes on face 0 of i (left boundary of cell)
 
@@ -319,10 +380,7 @@ int main(){
 
 //    for(int i=0;i<NSAMPLES;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
 //    for(long i=1;i<=n;i++){cout<<x1[S2.nloc()*i]  <<" "<<d[i]<<" "<<p[i]<<" "<<u1[S2.nloc()*i]<<" "<<e1[S1.nloc()*i]<<endl;cout<<x1[S2.nloc()*i+S2.nloc()-1]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S2.nloc()*i+S2.nloc()-1]<<" "<<e1[S1.nloc()*i+S1.nloc()-1]<<endl;} // DG solution
-    for(long i=1;i<=n;i++){cout<<x1[S2.nloc()*i]  <<" "<<d[i]<<" "<<p[i]<<" "<<uh1[S3.nloc()*i]<<" "<<e1[S1.nloc()*i]<<endl;cout<<x1[S2.nloc()*i+S2.nloc()-1]<<" "<<d[i]<<" "<<p[i]<<" "<<uh1[S3.nloc()*i+S2.nloc()-1]<<" "<<e1[S1.nloc()*i+S1.nloc()-1]<<endl;} // DG solution
-
-
-
+    for(long i=1;i<=n;i++){cout<<x1[S2.nloc()*i]  <<" "<<d[i]<<" "<<p[i]<<" "<<uh1[S3.nloc()*i]<<" "<<eh1[S3.nloc()*i]<<endl;cout<<x1[S2.nloc()*i+S2.nloc()-1]<<" "<<d[i]<<" "<<p[i]<<" "<<uh1[S3.nloc()*i+S2.nloc()-1]<<" "<<eh1[S3.nloc()*i+S1.nloc()-1]<<endl;} // DG solution
 
 // advance the time step
 
@@ -335,6 +393,7 @@ int main(){
     for(int i=0;i<S1.nloc()*ng;i++){e0.at(i)=e1[i];}
     for(int i=0;i<S2.nloc()*ng;i++){u0.at(i)=u1[i];}
     for(int i=0;i<S3.nloc()*ng;i++){uh0.at(i)=uh1[i];}
+    for(int i=0;i<S3.nloc()*ng;i++){eh0.at(i)=eh1[i];}
     for(int i=0;i<ng;i++){V0.at(i)=V1[i];}
     for(int i=0;i<ng;i++){ec0.at(i)=ec1[i];}
 
