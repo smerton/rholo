@@ -57,18 +57,19 @@ int main(){
   double S2S[S2.nloc()][S2.nloc()]={};                  // empty surface block for S2 shape function
   double S3S[S3.nloc()][S3.nloc()]={};                  // empty surface block for S3 shape function
 
-// initialise the problem (Sod's shock tube) - hack this to run something else
+// initialise the problem
 
   double dx(1.0/n);
   for(int i=0;i<S3.nloc();i++){x0.at(i)=-dx+i*dx/(S3.order());}
   for(int i=1;i<ng;i++){for(int j=0;j<S3.nloc();j++){x0.at(S3.nloc()*i+j)=x0[S3.nloc()*i-1]+j*dx/S3.order();}}
-  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?1.0:0.1;}
-  for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?1.0:0.125;}
+  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[2]:r[2];}
+  for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[0]:r[0];}
   for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){e0.at(S3.nloc()*i+j)=E(d[i],p[i]);}}
   for(int i=0;i<ng;i++){ec0.at(i)=E(d[i],p[i]);}
   for(int i=0;i<ng;i++){V0.at(i)=x0[S3.nloc()*(i+1)-1]-x0[S3.nloc()*i];}
   for(int i=0;i<ng;i++){m.at(i)=d[i]*V0[i];}
-  for(int i=0;i<S3.nloc()*ng;i++){u0.at(i)=0.0;u1.at(i)=0.0;}
+  for(int i=0;i<S3.nloc()*ng;i++){u1.at(i)=0.0;}
+  for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){u0.at(i*S3.nloc()+j)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[1]:r[1];}}
 
 // surface blocks on S1,S2 and S3 finite element stencils, these couple to the upwind/downwind element on each face
 
