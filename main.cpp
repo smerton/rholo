@@ -5,11 +5,13 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0005   // insert a macro for the first time step
-#define ENDTIME 0.25     // insert a macro for the end time
-#define GAMMA 1.4        // ratio of specific heats for ideal gases
-#define ECUT 1.0-8       // cut-off on the energy field
-#define NSAMPLES 100    // number of sample points for the exact solution
+#define DTSTART 0.0005    // insert a macro for the first time step
+#define ENDTIME 0.25      // insert a macro for the end time
+#define GAMMA 1.4         // ratio of specific heats for ideal gases
+#define ECUT 1.0-8        // cut-off on the energy field
+#define NSAMPLES 100      // number of sample points for the exact solution
+#define VISFREQ 20       // frequency of the graphics dumps
+#define VD vector<double> // vector of doubles
 
 #include <iostream>
 #include <vector>
@@ -25,9 +27,8 @@
 double P(double d,double e); // eos returns pressure as a function of energy
 double E(double d,double p); // invert the eos to get energy if we only have pressure
 
-// signature for emptying a vector
-
-void vempty(vector<double>&v);
+void vempty(vector<double>&v); // signature for emptying a vector
+void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cycle,double time);         // signature for silo output
 
 using namespace std;
 
@@ -42,10 +43,11 @@ int main(){
 // global data
 
   int const n(100),ng(n+2),order(1);                    // no. ncells, ghosts and element order
-  Shape S1(order),S2(order),S3(order+1);                // load FE stencils for energy/momentum equation
+  Shape S1(order),S2(order),S3(order);                // load FE stencils for energy/momentum equation
+  Shape*S[2]={&S3,&S3};                                 // pack the shapes into an array
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
   vector<double> e0(S3.nloc()*ng),e1(S3.nloc()*ng);     // fe DG energy field
-  vector<double> ec0(ng),ec1(ng);                       // cell energy field
+  vector<double> ec0(ng),ec1(ng);                       // cell-centred energy field
   vector<double> u0(S3.nloc()*ng),u1(S3.nloc()*ng);     // velocity field
   vector<double> x0(S3.nloc()*ng),x1(S3.nloc()*ng);     // spatial coordinates
   double time(0.0),dt(DTSTART);                         // start time and time step
@@ -90,6 +92,10 @@ int main(){
 
     cout<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<endl;
 
+// graphics output
+
+    if(step%VISFREQ==0){silo(&M,&x0,&d,&p,&m,&ec0,&V0,&u0,&e0,S,step,time);}
+
 // evolve the Riemann problem to the current time level
 
     vector<double> rx;vempty(rx); // sample point coordinates
@@ -113,7 +119,8 @@ int main(){
       Riemann f1(Riemann::exact,l,r);
 
 //      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
-      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
+//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
+      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
 
       if(i==1){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.reflect(iloc,0))=x0[S3.reflect(iloc,0)]+ustar[iloc]*dt;}} // move ghost cell on left mesh boundary
 
@@ -155,9 +162,13 @@ int main(){
 
 // pressure and velocity on each face
 
-      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
-      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
-      double u0vol[S3.nloc()]={};u0vol[0]=f0.ustar;u0vol[1]=0.5*(f0.ustar+f1.ustar);u0vol[S3.nloc()-1]=f1.ustar;
+//      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
+//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
+//      double u0vol[S3.nloc()]={};u0vol[0]=f0.ustar;u0vol[1]=0.5*(f0.ustar+f1.ustar);u0vol[S3.nloc()-1]=f1.ustar;
+
+      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[S3.nloc()-1]=f1.pstar;
+      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;;ustar[S3.nloc()-1]=f1.ustar;
+      double u0vol[S3.nloc()]={};u0vol[0]=f0.ustar;u0vol[S3.nloc()-1]=f1.ustar;
 
 // matrix problem for one element
 
@@ -216,9 +227,13 @@ int main(){
 
 // pressure and velocity on each face
 
-      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
-      double pvol[S3.nloc()]={};pvol[0]=f0.pstar;pvol[1]=0.5*(f0.pstar+f1.pstar);pvol[S3.nloc()-1]=f1.pstar;
-      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
+//      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
+//      double pvol[S3.nloc()]={};pvol[0]=f0.pstar;pvol[1]=0.5*(f0.pstar+f1.pstar);pvol[S3.nloc()-1]=f1.pstar;
+//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
+
+      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[S3.nloc()-1]=f1.pstar;
+      double pvol[S3.nloc()]={};pvol[0]=f0.pstar;pvol[S3.nloc()-1]=f1.pstar;
+      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
 
 // matrix problem for one element
 
