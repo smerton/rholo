@@ -18,6 +18,7 @@
 #include <cmath>
 #include "matrix.h"
 #include "shape.h"
+#include "mesh.h"
 
 // sigantures for eos lookups
 
@@ -33,6 +34,10 @@ using namespace std;
 int main(){
 
   cout<<"main(): Starting up main loop..."<<endl;
+
+// initialise a new mesh from file
+
+  Mesh M((char*) "input.mesh");
 
 // global data
 
