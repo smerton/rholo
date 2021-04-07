@@ -219,9 +219,10 @@ void silo(Mesh*M,Shape*S[],int cycle,double time){
 
   double data_t[S[0]->nloc()];double data_k[S[1]->nloc()];
   for(int i=0;i<nzones;i++){
-    for(int iloc=0;iloc<S[0]->nloc();iloc++){data_t[iloc]=M->Energy0(i*S[0]->nloc()+iloc);}
-    S[0]->prolongate(data_t,data_k,S[0]->order());
-    for(int iloc=0;iloc<S[1]->nloc();iloc++){var2[i*S[1]->nloc()+iloc]=data_k[iloc];}
+//    for(int iloc=0;iloc<S[0]->nloc();iloc++){data_t[iloc]=M->Energy0(i*S[0]->nloc()+iloc);}
+//    S[0]->prolongate(data_t,data_k,S[0]->order());
+//    for(int iloc=0;iloc<S[1]->nloc();iloc++){var2[i*S[1]->nloc()+iloc]=data_k[iloc];}
+    for(int iloc=0;iloc<S[0]->nloc();iloc++){var2[i*S[0]->nloc()+iloc]=M->Energy0(i*S[0]->nloc()+iloc);} // ->prolongate not working correctly ??
   }
 
   optlist = DBMakeOptlist(1);
