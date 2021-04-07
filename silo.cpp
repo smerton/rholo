@@ -14,8 +14,6 @@
 #define MESHNAME "MyFirstMesh" // name of a test mesh
 #define TOL 1.0e-8 // tolerance for adding an element to the profile
 
-void profiler(string*str,Mesh*M,Shape*S[]); // profiler
-
 using namespace std;
 
 void silo(Mesh*M,Shape*S[],int cycle,double time){
@@ -31,10 +29,6 @@ void silo(Mesh*M,Shape*S[],int cycle,double time){
 // vector<char> filename(str.c_str(), str.c_str() + str.size() + 1);
   string str1("step_"+to_string(cycle)),str2("profile_"+to_string(cycle));
   const char*filename(str1.append(".silo").c_str());
-
-// start profiler
-
-  profiler(&str2,M,S);
 
 // only one polyhedral order on the mesh is coded for here
 
@@ -79,8 +73,8 @@ void silo(Mesh*M,Shape*S[],int cycle,double time){
   int nnodes_t=M->TNodes();
 
   int nzones(int((M->Dim(0)-1)*(M->Dim(1)-1)));
-  int nzones_k(((M->Dim(0)-1)*(S[1]->Order()+1)-1)*((M->Dim(1)-1)*(S[1]->Order()+1)-1));
-  int nzones_t(((M->Dim(0)-1)*(S[0]->Order()+1)-1)*((M->Dim(1)-1)*(S[0]->Order()+1)-1));
+  int nzones_k(((M->Dim(0)-1)*(S[1]->order()+1)-1)*((M->Dim(1)-1)*(S[1]->order()+1)-1));
+  int nzones_t(((M->Dim(0)-1)*(S[0]->order()+1)-1)*((M->Dim(1)-1)*(S[0]->order()+1)-1));
 
   int ndims(3);
   int lnodelist_k(nzones_k*4); // includes dummies
@@ -223,11 +217,11 @@ void silo(Mesh*M,Shape*S[],int cycle,double time){
 
 // map energy field onto kinematic mesh for the vis
 
-  double data_t[S[0]->Nloc()];double data_k[S[1]->Nloc()];
+  double data_t[S[0]->nloc()];double data_k[S[1]->nloc()];
   for(int i=0;i<nzones;i++){
-    for(int iloc=0;iloc<S[0]->Nloc();iloc++){data_t[iloc]=M->Energy0(i*S[0]->Nloc()+iloc);}
-    S[0]->Prolongate(data_t,data_k);
-    for(int iloc=0;iloc<S[1]->Nloc();iloc++){var2[i*S[1]->Nloc()+iloc]=data_k[iloc];}
+    for(int iloc=0;iloc<S[0]->nloc();iloc++){data_t[iloc]=M->Energy0(i*S[0]->nloc()+iloc);}
+    S[0]->prolongate(data_t,data_k,S[0]->order());
+    for(int iloc=0;iloc<S[1]->nloc();iloc++){var2[i*S[1]->nloc()+iloc]=data_k[iloc];}
   }
 
   optlist = DBMakeOptlist(1);
@@ -254,52 +248,6 @@ void silo(Mesh*M,Shape*S[],int cycle,double time){
   dberr=DBClose(dbfile);
 
 //  cout<<"silo(): done."<<endl;
-
-  return;
-
-}
-
-// this peripheral function profiles the denisty, pressure and energy fields
-
-void profiler(string*str,Mesh*M,Shape*S[]){
-
-  const char*filename((*str).append(".dat").c_str());
-
-  ofstream profile(filename);
-
-// define the profile
-
-  double yp=0.01875,zp=0.0;
-
-// header
-
-  profile<<"# This file contains a profile along the line (x,"<<yp<<")"<<endl;
-  profile<<"# CELL CENTRE X     DENSITY             PRESSURE            ENERGY"<<endl;
-
-// set required precision
-
-  profile<<fixed<<setprecision(17);
-
-// sweep the mesh
-
-  for(long iel=0;iel<M->NCells();iel++){
-
-// FE interpolation to get the coordinates of the element centre
-
-    double xc(0.0),yc(0.0),zc(0.0);
-    for(int iloc=0;iloc<M->KLoc(iel);iloc++){
-      xc+=S[1]->Value(iloc,0.0,0.0)*M->KCoord(0,M->KNode(iel,iloc));
-      yc+=S[1]->Value(iloc,0.0,0.0)*M->KCoord(1,M->KNode(iel,iloc));
-      zc+=S[1]->Value(iloc,0.0,0.0)*M->KCoord(2,M->KNode(iel,iloc));
-    }
-
-// add element to the profile
-
-    if(abs(yp-yc)<TOL&&abs(zp-zc)<TOL){
-      profile<<xc<<" "<<M->Density(iel)<<" "<<M->Pressure(iel)<<" "<<M->CCEnergy(iel)<<endl;
-    }
-
-  }
 
   return;
 

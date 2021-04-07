@@ -28,6 +28,10 @@ class Shape{
     double dvalue(int i,int gi); // derivative i value at Gauss point gi
     double dvalue(int i,double); // derivative i value at local coordinate x
 
+// accessor function to prolongation operator
+
+    void prolongate(double*u,double*v,int p); // prolongation operator to map vector u[] to an order p element
+
   private:
 
 // member data

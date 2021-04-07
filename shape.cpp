@@ -75,6 +75,31 @@ Shape::Shape(int n){
 
 Shape::~Shape(){}
 
+
+/// member function to prolongate the vector u[] to a new vector v[] in the destination element
+
+void Shape::prolongate(double*u,double*v,int p){
+
+// create the destination element
+
+  Shape M(p);double P[this->nloc()][M.nloc()]={};
+
+// form a matrix to map u to M
+
+  for(int i=0;i<M.nloc();i++){
+    v[i]=0.0;
+    for(int j=0;j<this->nloc();j++){
+      for(int gi=0;gi<M.ngi();gi++){
+        P[i][j]+=M.value(i,gi)*this->value(j,gi)*M.wgt(gi);
+      }
+      v[i]+=P[i][j]*u[j];
+    }
+  }
+
+  return;
+
+}
+
 // accessor functions to member data
 
 int Shape::order(){return morder;} // returns the polyhedral order
