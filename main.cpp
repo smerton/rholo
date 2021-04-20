@@ -56,9 +56,9 @@ int main(){
   vector<double> x0(S3.nloc()*ng),x1(S3.nloc()*ng);     // spatial coordinates
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
-  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for Riemann solver
-//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};       // left/right flux states for Riemann solver
-//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};       // left/right flux states for Riemann solver
+  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // Sod's Shock Tube initial conditions
+//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};      // 123 Problem initial conditions
+//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};   // Woodward & Colella initial conditions
 
   double S1S[S1.nloc()][S1.nloc()]={};                  // empty surface block for S1 shape function
   double S2S[S2.nloc()][S2.nloc()]={};                  // empty surface block for S2 shape function
