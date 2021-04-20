@@ -85,7 +85,7 @@ int main(){
   S2S[0][0]=-1.0;S2S[S2.nloc()-1][S2.nloc()-1]=1.0; // contains the outward pointing unit normal on each face
   S3S[0][0]=-1.0;S3S[S3.nloc()-1][S3.nloc()-1]=1.0; // contains the outward pointing unit normal on each face
 
-// start the Riemann solver from initial flux states
+// start the Riemann solver from initial flux states to get an exact solution
 
   Riemann R(Riemann::exact,l,r);
   cout<<" pstar= "<<R.pstar<<endl;
