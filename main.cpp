@@ -2,6 +2,7 @@
 // RhoLo is an ultra simple 1-D discontinuous finite element (DG) hydrodynamics test code
 // This solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
 // using Riemann boundary coniditions on each element, initial implementation is only first order in time
+// for graphics: convert -density 300 filename.png filename.pdf
 
 // Author S. R. Merton
 
