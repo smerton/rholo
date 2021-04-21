@@ -46,7 +46,7 @@ int main(){
 
 // global data
 
-  int const n(500),ng(n+2),order(1);                    // no. ncells, ghosts and element order
+  int const n(100),ng(n+2),order(1);                    // no. ncells, ghosts and element order
   Shape S1(order),S2(order),S3(order);                  // load FE stencils for energy/momentum equation
   Shape*S[2]={&S3,&S3};                                 // pack the shapes into an array
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
@@ -54,6 +54,8 @@ int main(){
   vector<double> ec0(ng),ec1(ng),ec0s(ng),ec1s(ng);     // cell-centred energy field
   vector<double> u0(S3.nloc()*ng),u1(S3.nloc()*ng);     // velocity field
   vector<double> x0(S3.nloc()*ng),x1(S3.nloc()*ng);     // spatial coordinates
+  vector<double> f(S3.nloc()*ng);                       // force on each dg node
+  vector<double> efds0(S3.nloc()*ng),efds1(S3.nloc()*ng); // fds energy field
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // Sod's Shock Tube initial conditions
@@ -74,10 +76,12 @@ int main(){
   for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){e0.at(S3.nloc()*i+j)=E(d[i],p[i]);}}
   for(int i=0;i<ng;i++){ec0.at(i)=E(d[i],p[i]);}
   for(int i=0;i<ng;i++){ec0s.at(i)=E(d[i],p[i]);}
+  for(int i=0;i<ng;i++){efds0.at(i*S3.nloc())=E(d[i],p[i]);efds0.at(i*S3.nloc()+1)=E(d[i],p[i]);}
   for(int i=0;i<ng;i++){V0.at(i)=x0[S3.nloc()*(i+1)-1]-x0[S3.nloc()*i];}
   for(int i=0;i<ng;i++){m.at(i)=d[i]*V0[i];}
   for(int i=0;i<S3.nloc()*ng;i++){u1.at(i)=0.0;}
   for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){u0.at(i*S3.nloc()+j)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[1]:r[1];}}
+  for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){f.at(i*S3.nloc()+j)=0.0;}}
 
 // surface blocks on S1,S2 and S3 finite element stencils, these couple to the upwind/downwind element on each face
 
@@ -155,18 +159,46 @@ int main(){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=0.5*d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=0.5*d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
+      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=0.5*d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=0.5*d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
+      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
       Riemann f1(Riemann::pvrs,l,r);
 
 //      ec1s.at(i)=max(ECUT,ec0s[i]-(f0.pstar*(x0[S3.nloc()*i]-x1[S3.nloc()*i])+f1.pstar*(x1[S3.nloc()*(i+1)-1]-x0[S3.nloc()*(i+1)-1]))/m[i]);
       ec1s.at(i)=max(ECUT,ec0s[i]-0.5*(f0.pstar+f1.pstar)*(V1[i]-V0[i])/m[i]);
+
+    }
+
+// Fds term - use forces from previous time-step
+
+    double tesum(0.0),kesum(0.0),iesum(0.0);
+
+    for(long i=1;i<=n;i++){
+
+// fluxes on left and right sides of face 0 (left boundary of cell)
+
+      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
+      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+      Riemann f0(Riemann::pvrs,l,r);
+
+// fluxes on left and right sides of face 1 (right boundary of cell)
+
+      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
+      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+      Riemann f1(Riemann::pvrs,l,r);
+
+      double ke1=0.25*m[i]*pow(u0[i*S3.nloc()+0],2);
+//      efds1.at(i*S3.nloc()+0)=max(ECUT,efds0[i*S3.nloc()+0]-f[i*S3.nloc()+0]*f0.ustar*dt/(0.5*m[i])); // oscillates
+      efds1.at(i*S3.nloc()+0)=max(ECUT,efds0[i*S3.nloc()+0]-f[i*S3.nloc()+0]*u0[i*S3.nloc()+0]*dt/(0.5*m[i])); // smoother, total e ??
+
+      double ke2=0.25*m[i]*pow(u0[i*S3.nloc()+1],2);
+//      efds1.at(i*S3.nloc()+1)=max(ECUT,efds0[i*S3.nloc()+1]-f[i*S3.nloc()+1]*f1.ustar*dt/(0.5*m[i])); // oscillates
+      efds1.at(i*S3.nloc()+1)=max(ECUT,efds0[i*S3.nloc()+1]-f[i*S3.nloc()+1]*u0[i*S3.nloc()+1]*dt/(0.5*m[i])); // smoother, total e ??
 
     }
 
@@ -215,7 +247,8 @@ int main(){
           }
           A.write(iloc,jloc,nn);                // commit to address space in the matrix class
 //          b[iloc]+=nnx*ustar[jloc]*p[i]/d[i]; // source - for continuous finite elements
-          b[iloc]+=(nxn*u0vol[jloc]-S3S[iloc][jloc]*ustar[jloc])*p[i]/d[i]; // source - discontinuous, for DG
+//          b[iloc]+=(nxn*u0vol[jloc]-S3S[iloc][jloc]*ustar[jloc])*p[i]/d[i]; // source - discontinuous, for DG
+          b[iloc]+=(nxn*ustar[jloc]-S3S[iloc][jloc]*ustar[jloc])*0.5*(f0.pstar+f1.pstar)/d[i]; // source - discontinuous, for DG
         }
       }
 
@@ -286,6 +319,10 @@ int main(){
 
       A.solve(soln,b);
 
+// forces
+
+      for(int iloc=0;iloc<S3.nloc();iloc++){f[i*S3.nloc()+iloc]=soln[iloc]*(0.5*m[i]);} // f=ma
+
 // advance the solution
 
       for(int iloc=0;iloc<S3.nloc();iloc++){
@@ -300,8 +337,8 @@ int main(){
 
 // some output - toggle this to output either the exact solutions from the Riemann solver or the finite element solution generated by the code
 
-    for(int i=0;i<NSAMPLES;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
-//    for(long i=1;i<=n;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<endl;}} // high-order DG
+//    for(int i=0;i<NSAMPLES;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
+    for(long i=1;i<=n;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<efds1[S3.nloc()*i+iloc]<<endl;}} // high-order DG
 
 // advance the time step
 
@@ -316,6 +353,7 @@ int main(){
     for(int i=0;i<ng;i++){V0.at(i)=V1[i];}
     for(int i=0;i<ng;i++){ec0.at(i)=ec1[i];}
     for(int i=0;i<ng;i++){ec0s.at(i)=ec1s[i];}
+    for(int i=0;i<S3.nloc()*ng;i++){efds0.at(i)=efds1[i];}
 
   }
 
