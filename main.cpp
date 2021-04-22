@@ -156,6 +156,22 @@ int main(){
 
     for(long i=1;i<=n;i++){
 
+// width of cell, donor and acceptor
+
+      double dx1(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]),dx2(x1[S3.nloc()*(i+2)-1]-x1[S3.nloc()*(i+1)]);
+
+// determine pressure gradient using a parabolic fit between donor cell and the two neighbouring cells
+
+      double s1(((p[i+1]-p[i])*dx1*dx1+(p[i]-p[i-1])*dx2*dx2)/(dx1*dx2*(p[i]+p[i+1])));
+
+// determine two more slopes to use in the van Leer flux limiter
+
+      double s2((p[i+1]-p[i])/dx2),s3((p[i]-p[i-1])/dx1);
+
+// apply van Leer limiter to get a slope for extrapolation
+
+      double s4(0.5*(sgn(s3)+sgn(s2))*min(abs(s1),min(abs(s2),abs(s3))));
+
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
       l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
