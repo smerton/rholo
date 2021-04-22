@@ -28,11 +28,10 @@
 
 double P(double d,double e); // eos returns pressure as a function of energy
 double E(double d,double p); // invert the eos to get energy if we only have pressure
-
 void vempty(vector<double>&v); // signature for emptying a vector
 void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cycle,double time);         // signature for silo output
-
 double et(int n,VD*m,VD*e,VD*u, int nloc); // signature fot total energy
+template <typename T> int sgn(T val); // signature for the sgn template
 
 using namespace std;
 
@@ -192,13 +191,11 @@ int main(){
       r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
       Riemann f1(Riemann::pvrs,l,r);
 
-      double ke1=0.25*m[i]*pow(u0[i*S3.nloc()+0],2);
-//      efds1.at(i*S3.nloc()+0)=max(ECUT,efds0[i*S3.nloc()+0]-f[i*S3.nloc()+0]*f0.ustar*dt/(0.5*m[i])); // oscillates
-      efds1.at(i*S3.nloc()+0)=max(ECUT,efds0[i*S3.nloc()+0]-f[i*S3.nloc()+0]*u0[i*S3.nloc()+0]*dt/(0.5*m[i])); // smoother, total e ??
+      efds1.at(i*S3.nloc()+0)=max(ECUT,efds0[i*S3.nloc()+0]-f[i*S3.nloc()+0]*f0.ustar*dt/(0.5*m[i])); // oscillates
+//      efds1.at(i*S3.nloc()+0)=max(ECUT,efds0[i*S3.nloc()+0]-f[i*S3.nloc()+0]*u0[i*S3.nloc()+0]*dt/(0.5*m[i])); // smoother, total e ??
 
-      double ke2=0.25*m[i]*pow(u0[i*S3.nloc()+1],2);
-//      efds1.at(i*S3.nloc()+1)=max(ECUT,efds0[i*S3.nloc()+1]-f[i*S3.nloc()+1]*f1.ustar*dt/(0.5*m[i])); // oscillates
-      efds1.at(i*S3.nloc()+1)=max(ECUT,efds0[i*S3.nloc()+1]-f[i*S3.nloc()+1]*u0[i*S3.nloc()+1]*dt/(0.5*m[i])); // smoother, total e ??
+      efds1.at(i*S3.nloc()+1)=max(ECUT,efds0[i*S3.nloc()+1]-f[i*S3.nloc()+1]*f1.ustar*dt/(0.5*m[i])); // oscillates
+//      efds1.at(i*S3.nloc()+1)=max(ECUT,efds0[i*S3.nloc()+1]-f[i*S3.nloc()+1]*u0[i*S3.nloc()+1]*dt/(0.5*m[i])); // smoother, total e ??
 
     }
 
@@ -385,3 +382,7 @@ double et(int n,VD*m,VD*e,VD*u, int nloc){
   return ek+ei;
 
 }
+
+// implement the sign function
+
+template <typename T> int sgn(T val){return (T(0)<val)-(val<T(0));}
