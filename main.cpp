@@ -10,8 +10,8 @@
 #define ENDTIME 0.25      // insert a macro for the end time
 #define GAMMA 1.4         // ratio of specific heats for ideal gases
 #define ECUT 1.0-8        // cut-off on the energy field
-#define NSAMPLES 500     // number of sample points for the exact solution
-#define VISFREQ 10000       // frequency of the graphics dumps
+#define NSAMPLES 100     // number of sample points for the exact solution
+#define VISFREQ 10       // frequency of the graphics dumps
 #define VD vector<double> // vector of doubles
 
 #include <iostream>
@@ -45,43 +45,48 @@ int main(){
 
 // global data
 
-  int const n(500),ng(n+2),order(1);                    // no. ncells, ghosts and element order
-  Shape S1(order),S2(order),S3(order);                  // load FE stencils for energy/momentum equation
-  Shape*S[2]={&S3,&S3};                                 // pack the shapes into an array
-  vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
-  vector<double> e0(S3.nloc()*ng),e1(S3.nloc()*ng);     // fe DG energy field
+  int const n(100),ng(n+4),order(1);                     // no. ncells, ghosts and element order
+  Shape S1(order);                                      // load FE stencil for energy/momentum equation
+  Shape*S[2]={&S1,&S1};                                 // pack the shapes into an array
+  vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // density,pressure, volumes & mass
+  vector<double> e0(S1.nloc()*ng),e1(S1.nloc()*ng);     // fe DG energy field
   vector<double> ec0(ng),ec1(ng);                       // cell-centred energy field
-  vector<double> u0(S3.nloc()*ng),u1(S3.nloc()*ng);     // velocity field
-  vector<double> x0(S3.nloc()*ng),x1(S3.nloc()*ng);     // spatial coordinates
-  double time(0.0),dt(DTSTART);                         // start time and time step
+  vector<double> w0(S1.nloc()*ng),w1(S1.nloc()*ng);     // work done on a node
+  vector<double> u0(S1.nloc()*ng),u1(S1.nloc()*ng);     // velocity field
+  vector<double> x0(S1.nloc()*ng),x1(S1.nloc()*ng);     // spatial coordinates
+  vector<double> xc0(ng),xc1(ng);                       // cell centres
+  vector<double> c(ng);                                 // sound speed inside an element
+  double time(0.0),dt(DTSTART);                         // start time, time step
   int step(0);                                          // step number
-  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for Riemann solver
-//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};       // left/right flux states for Riemann solver
-//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};       // left/right flux states for Riemann solver
+
+  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right fluxes in Sod's shock tube
+//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};      // left/right fluxes in the 123 problem
+//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};   // left/right fluxes in Woodward & Colella's blast wave
 
   double S1S[S1.nloc()][S1.nloc()]={};                  // empty surface block for S1 shape function
-  double S2S[S2.nloc()][S2.nloc()]={};                  // empty surface block for S2 shape function
-  double S3S[S3.nloc()][S3.nloc()]={};                  // empty surface block for S3 shape function
+
+// set output precision
+
+  cout<<fixed<<setprecision(17);
 
 // initialise the problem
 
-  double dx(1.0/n);
-  for(int i=0;i<S3.nloc();i++){x0.at(i)=-dx+i*dx/(S3.order());}
-  for(int i=1;i<ng;i++){for(int j=0;j<S3.nloc();j++){x0.at(S3.nloc()*i+j)=x0[S3.nloc()*i-1]+j*dx/S3.order();}}
-  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[2]:r[2];}
-  for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[0]:r[0];}
-  for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){e0.at(S3.nloc()*i+j)=E(d[i],p[i]);}}
-  for(int i=0;i<ng;i++){ec0.at(i)=E(d[i],p[i]);}
-  for(int i=0;i<ng;i++){V0.at(i)=x0[S3.nloc()*(i+1)-1]-x0[S3.nloc()*i];}
+  double dx(1.0/n);for(int j=0;j<=order;j++){x0.at(j)=-2.0*dx+j*dx/order;} // 2 ghosts on left of mesh
+  for(int i=1;i<ng;i++){for(int j=0;j<S1.nloc();j++){x0.at(i*S1.nloc()+j)=x0[i*S1.nloc()-1]+j*dx/order;}}
+  for(int i=0;i<ng;i++){xc0.at(i)=0.5*(x0[i*S1.nloc()]+x0[(i+1)*S1.nloc()-1]);}
+  for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[S1.nloc()*i]+x0[S1.nloc()*(i+1)-1])<=0.5)?l[0]:r[0];}
+  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[S1.nloc()*i]+x0[S1.nloc()*(i+1)-1])<=0.5)?l[2]:r[2];}
+  for(int i=0;i<ng;i++){V0.at(i)=x0[S1.nloc()*(i+1)-1]-x0[S1.nloc()*i];}
   for(int i=0;i<ng;i++){m.at(i)=d[i]*V0[i];}
-  for(int i=0;i<S3.nloc()*ng;i++){u1.at(i)=0.0;}
-  for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){u0.at(i*S3.nloc()+j)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[1]:r[1];}}
+  for(int i=0;i<ng;i++){for(int j=0;j<S1.nloc();j++){e0.at(S1.nloc()*i+j)=E(d[i],p[i]);}}
+  for(int i=0;i<ng;i++){ec0.at(i)=E(d[i],p[i]);}
+  for(int i=0;i<ng;i++){for(int j=0;j<S1.nloc();j++){w0.at(S1.nloc()*i+j)=E(d[i],p[i]);}}
+  for(int i=0;i<S1.nloc()*ng;i++){u0.at(i)=0.0;u1.at(i)=0.0;}
+  for(int i=0;i<ng;i++){c.at(i)=0.0;}
 
-// surface blocks on S1,S2 and S3 finite element stencils, these couple to the upwind/downwind element on each face
+// surface blocks on finite element stencil, these couple to the upwind/downwind element on each face
 
   S1S[0][0]=-1.0;S1S[S1.nloc()-1][S1.nloc()-1]=1.0; // contains the outward pointing unit normal on each face
-  S2S[0][0]=-1.0;S2S[S2.nloc()-1][S2.nloc()-1]=1.0; // contains the outward pointing unit normal on each face
-  S3S[0][0]=-1.0;S3S[S3.nloc()-1][S3.nloc()-1]=1.0; // contains the outward pointing unit normal on each face
 
 // start the Riemann solver from initial flux states
 
@@ -89,15 +94,11 @@ int main(){
   cout<<" pstar= "<<R.pstar<<endl;
   cout<<" ustar= "<<R.ustar<<endl;
 
-// set output precision
-
-  cout<<fixed<<setprecision(17);
-
 // time integration
 
   while(time<ENDTIME+dt){
 
-    cout<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<" total e= "<<et(n,&m,&ec0,&u0,S3.nloc())<<endl;
+    cout<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<" total e= "<<et(n,&m,&ec0,&u0,S1.nloc())<<endl;
 
 // graphics output
 
@@ -109,177 +110,186 @@ int main(){
     for(long i=0;i<NSAMPLES;i++){rx.push_back(double(i)/double(NSAMPLES));}
     R.profile(&rx,time);
 
+// exact solutions from Riemann solver at start and end of step
+
+    Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),Rc(Riemann::exact,l,r);
+    R0.profile(&x0,time),R1.profile(&x0,time+dt),Rc.profile(&xc0,time+dt);
+
 // move the nodes to their full-step position
 
-    for(long i=1;i<=n;i++){
+    for(long i=2;i<=n+1;i++){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+//      l[0]=d[i-1];l[1]=u0[S1.nloc()*i-1];l[2]=p[i-1];
+      l[0]=d[i-1];l[1]=0.5*(R0.velocity(S1.nloc()*i-1)+R1.velocity(S1.nloc()*i-1));l[2]=p[i-1];
+//      r[0]=d[i];r[1]=u0[S1.nloc()*i];r[2]=p[i];
+      r[0]=d[i];r[1]=0.5*(R0.velocity(S1.nloc()*i-1)+R1.velocity(S1.nloc()*i-1));r[2]=p[i];
       Riemann f0(Riemann::exact,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+//      l[0]=d[i];l[1]=u0[S1.nloc()*(i+1)-1];l[2]=p[i];
+      l[0]=d[i];l[1]=0.5*(R0.velocity(S1.nloc()*(i+1)-1)+R1.velocity(S1.nloc()*(i+1)-1));l[2]=p[i];
+//      r[0]=d[i+1];r[1]=u0[S1.nloc()*(i+1)];r[2]=p[i+1];
+      r[0]=d[i+1];r[1]=0.5*(R0.velocity(S1.nloc()*(i+1)-1)+R1.velocity(S1.nloc()*(i+1)-1));r[2]=p[i+1];
       Riemann f1(Riemann::exact,l,r);
 
-//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
-//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
-      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
+      double ustar[S1.nloc()]={};ustar[0]=f0.ustar;ustar[S1.nloc()-1]=f1.ustar;
 
-      if(i==1){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.reflect(iloc,0))=x0[S3.reflect(iloc,0)]+ustar[iloc]*dt;}} // move ghost cell on left mesh boundary
+      if(i==2){for(int j=0;j<S1.nloc();j++){x1.at(S1.nloc()+j)=x0[S1.nloc()+j]+ustar[S1.reflect(j,0)]*dt;x1.at(j)=x0[j]+ustar[j]*dt;}} // move ghost cell on left mesh boundary
 
-      for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.nloc()*i+iloc)=x0[S3.nloc()*i+iloc]+ustar[iloc]*dt;}
+      for(int j=0;j<S1.nloc();j++){x1.at(S1.nloc()*i+j)=x0[S1.nloc()*i+j]+ustar[j]*dt;}
 
-      if(i==n){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.nloc()*(n+1)+S3.reflect(iloc,0))=x0[S3.nloc()*(n+1)+S3.reflect(iloc,0)]+ustar[iloc]*dt;}}// move ghost cell on right mesh boundary
+      if(i==n+1){for(int j=0;j<S1.nloc();j++){x1.at(S1.nloc()*(n+2)+j)=x0[S1.nloc()*(n+2)+j]+ustar[S1.reflect(j,1)]*dt;x1.at(S1.nloc()*(n+3)+j)=x0[S1.nloc()*(n+3)+j]+ustar[j]*dt;}}// move ghost cell on right mesh boundary
 
     }
 
 // update cell volumes at the full-step
 
-    for(int i=0;i<ng;i++){V1.at(i)=x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i];if(V1[i]<0.0){cout<<"ERROR:  -'ve volume in cell "<<i<<endl;exit(1);}}
+//    for(int i=0;i<ng;i++){V1.at(i)=x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i];if(V1[i]<0.0){cout<<"ERROR:  -'ve volume in cell "<<i<<endl;exit(1);}}
 
 // update cell density at the full-step
 
-    for(int i=0;i<ng;i++){d.at(i)=m[i]/V1[i];} 
+//    for(int i=0;i<ng;i++){d.at(i)=m[i]/V1[i];} 
 
 // update cell energy at the full-step
 
-    for(int i=0;i<ng;i++){ec1.at(i)=max(ECUT,ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i]);}
+//    for(int i=0;i<ng;i++){ec1.at(i)=max(ECUT,ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i]);}
 
 // construct the full-step DG energy field
 
-    for(int i=1;i<=n;i++){
+//    for(int i=1;i<=n;i++){
 
-      double dx(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]); // cell width for Jacobian
+//      double dx(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]); // cell width for Jacobian
 
 // fluxes on face 0 of i (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
-      Riemann f0(Riemann::exact,l,r);
+//      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
+//      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+//      Riemann f0(Riemann::exact,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
-      Riemann f1(Riemann::exact,l,r);
+//      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
+//      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+//      Riemann f1(Riemann::exact,l,r);
 
 // pressure and velocity on each face
 
-//      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
-//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
-//      double u0vol[S3.nloc()]={};u0vol[0]=f0.ustar;u0vol[1]=0.5*(f0.ustar+f1.ustar);u0vol[S3.nloc()-1]=f1.ustar;
+////      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
+////      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
+////      double u0vol[S3.nloc()]={};u0vol[0]=f0.ustar;u0vol[1]=0.5*(f0.ustar+f1.ustar);u0vol[S3.nloc()-1]=f1.ustar;
 
-      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[S3.nloc()-1]=f1.pstar;
-      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;;ustar[S3.nloc()-1]=f1.ustar;
-      double u0vol[S3.nloc()]={};u0vol[0]=f0.ustar;u0vol[S3.nloc()-1]=f1.ustar;
+//      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[S3.nloc()-1]=f1.pstar;
+//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;;ustar[S3.nloc()-1]=f1.ustar;
+//      double u0vol[S3.nloc()]={};u0vol[0]=f0.ustar;u0vol[S3.nloc()-1]=f1.ustar;
 
 // matrix problem for one element
 
-      Matrix A(S3.nloc());double b[S3.nloc()],soln[S3.nloc()];
+//      Matrix A(S3.nloc());double b[S3.nloc()],soln[S3.nloc()];
 
 // assemble DG energy field for one element
 
-      for(int iloc=0;iloc<S3.nloc();iloc++){
-        b[iloc]=0.0;
-        for(int jloc=0;jloc<S3.nloc();jloc++){
-          double nn(0.0),nxn(0.0),nnx(0.0);
-          for(int gi=0;gi<S3.ngi();gi++){
-            nn+=S3.value(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi)*dx/2.0; // mass matrix
-            nnx-=S3.value(iloc,gi)*S3.dvalue(jloc,gi)*S3.wgt(gi);      // divergence term (for continuous finite elements)
-            nxn+=S3.dvalue(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi);      // divergence term (if by parts, use this for DG)
-          }
-          A.write(iloc,jloc,nn);                // commit to address space in the matrix class
-//          b[iloc]+=nnx*ustar[jloc]*p[i]/d[i]; // source - for continuous finite elements
-          b[iloc]+=(nxn*u0vol[jloc]-S3S[iloc][jloc]*ustar[jloc])*p[i]/d[i]; // source - discontinuous, for DG
-        }
-      }
+//      for(int iloc=0;iloc<S3.nloc();iloc++){
+//        b[iloc]=0.0;
+//        for(int jloc=0;jloc<S3.nloc();jloc++){
+//          double nn(0.0),nxn(0.0),nnx(0.0);
+//          for(int gi=0;gi<S3.ngi();gi++){
+//            nn+=S3.value(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi)*dx/2.0; // mass matrix
+//            nnx-=S3.value(iloc,gi)*S3.dvalue(jloc,gi)*S3.wgt(gi);      // divergence term (for continuous finite elements)
+//            nxn+=S3.dvalue(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi);      // divergence term (if by parts, use this for DG)
+//          }
+//          A.write(iloc,jloc,nn);                // commit to address space in the matrix class
+////          b[iloc]+=nnx*ustar[jloc]*p[i]/d[i]; // source - for continuous finite elements
+//          b[iloc]+=(nxn*u0vol[jloc]-S3S[iloc][jloc]*ustar[jloc])*p[i]/d[i]; // source - discontinuous, for DG
+//        }
+//      }
 
-      A.solve(soln,b);
+//      A.solve(soln,b);
 
 // advance the solution
 
-      for(int iloc=0;iloc<S3.nloc();iloc++){
-        e1[S3.nloc()*i+iloc]=max(ECUT,e0[S3.nloc()*i+iloc]+soln[iloc]*dt);
-      }
+//      for(int iloc=0;iloc<S3.nloc();iloc++){
+//        e1[S3.nloc()*i+iloc]=max(ECUT,e0[S3.nloc()*i+iloc]+soln[iloc]*dt);
+//      }
 
-    }
+//    }
 
 // update cell pressure at the full-step using PdV / DG energy field
 
-    for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // use PdV
+//    for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // use PdV
 
 // update nodal DG velocities at the full step
 
-    for(int i=1;i<=n;i++){
+//    for(int i=1;i<=n;i++){
 
-      double dx(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]); // cell width for Jacobian
+//      double dx(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]); // cell width for Jacobian
 
 // fluxes on face 0 of i (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+//      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
+//      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
 
-      Riemann f0(Riemann::exact,l,r);
+//      Riemann f0(Riemann::exact,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+//      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
+//      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
 
-      Riemann f1(Riemann::exact,l,r);
+//      Riemann f1(Riemann::exact,l,r);
 
 // pressure and velocity on each face
 
-//      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
-//      double pvol[S3.nloc()]={};pvol[0]=f0.pstar;pvol[1]=0.5*(f0.pstar+f1.pstar);pvol[S3.nloc()-1]=f1.pstar;
-//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
+////      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[1]=0.5*(f0.pstar+f1.pstar);pstar[S3.nloc()-1]=f1.pstar;
+////      double pvol[S3.nloc()]={};pvol[0]=f0.pstar;pvol[1]=0.5*(f0.pstar+f1.pstar);pvol[S3.nloc()-1]=f1.pstar;
+////      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
 
-      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[S3.nloc()-1]=f1.pstar;
-      double pvol[S3.nloc()]={};pvol[0]=f0.pstar;pvol[S3.nloc()-1]=f1.pstar;
-      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
+//      double pstar[S3.nloc()]={};pstar[0]=f0.pstar;pstar[S3.nloc()-1]=f1.pstar;
+//      double pvol[S3.nloc()]={};pvol[0]=f0.pstar;pvol[S3.nloc()-1]=f1.pstar;
+//      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
 
 // matrix problem for one element
 
-      Matrix A(S3.nloc());double b[S3.nloc()],soln[S3.nloc()];
+//      Matrix A(S3.nloc());double b[S3.nloc()],soln[S3.nloc()];
 
 // assemble acceleration field for one element
 
-      for(int iloc=0;iloc<S3.nloc();iloc++){
-        b[iloc]=0.0;
-        for(int jloc=0;jloc<S3.nloc();jloc++){
-          double nn(0.0),nxn(0.0),nnx(0.0);
-          for(int gi=0;gi<S3.ngi();gi++){
-            nn+=S3.value(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi)*dx/2.0; // mass matrix
-//            nnx-=S3.value(iloc,gi)*S3.dvalue(jloc,gi)*S3.wgt(gi);      // grad term (for continuous finite elements)
-            nxn+=S3.dvalue(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi);      // grad term (if by parts, use this for DG)
-          }
-          A.write(iloc,jloc,nn);                // commit to address space in the matrix class
-//          b[iloc]+=nnx*pstar[jloc]/d[i]; // source - for continuous finite elements
-          b[iloc]+=(nxn*pvol[jloc]-S3S[iloc][jloc]*pstar[jloc])/d[i]; // source - discontinuous, for DG
-        }
-      }
+//      for(int iloc=0;iloc<S3.nloc();iloc++){
+//        b[iloc]=0.0;
+//        for(int jloc=0;jloc<S3.nloc();jloc++){
+//          double nn(0.0),nxn(0.0),nnx(0.0);
+//          for(int gi=0;gi<S3.ngi();gi++){
+//            nn+=S3.value(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi)*dx/2.0; // mass matrix
+////            nnx-=S3.value(iloc,gi)*S3.dvalue(jloc,gi)*S3.wgt(gi);      // grad term (for continuous finite elements)
+//            nxn+=S3.dvalue(iloc,gi)*S3.value(jloc,gi)*S3.wgt(gi);      // grad term (if by parts, use this for DG)
+//          }
+//          A.write(iloc,jloc,nn);                // commit to address space in the matrix class
+////          b[iloc]+=nnx*pstar[jloc]/d[i]; // source - for continuous finite elements
+//          b[iloc]+=(nxn*pvol[jloc]-S3S[iloc][jloc]*pstar[jloc])/d[i]; // source - discontinuous, for DG
+//        }
+//      }
 
-      A.solve(soln,b);
+//      A.solve(soln,b);
 
 // advance the solution
 
-      for(int iloc=0;iloc<S3.nloc();iloc++){
-        u1[S3.nloc()*i+iloc]=u0[S3.nloc()*i+iloc]+soln[iloc]*dt;
-      }
+//      for(int iloc=0;iloc<S3.nloc();iloc++){
+//        u1[S3.nloc()*i+iloc]=u0[S3.nloc()*i+iloc]+soln[iloc]*dt;
+//      }
 
 // impose a constraint on the acceleration field at domain boundaries to stop the mesh taking off
 
-      for(int i=0;i<S3.nloc();i++){u1.at(i)=u0[i];u1.at(S3.nloc()*(n+1)+i)=u0[S3.nloc()*(n+1)+i];}
+//      for(int i=0;i<S3.nloc();i++){u1.at(i)=u0[i];u1.at(S3.nloc()*(n+1)+i)=u0[S3.nloc()*(n+1)+i];}
 
-    }
+//    }
 
 // some output - toggle this to output either the exact solutions from the Riemann solver or the finite element solution generated by the code
 
-//    for(int i=0;i<NSAMPLES;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
+//    for(int i=0;i<NSAMPLES;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver at the sample points
+    for(int i=2*S1.nloc();i<(n+2)*S1.nloc();i++){cout<<x0[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i); // exact solution from Riemann solver at
+                                                 cout<<" "<<R1.density(i)<<" "<<R1.pressure(i)<<" "<<R1.velocity(i)<<" "<<R1.energy(i)<<endl;} //                  start/end of the time-step
 //    for(long i=1;i<=n;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<endl;}} // high-order DG
 
 // advance the time step
@@ -289,9 +299,11 @@ int main(){
 
 // advance the solution for the new time step
 
-    for(int i=0;i<S3.nloc()*ng;i++){u0.at(i)=u1[i];}
-    for(int i=0;i<S3.nloc()*ng;i++){e0.at(i)=e1[i];}
-    for(int i=0;i<S3.nloc()*ng;i++){x0.at(i)=x1[i];}
+    for(int i=0;i<S1.nloc()*ng;i++){u0.at(i)=u1[i];}
+    for(int i=0;i<S1.nloc()*ng;i++){e0.at(i)=e1[i];}
+    for(int i=0;i<S1.nloc()*ng;i++){x0.at(i)=x1[i];}
+    for(int i=0;i<S1.nloc()*ng;i++){w0.at(i)=w1[i];}
+    for(int i=0;i<ng;i++){xc0.at(i)=xc1[i];}
     for(int i=0;i<ng;i++){V0.at(i)=V1[i];}
     for(int i=0;i<ng;i++){ec0.at(i)=ec1[i];}
 
