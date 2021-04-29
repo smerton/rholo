@@ -134,15 +134,11 @@ int main(){
 //      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
       double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
 
-//      if(i==2){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.reflect(iloc,0))=x0[S3.reflect(iloc,0)]+ustar[iloc]*dt;}} // move ghost cell on left mesh boundary
-
       for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.nloc()*i+iloc)=x0[S3.nloc()*i+iloc]+ustar[iloc]*dt;}
-
-//      if(i==n+1){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.nloc()*(n+1)+S3.reflect(iloc,0))=x0[S3.nloc()*(n+1)+S3.reflect(iloc,0)]+ustar[iloc]*dt;}}// move ghost cell on right mesh boundary
 
     }
 
-// move outer ghost cells
+// move outer ghost cells - only 1 node to move so no Riemann problem here
 
     x1.at(1)=x1[2];
     x1.at(0)=x0[0]+0.5*(u0[0]+u1[0])*dt;
