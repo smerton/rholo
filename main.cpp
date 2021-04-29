@@ -8,9 +8,10 @@
 
 #define DTSTART 0.0005    // insert a macro for the first time step
 #define ENDTIME 0.25      // insert a macro for the end time
+//#define ENDTIME 0.0005      // insert a macro for the end time
 #define GAMMA 1.4         // ratio of specific heats for ideal gases
 #define ECUT 1.0-8        // cut-off on the energy field
-#define NSAMPLES 100     // number of sample points for the exact solution
+#define NSAMPLES 500     // number of sample points for the exact solution
 #define VISFREQ 10       // frequency of the graphics dumps
 #define VD vector<double> // vector of doubles
 
@@ -58,6 +59,7 @@ int main(){
   vector<double> c(ng);                                 // sound speed inside an element
   double time(0.0),dt(DTSTART);                         // start time, time step
   int step(0);                                          // step number
+  string bc[2]={"T","T"};                               // boundary conditions on left/right edge of mesh
 
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right fluxes in Sod's shock tube
 //  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};      // left/right fluxes in the 123 problem
@@ -84,13 +86,24 @@ int main(){
   for(int i=0;i<S1.nloc()*ng;i++){u0.at(i)=0.0;u1.at(i)=0.0;}
   for(int i=0;i<ng;i++){c.at(i)=0.0;}
 
+
+//  for(int i=0;i<ng;i++){
+//    cout<<i<<" "<<xc0[i]<<" "<<d[i]<<endl;
+//  }
+//  exit(1);
+
+// edge of mesh boundary conditions
+
+  (bc[0].compare("R")==0)?cout<<"left mesh reflects"<<endl:cout<<"left mesh transmits"<<endl;
+  (bc[1].compare("R")==0)?cout<<"right mesh reflects"<<endl:cout<<"right mesh transmits"<<endl;
+
 // surface blocks on finite element stencil, these couple to the upwind/downwind element on each face
 
   S1S[0][0]=-1.0;S1S[S1.nloc()-1][S1.nloc()-1]=1.0; // contains the outward pointing unit normal on each face
 
-// start the Riemann solver from initial flux states
+// start the Riemann solvers from initial flux states
 
-  Riemann R(Riemann::exact,l,r);
+  Riemann R(Riemann::exact,l,r),R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),Rc(Riemann::exact,l,r);
   cout<<" pstar= "<<R.pstar<<endl;
   cout<<" ustar= "<<R.ustar<<endl;
 
@@ -104,54 +117,101 @@ int main(){
 
     if(step%VISFREQ==0){silo(&M,&x0,&d,&p,&m,&ec0,&V0,&u0,&e0,S,step,time);}
 
-// evolve the Riemann problem to the current time level
+// evolve the Riemann problem on the sample mesh to the current time level
 
     vector<double> rx;vempty(rx); // sample point coordinates
-    for(long i=0;i<NSAMPLES;i++){rx.push_back(double(i)/double(NSAMPLES));}
+    for(long i=0;i<=NSAMPLES;i++){rx.push_back(double(i)/double(NSAMPLES));}
     R.profile(&rx,time);
 
-// exact solutions from Riemann solver at start and end of step
+// evolve the Riemann problem on the computational meshes x0, x1 and xc to the current time levels
 
-    Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),Rc(Riemann::exact,l,r);
-    R0.profile(&x0,time),R1.profile(&x0,time+dt),Rc.profile(&xc0,time+dt);
+    R0.profile(&x0,time),R1.profile(&x0,time+dt),Rc.profile(&xc0,time);
 
-// move the nodes to their full-step position
+// assemble acceleration field for one element
 
-    for(long i=2;i<=n+1;i++){
+    for(int i=2;i<=n+1;i++){
 
-// fluxes on left and right sides of face 0 (left boundary of cell)
+// end of step velocity
 
-//      l[0]=d[i-1];l[1]=u0[S1.nloc()*i-1];l[2]=p[i-1];
-      l[0]=d[i-1];l[1]=0.5*(R0.velocity(S1.nloc()*i-1)+R1.velocity(S1.nloc()*i-1));l[2]=p[i-1];
-//      r[0]=d[i];r[1]=u0[S1.nloc()*i];r[2]=p[i];
-      r[0]=d[i];r[1]=0.5*(R0.velocity(S1.nloc()*i-1)+R1.velocity(S1.nloc()*i-1));r[2]=p[i];
-      Riemann f0(Riemann::exact,l,r);
-
-// fluxes on left and right sides of face 1 (right boundary of cell)
-
-//      l[0]=d[i];l[1]=u0[S1.nloc()*(i+1)-1];l[2]=p[i];
-      l[0]=d[i];l[1]=0.5*(R0.velocity(S1.nloc()*(i+1)-1)+R1.velocity(S1.nloc()*(i+1)-1));l[2]=p[i];
-//      r[0]=d[i+1];r[1]=u0[S1.nloc()*(i+1)];r[2]=p[i+1];
-      r[0]=d[i+1];r[1]=0.5*(R0.velocity(S1.nloc()*(i+1)-1)+R1.velocity(S1.nloc()*(i+1)-1));r[2]=p[i+1];
-      Riemann f1(Riemann::exact,l,r);
-
-      double ustar[S1.nloc()]={};ustar[0]=f0.ustar;ustar[S1.nloc()-1]=f1.ustar;
-
-      if(i==2){for(int j=0;j<S1.nloc();j++){x1.at(S1.nloc()+j)=x0[S1.nloc()+j]+ustar[S1.reflect(j,0)]*dt;x1.at(j)=x0[j]+ustar[j]*dt;}} // move ghost cell on left mesh boundary
-
-      for(int j=0;j<S1.nloc();j++){x1.at(S1.nloc()*i+j)=x0[S1.nloc()*i+j]+ustar[j]*dt;}
-
-      if(i==n+1){for(int j=0;j<S1.nloc();j++){x1.at(S1.nloc()*(n+2)+j)=x0[S1.nloc()*(n+2)+j]+ustar[S1.reflect(j,1)]*dt;x1.at(S1.nloc()*(n+3)+j)=x0[S1.nloc()*(n+3)+j]+ustar[j]*dt;}}// move ghost cell on right mesh boundary
+      for(int j=0;j<S1.nloc();j++){u1.at(i*S1.nloc()+j)=R1.velocity(i*S1.nloc()+j);}
 
     }
 
+// boundary constraints on velocity field
+
+    if(bc[0].compare("R")==0){
+      int j(2*S1.nloc()); // first physical node on mesh
+      u1.at(j)=0.0;
+      u1.at(j-1)=u1.at(j);
+      u1.at(j-2)=-u1.at(j+1);
+      u1.at(j-3)=u1.at(j-2);
+      u1.at(j-4)=-u1.at(j+3);
+    }
+
+    if(bc[1].compare("R")==0){
+      int j((n+1)*S1.nloc()+1); // last physical node on mesh
+      u1.at(j)=0.0;
+      u1.at(j+1)=u1.at(j);
+      u1.at(j+2)=-u1.at(j-1);
+      u1.at(j+3)=u1.at(j+2);
+      u1.at(j+4)=-u1.at(j-3);
+    }
+
+// move the nodes to their full-step position using the step-average velocity
+
+    for(int i=1;i<=n+2;i++){
+
+// fluxes on left and right sides of face 0 (left boundary of cell)
+
+//      l[0]=d[i-1];l[1]=u1[i*S1.nloc()-1];l[2]=p[i-1];
+//      r[0]=d[i  ];r[1]=u1[i*S1.nloc()  ];r[2]=p[i  ];
+//      l[0]=d[i-1];l[1]=0.5*(R0.velocity(S1.nloc()*i-1)+R1.velocity(S1.nloc()*i-1));l[2]=p[i-1];
+//      r[0]=d[i  ];r[1]=0.5*(R0.velocity(S1.nloc()*i  )+R1.velocity(S1.nloc()*i  ));r[2]=p[i  ];
+      l[0]=d[i-1];l[1]=0.5*(u0[i*S1.nloc()-1]+u1[i*S1.nloc()-1]);l[2]=p[i-1];
+      r[0]=d[i  ];r[1]=0.5*(u0[i*S1.nloc()  ]+u1[i*S1.nloc()  ]);r[2]=p[i  ];
+
+      Riemann f0(Riemann::pvrs,l,r);
+
+// fluxes on left and right sides of face 1 (right boundary of cell)
+
+//      l[0]=d[i  ];l[1]=u1[i*S1.nloc()+1  ];l[2]=p[i  ];
+//      r[0]=d[i+1];r[1]=u1[(i+1)*S1.nloc()];r[2]=p[i+1];
+//      l[0]=d[i  ];l[1]=0.5*(R0.velocity(S1.nloc()*(i+1)-1)+R1.velocity(S1.nloc()*(i+1)-1));l[2]=p[i  ];
+//      r[0]=d[i+1];r[1]=0.5*(R0.velocity(S1.nloc()*(i+1)  )+R1.velocity(S1.nloc()*(i+1)  ));r[2]=p[i+1];
+      l[0]=d[i  ];l[1]=0.5*(u0[i*S1.nloc()+1  ]+u1[i*S1.nloc()+1   ]);l[2]=p[i  ];
+      r[0]=d[i+1];r[1]=0.5*(u0[(i+1)*S1.nloc()]+u1[(i+1)*S1.nloc() ]);r[2]=p[i+1];
+
+      Riemann f1(Riemann::pvrs,l,r);
+
+//      double ustar[S1.nloc()]={};ustar[0]=0.5*(R0.velocity(i*S1.nloc())+R1.velocity(i*S1.nloc()));ustar[1]=0.5*(R0.velocity(i*S1.nloc()+1)+R1.velocity(i*S1.nloc()+1));
+      double ustar[S1.nloc()]={};ustar[0]=f0.ustar;ustar[1]=f1.ustar;
+
+      x1.at(i*S1.nloc())=x0[i*S1.nloc()]+ustar[0]*dt;
+      x1.at(i*S1.nloc()+1)=x0[i*S1.nloc()+1]+ustar[1]*dt;
+
+    }
+
+// move outer ghost cells
+
+    x1.at(1)=x1[2];
+    x1.at(0)=x0[0]+0.5*(u0[0]+u1[0])*dt;
+
+    x1.at((ng-1)*S1.nloc())=x1[(ng-1)*S1.nloc()-1];
+    x1.at((ng-1)*S1.nloc()+1)=x0[(ng-1)*S1.nloc()+1]+0.5*(u0[(ng-1)*S1.nloc()+1]+u1[(ng-1)*S1.nloc()+1])*dt;
+
+// move centroids
+
+    for(int i=0;i<ng;i++){xc1.at(i)=0.5*(x1[i*S1.nloc()]+x1[i*S1.nloc()+1]);}
+
 // update cell volumes at the full-step
 
-//    for(int i=0;i<ng;i++){V1.at(i)=x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i];if(V1[i]<0.0){cout<<"ERROR:  -'ve volume in cell "<<i<<endl;exit(1);}}
+    for(int i=0;i<ng;i++){V1.at(i)=x1[i*S1.nloc()+1]-x1[i*S1.nloc()];if(V1[i]<0.0){cout<<"ERROR:  -'ve volume in cell "<<i<<endl;exit(1);}}
 
 // update cell density at the full-step
 
-//    for(int i=0;i<ng;i++){d.at(i)=m[i]/V1[i];} 
+    for(int i=0;i<ng;i++){d.at(i)=m[i]/V1[i];}
+//    Rc.profile(&xc1,time+dt); 
+//    for(int i=0;i<ng;i++){d.at(i)=Rc.density(i);}
 
 // update cell energy at the full-step
 
@@ -219,6 +279,8 @@ int main(){
 // update cell pressure at the full-step using PdV / DG energy field
 
 //    for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // use PdV
+    Rc.profile(&xc1,time+dt); 
+    for(int i=0;i<ng;i++){p.at(i)=Rc.pressure(i);}
 
 // update nodal DG velocities at the full step
 
@@ -287,10 +349,10 @@ int main(){
 
 // some output - toggle this to output either the exact solutions from the Riemann solver or the finite element solution generated by the code
 
-//    for(int i=0;i<NSAMPLES;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver at the sample points
-    for(int i=2*S1.nloc();i<(n+2)*S1.nloc();i++){cout<<x0[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i); // exact solution from Riemann solver at
-                                                 cout<<" "<<R1.density(i)<<" "<<R1.pressure(i)<<" "<<R1.velocity(i)<<" "<<R1.energy(i)<<endl;} //                  start/end of the time-step
-//    for(long i=1;i<=n;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<endl;}} // high-order DG
+//    for(int i=0;i<=NSAMPLES;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver at the sample points
+//    for(int i=2*S1.nloc();i<(n+2)*S1.nloc();i++){cout<<x0[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i); // exact solution from Riemann solver at
+//                                                 cout<<" "<<R1.density(i)<<" "<<R1.pressure(i)<<" "<<R1.velocity(i)<<" "<<R1.energy(i)<<endl;} //                  start/end of the time-step
+    for(long i=2;i<=n+1;i++){for(int j=0;j<S1.nloc();j++){cout<<x1[S1.nloc()*i+j]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S1.nloc()*i+j]<<" "<<e1[S1.nloc()*i+j]<<endl;}} // high-order DG
 
 // advance the time step
 
