@@ -122,13 +122,13 @@ int main(){
 
       l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
       r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
-      Riemann f0(Riemann::exact,l,r);
+      Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
       l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
       r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
-      Riemann f1(Riemann::exact,l,r);
+      Riemann f1(Riemann::pvrs,l,r);
 
 //      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
 //      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
@@ -230,13 +230,13 @@ int main(){
 
       l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
       r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
-      Riemann f0(Riemann::exact,l,r);
+      Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
       l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
       r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
-      Riemann f1(Riemann::exact,l,r);
+      Riemann f1(Riemann::pvrs,l,r);
 
 // pressure and velocity on each face
 
@@ -295,14 +295,14 @@ int main(){
       l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
       r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
 
-      Riemann f0(Riemann::exact,l,r);
+      Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
       l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
       r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
 
-      Riemann f1(Riemann::exact,l,r);
+      Riemann f1(Riemann::pvrs,l,r);
 
 // pressure and velocity on each face
 
