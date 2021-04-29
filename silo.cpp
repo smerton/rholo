@@ -65,7 +65,7 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 
   long ki(0);
   for(int j=0;j<(M->Dim(1)-1);j++){
-    for(int i=1;i<M->Dim(0);i++){
+    for(int i=2;i<M->Dim(0)+1;i++){
       for(int jloc=0;jloc<S[1]->order()+1;jloc++){
         for(int iloc=0;iloc<S[1]->order()+1;iloc++){
           long ix(i*S[1]->nloc()+iloc);
@@ -89,7 +89,7 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 
   long ti(0);
   for(int j=0;j<(M->Dim(1)-1);j++){
-    for(int i=1;i<M->Dim(0);i++){
+    for(int i=2;i<M->Dim(0)+1;i++){
       for(int jloc=0;jloc<S[0]->order()+1;jloc++){
         for(int iloc=0;iloc<S[0]->order()+1;iloc++){
           long ix(i*S[0]->nloc()+iloc);
@@ -231,35 +231,35 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 // write scalar data fields
 
 //  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->Density(M->mElement[i]):M->Density(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*d)[M->mElement[i]+1]:(*d)[0];}}
+  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*d)[M->mElement[i]+2]:(*d)[0];}}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g/cc");
   dberr=DBPutUcdvar1(dbfile,"density","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 //  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->Pressure(M->mElement[i]):M->Pressure(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*p)[M->mElement[i]+1]:(*p)[0];}}
+  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*p)[M->mElement[i]+2]:(*p)[0];}}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mb");
   dberr=DBPutUcdvar1(dbfile,"pressure","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 //  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->Mass(M->mElement[i]):M->Mass(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*m)[M->mElement[i]+1]:(*m)[0];}}
+  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*m)[M->mElement[i]+2]:(*m)[0];}}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g");
   dberr=DBPutUcdvar1(dbfile,"mass","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 //  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->CCEnergy0(M->mElement[i]):M->CCEnergy0(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*ec0)[M->mElement[i]+1]:(*ec0)[0];}}
+  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*ec0)[M->mElement[i]+2]:(*ec0)[0];}}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
   dberr=DBPutUcdvar1(dbfile,"pdv","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 //  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->Volume0(M->mElement[i]):M->Volume0(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*V0)[M->mElement[i]+1]:(*V0)[0];}}
+  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*V0)[M->mElement[i]+2]:(*V0)[0];}}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cc");
   dberr=DBPutUcdvar1(dbfile,"volume","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
@@ -275,7 +275,7 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 //    for(int iloc=0;iloc<S[0]->nloc();iloc++){var2[i*S[0]->nloc()+iloc]=M->Energy0(i*S[0]->nloc()+iloc);} // ->prolongate not working correctly ??
 //  }
 
-  {long ti(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=1;i<M->Dim(0);i++){for(int jloc=0;jloc<S[0]->order()+1;jloc++){for(int iloc=0;iloc<S[0]->order()+1;iloc++){long ix(i*S[0]->nloc()+iloc);var2[ti]=(*e0)[ix];ti++;}}}}}
+  {long ti(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=2;i<M->Dim(0)+1;i++){for(int jloc=0;jloc<S[0]->order()+1;jloc++){for(int iloc=0;iloc<S[0]->order()+1;iloc++){long ix(i*S[0]->nloc()+iloc);var2[ti]=(*e0)[ix];ti++;}}}}}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
   dberr=DBPutUcdvar1(dbfile,"energy","Elements",var2,nnodes_k,NULL,0,DB_DOUBLE,DB_NODECENT,optlist);
@@ -284,14 +284,14 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 // write vector data fields
 
 //  for(int i=0;i<nnodes_k;i++){var2[i]=M->Velocitx0(0,i);}
-  {long ki(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=1;i<M->Dim(0);i++){for(int jloc=0;jloc<S[1]->order()+1;jloc++){for(int iloc=0;iloc<S[1]->order()+1;iloc++){long ix(i*S[1]->nloc()+iloc);var2[ki]=(*u0)[ix];ki++;}}}}}
+  {long ki(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=2;i<M->Dim(0)+1;i++){for(int jloc=0;jloc<S[1]->order()+1;jloc++){for(int iloc=0;iloc<S[1]->order()+1;iloc++){long ix(i*S[1]->nloc()+iloc);var2[ki]=(*u0)[ix];ki++;}}}}}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/us");
   dberr=DBPutUcdvar1(dbfile,"velocity_x","Elements",var2,nnodes_k,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
   dberr=DBFreeOptlist(optlist);
 
 //  for(int i=0;i<nnodes_k;i++){var2[i]=M->Velocity0(1,i);}
-  {long ki(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=1;i<M->Dim(0);i++){for(int jloc=0;jloc<S[1]->order()+1;jloc++){for(int iloc=0;iloc<S[1]->order()+1;iloc++){long ix(i*S[1]->nloc()+iloc);var2[ki]=0.0;ki++;}}}}}
+  {long ki(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=2;i<M->Dim(0)+1;i++){for(int jloc=0;jloc<S[1]->order()+1;jloc++){for(int iloc=0;iloc<S[1]->order()+1;iloc++){long ix(i*S[1]->nloc()+iloc);var2[ki]=0.0;ki++;}}}}}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/us");
   dberr=DBPutUcdvar1(dbfile,"velocity_y","Elements",var2,nnodes_k,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
@@ -300,7 +300,7 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 // sample the exact solution
 
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for Riemann solver
-//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4}; // 123 problem
+//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};        // 123 problem
 //  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};       // Colella & Woodward Blastwave
 
   Riemann R(Riemann::exact,l,r);R.profile(&rx,time);

@@ -7,12 +7,12 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0001    // insert a macro for the first time step
+#define DTSTART 0.0005    // insert a macro for the first time step
 #define ENDTIME 0.25      // insert a macro for the end time
 #define GAMMA 1.4         // ratio of specific heats for ideal gases
 #define ECUT 1.0-8        // cut-off on the energy field
 #define NSAMPLES 500     // number of sample points for the exact solution
-#define VISFREQ 10000       // frequency of the graphics dumps
+#define VISFREQ 10       // frequency of the graphics dumps
 #define VD vector<double> // vector of doubles
 
 #include <iostream>
@@ -45,7 +45,7 @@ int main(){
 
 // global data
 
-  int const n(100),ng(n+2),order(1);                    // no. ncells, ghosts and element order
+  int const n(100),ng(n+4),order(1);                    // no. ncells (min 2), ghosts and element order
   Shape S1(order),S2(order),S3(order);                  // load FE stencils for energy/momentum equation
   Shape*S[2]={&S3,&S3};                                 // pack the shapes into an array
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
@@ -68,7 +68,7 @@ int main(){
 // initialise the problem
 
   double dx(1.0/n);
-  for(int i=0;i<S3.nloc();i++){x0.at(i)=-dx+i*dx/(S3.order());}
+  for(int i=0;i<S3.nloc();i++){x0.at(i)=-2.0*dx+i*dx/(S3.order());}
   for(int i=1;i<ng;i++){for(int j=0;j<S3.nloc();j++){x0.at(S3.nloc()*i+j)=x0[S3.nloc()*i-1]+j*dx/S3.order();}}
   for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[2]:r[2];}
   for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[0]:r[0];}
@@ -111,12 +111,12 @@ int main(){
 // evolve the Riemann problem to the current time level
 
     vector<double> rx;vempty(rx); // sample point coordinates
-    for(long i=0;i<NSAMPLES;i++){rx.push_back(double(i)/double(NSAMPLES));}
+    for(long i=0;i<NSAMPLES+1;i++){rx.push_back(double(i)/double(NSAMPLES));}
     R.profile(&rx,time);
 
 // move the nodes to their full-step position
 
-    for(long i=1;i<=n;i++){
+    for(long i=1;i<=n+2;i++){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
@@ -134,13 +134,21 @@ int main(){
 //      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=u0[S3.nloc()*i+1];ustar[S3.nloc()-1]=f1.ustar;
       double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
 
-      if(i==1){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.reflect(iloc,0))=x0[S3.reflect(iloc,0)]+ustar[iloc]*dt;}} // move ghost cell on left mesh boundary
+//      if(i==2){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.reflect(iloc,0))=x0[S3.reflect(iloc,0)]+ustar[iloc]*dt;}} // move ghost cell on left mesh boundary
 
       for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.nloc()*i+iloc)=x0[S3.nloc()*i+iloc]+ustar[iloc]*dt;}
 
-      if(i==n){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.nloc()*(n+1)+S3.reflect(iloc,0))=x0[S3.nloc()*(n+1)+S3.reflect(iloc,0)]+ustar[iloc]*dt;}}// move ghost cell on right mesh boundary
+//      if(i==n+1){for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.nloc()*(n+1)+S3.reflect(iloc,0))=x0[S3.nloc()*(n+1)+S3.reflect(iloc,0)]+ustar[iloc]*dt;}}// move ghost cell on right mesh boundary
 
     }
+
+// move outer ghost cells
+
+    x1.at(1)=x1[2];
+    x1.at(0)=x0[0]+0.5*(u0[0]+u1[0])*dt;
+
+    x1.at((ng-1)*S3.nloc())=x1[(ng-1)*S3.nloc()-1];
+    x1.at((ng-1)*S3.nloc()+1)=x0[(ng-1)*S3.nloc()+1]+0.5*(u0[(ng-1)*S3.nloc()+1]+u1[(ng-1)*S3.nloc()+1])*dt;
 
 // update cell volumes at the full-step
 
@@ -154,7 +162,7 @@ int main(){
 
     for(int i=0;i<ng;i++){ec1.at(i)=max(ECUT,ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i]);}
 
-    for(long i=1;i<=n;i++){
+    for(long i=2;i<=n+1;i++){
 
 // width of cell, donor and acceptor
 
@@ -193,7 +201,7 @@ int main(){
 
     double tesum(0.0),kesum(0.0),iesum(0.0);
 
-    for(long i=1;i<=n;i++){
+    for(long i=2;i<=n+1;i++){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
@@ -218,7 +226,7 @@ int main(){
 
 // construct the full-step DG energy field
 
-    for(int i=1;i<=n;i++){
+    for(int i=2;i<=n+1;i++){
 
       double dx(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]); // cell width for Jacobian
 
@@ -282,7 +290,7 @@ int main(){
 
 // update nodal DG velocities at the full step
 
-    for(int i=1;i<=n;i++){
+    for(int i=2;i<=n+1;i++){
 
       double dx(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]); // cell width for Jacobian
 
@@ -335,7 +343,9 @@ int main(){
 
 // forces
 
+      double mvtx[2]={};mvtx[0]=0.5*(m[i-1]+m[i]);mvtx[1]=0.5*(m[i]+m[i+1]); // mass of the vertex
       for(int iloc=0;iloc<S3.nloc();iloc++){f[i*S3.nloc()+iloc]=soln[iloc]*(0.5*m[i]);} // f=ma
+//      for(int iloc=0;iloc<S3.nloc();iloc++){f[i*S3.nloc()+iloc]=soln[iloc]*mvtx[iloc];} // f=ma
 
 // advance the solution
 
@@ -351,8 +361,8 @@ int main(){
 
 // some output - toggle this to output either the exact solutions from the Riemann solver or the finite element solution generated by the code
 
-//    for(int i=0;i<NSAMPLES;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
-    for(long i=1;i<=n;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<" "<<w1[i]<<" "<<f[S3.nloc()*i+iloc]<<endl;}} // high-order DG
+//    for(int i=0;i<NSAMPLES+1;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
+    for(long i=2;i<=n+1;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<" "<<w1[i]<<" "<<f[S3.nloc()*i+iloc]<<endl;}} // high-order DG
 
 // advance the time step
 
@@ -394,7 +404,7 @@ double et(int n,VD*m,VD*e,VD*u, int nloc){
 
   double ek(0.0),ei(0.0);
 
-  for(int i=0;i<=n;i++){ek+=0.25*(*m)[i]*(pow((*u)[i*nloc],2)+pow((*u)[i*nloc+1],2));ei+=(*m)[i]*(*e)[i];}
+  for(int i=2;i<=n+1;i++){ek+=0.25*(*m)[i]*(pow((*u)[i*nloc],2)+pow((*u)[i*nloc+1],2));ei+=(*m)[i]*(*e)[i];}
 
   return ek+ei;
 
