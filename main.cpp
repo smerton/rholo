@@ -55,11 +55,13 @@ int main(){
   vector<double> x0(S3.nloc()*ng),x1(S3.nloc()*ng);     // spatial coordinates
   vector<double> f(S3.nloc()*ng);                       // force on each dg node
   vector<double> w0(ng),w1(ng);                         // work done
+  vector<double> c(ng);                                 // sound speed in each element 
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
-  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // Sod's Shock Tube initial conditions
-//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};      // 123 Problem initial conditions
-//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};   // Woodward & Colella initial conditions
+
+  double l[4]={1.0,0.0,1.0,1.183216},r[4]={0.125,0.0,0.1,1.0583005}; // Sod's Shock Tube initial conditions
+//  double l[4]={1.0,-2.0,0.4,0.7483315},r[4]={1.0,2.0,0.4,0.7483315}; // 123 Problem initial conditions
+//  double l[4]={1.0,0.0,1000.0,37.416574},r[4]={1.0,0.0,0.01,0.1183216}; // Woodward & Colella initial conditions
 
   double S1S[S1.nloc()][S1.nloc()]={};                  // empty surface block for S1 shape function
   double S2S[S2.nloc()][S2.nloc()]={};                  // empty surface block for S2 shape function
@@ -72,6 +74,7 @@ int main(){
   for(int i=1;i<ng;i++){for(int j=0;j<S3.nloc();j++){x0.at(S3.nloc()*i+j)=x0[S3.nloc()*i-1]+j*dx/S3.order();}}
   for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[2]:r[2];}
   for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[S3.nloc()*i]+x0[S3.nloc()*(i+1)-1])<=0.5)?l[0]:r[0];}
+  for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d[i]);}
   for(int i=0;i<ng;i++){for(int j=0;j<S3.nloc();j++){e0.at(S3.nloc()*i+j)=E(d[i],p[i]);}}
   for(int i=0;i<ng;i++){ec0.at(i)=E(d[i],p[i]);}
   for(int i=0;i<ng;i++){ec0s.at(i)=E(d[i],p[i]);}
@@ -120,14 +123,14 @@ int main(){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
+      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
+      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
       Riemann f1(Riemann::pvrs,l,r);
 
 //      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
@@ -178,14 +181,14 @@ int main(){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
+      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
+      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
       Riemann f1(Riemann::pvrs,l,r);
 
 //      ec1s.at(i)=max(ECUT,ec0s[i]-(f0.pstar*(x0[S3.nloc()*i]-x1[S3.nloc()*i])+f1.pstar*(x1[S3.nloc()*(i+1)-1]-x0[S3.nloc()*(i+1)-1]))/m[i]);
@@ -201,14 +204,14 @@ int main(){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
+      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
+      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
       Riemann f1(Riemann::pvrs,l,r);
 
       double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
@@ -228,14 +231,14 @@ int main(){
 
 // fluxes on face 0 of i (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
+      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
+      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
       Riemann f1(Riemann::pvrs,l,r);
 
 // pressure and velocity on each face
@@ -292,15 +295,15 @@ int main(){
 
 // fluxes on face 0 of i (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];
+      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
+      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
 
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];
+      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
+      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
 
       Riemann f1(Riemann::pvrs,l,r);
 

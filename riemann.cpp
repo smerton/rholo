@@ -35,12 +35,14 @@ Riemann::Riemann(solver s,double*l,double*r){
   mDl=l[0];
   mul=l[1];
   mPl=l[2];
+  cl=l[3];
 
 // set up the right state
 
   mDr=r[0];
   mur=r[1];
   mPr=r[2];
+  cr=r[3];
 
 //  cout<<"Riemann::Riemann(): left state (d,u,p) = "<<mDl<<","<<mul<<","<<mPl<<endl;
 //  cout<<"Riemann::Riemann(): right state (d,u,p) = "<<mDr<<","<<mur<<","<<mPr<<endl;
@@ -66,11 +68,6 @@ Riemann::Riemann(solver s,double*l,double*r){
 
 void Riemann::pvrs_solver(){
 
-// sound speed
-
-  cl=sqrt(g0*mPl/mDl);
-  cr=sqrt(g0*mPr/mDr);
-
 // acoustic impedance
 
   double zl(mPl*cl),zr(mPr*cr);
@@ -92,11 +89,6 @@ void Riemann::pvrs_solver(){
 // loads the two-rarefaction approximation where rarefactions are presenting
 
 void Riemann::exact_solver(){
-
-// sounds speeds left and right
-
-  cl=sqrt(g0*mPl/mDl);
-  cr=sqrt(g0*mPr/mDr);
 
 // compute critical velocity
 

@@ -299,9 +299,9 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 
 // sample the exact solution
 
-  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for Riemann solver
-//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};        // 123 problem
-//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};       // Colella & Woodward Blastwave
+  double l[4]={1.0,0.0,1.0,1.183216},r[4]={0.125,0.0,0.1,1.0583005};       // left/right flux states for Riemann solver
+//  double l[4]={1.0,-2.0,0.4,0.7483315},r[4]={1.0,2.0,0.4,0.7483315};        // 123 problem
+//  double l[4]={1.0,0.0,1000.0,37.416574},r[4]={1.0,0.0,0.01,0.1183216};       // Colella & Woodward Blastwave
 
   Riemann R(Riemann::exact,l,r);R.profile(&rx,time);
 
