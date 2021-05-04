@@ -121,6 +121,15 @@ int main(){
 
     for(long i=1;i<=n+2;i++){
 
+// advect fluxes to the corners of the cell
+
+      double phi[9]={p[i-1],p[i],p[i+1],d[i-1],d[i],d[i+1],c[i-1],c[i],c[i+1]};
+      fadvec(phi,x0[(i-1)*S3.nloc()],x0[i*S3.nloc()],x0[(i+1)*S3.nloc()]);
+
+      cout<<i<<" "<<x0[(i-1)*S3.nloc()]<<" "<<phi[0]<<" "<<x0[i*S3.nloc()]<<" "<<phi[1]<<" "<<x0[(i+1)*S3.nloc()]<<" "<<phi[2]<<endl; // advected pressure
+//      cout<<i<<" "<<x0[(i-1)*S3.nloc()]<<" "<<phi[3]<<" "<<x0[i*S3.nloc()]<<" "<<phi[4]<<" "<<x0[(i+1)*S3.nloc()]<<" "<<phi[5]<<endl; // advected density
+//      cout<<i<<" "<<x0[(i-1)*S3.nloc()]<<" "<<phi[6]<<" "<<x0[i*S3.nloc()]<<" "<<phi[7]<<" "<<x0[(i+1)*S3.nloc()]<<" "<<phi[8]<<endl; // advected sound speed
+
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
       l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
