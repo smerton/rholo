@@ -31,6 +31,7 @@ double E(double d,double p); // invert the eos to get energy if we only have pre
 void vempty(vector<double>&v); // signature for emptying a vector
 void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cycle,double time);         // signature for silo output
 double et(int n,VD*m,VD*e,VD*u, int nloc); // signature fot total energy
+void fadvec(VD*f,VD*x,int n,double*phi); // signature for flux advection function
 template <typename T> int sgn(T val); // signature for the sgn template
 
 using namespace std;
@@ -45,7 +46,7 @@ int main(){
 
 // global data
 
-  int const n(100),ng(n+4),order(1);                    // no. ncells (min 2), ghosts and element order
+  int const n(2),ng(n+4),order(1);                    // no. ncells (min 2), ghosts and element order
   Shape S1(order),S2(order),S3(order);                  // load FE stencils for energy/momentum equation
   Shape*S[2]={&S3,&S3};                                 // pack the shapes into an array
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
@@ -91,6 +92,10 @@ int main(){
   S2S[0][0]=-1.0;S2S[S2.nloc()-1][S2.nloc()-1]=1.0; // contains the outward pointing unit normal on each face
   S3S[0][0]=-1.0;S3S[S3.nloc()-1][S3.nloc()-1]=1.0; // contains the outward pointing unit normal on each face
 
+// we need to update fadvec() if we increase order as it contains hard-coding
+
+  if(order>1){cout<<"fadvec() hard-coded to first order !!"<<endl;exit(1);}
+
 // start the Riemann solver from initial flux states to get an exact solution
 
   Riemann R(Riemann::exact,l,r);
@@ -117,18 +122,19 @@ int main(){
     for(long i=0;i<NSAMPLES+1;i++){rx.push_back(double(i)/double(NSAMPLES));}
     R.profile(&rx,time);
 
+// advect fluxes to cell edges
+
+    double dedge[2*ng],pedge[2*ng],cedge[2*ng]; // edge arrays for advected density, pressure and sound speed
+
+    fadvec(&d,&x0,ng,dedge);
+
 // move the nodes to their full-step position
 
     for(long i=1;i<=n+2;i++){
 
-// advect fluxes to the corners of the cell
+// check the advected values
 
-      double phi[9]={p[i-1],p[i],p[i+1],d[i-1],d[i],d[i+1],c[i-1],c[i],c[i+1]};
-      fadvec(phi,x0[(i-1)*S3.nloc()],x0[i*S3.nloc()],x0[(i+1)*S3.nloc()]);
-
-      cout<<i<<" "<<x0[(i-1)*S3.nloc()]<<" "<<phi[0]<<" "<<x0[i*S3.nloc()]<<" "<<phi[1]<<" "<<x0[(i+1)*S3.nloc()]<<" "<<phi[2]<<endl; // advected pressure
-//      cout<<i<<" "<<x0[(i-1)*S3.nloc()]<<" "<<phi[3]<<" "<<x0[i*S3.nloc()]<<" "<<phi[4]<<" "<<x0[(i+1)*S3.nloc()]<<" "<<phi[5]<<endl; // advected density
-//      cout<<i<<" "<<x0[(i-1)*S3.nloc()]<<" "<<phi[6]<<" "<<x0[i*S3.nloc()]<<" "<<phi[7]<<" "<<x0[(i+1)*S3.nloc()]<<" "<<phi[8]<<endl; // advected sound speed
+      cout<<"advection check: "<<i<<" "<<dedge[2*i]<<" "<<dedge[2*i+1]<<endl;
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
@@ -157,6 +163,10 @@ int main(){
 
     x1.at((ng-1)*S3.nloc())=x1[(ng-1)*S3.nloc()-1];
     x1.at((ng-1)*S3.nloc()+1)=x0[(ng-1)*S3.nloc()+1]+0.5*(u0[(ng-1)*S3.nloc()+1]+u1[(ng-1)*S3.nloc()+1])*dt;
+
+// debug
+    exit(1);
+// debug
 
 // update cell volumes at the full-step
 
@@ -415,6 +425,52 @@ double et(int n,VD*m,VD*e,VD*u, int nloc){
   for(int i=2;i<=n+1;i++){ek+=0.25*(*m)[i]*(pow((*u)[i*nloc],2)+pow((*u)[i*nloc+1],2));ei+=(*m)[i]*(*e)[i];}
 
   return ek+ei;
+
+}
+
+// advect a cell-centred flux to the cell corners
+
+void fadvec(VD*f,VD*x,int n,double*phi){
+
+  cout<<"Inside fadvec(): n= "<<n<<endl;
+
+// loop over mesh out to level 1 halo (NB this requires 2 ghost levels)
+
+  for(int i=1;i<n-1;i++){
+
+// compute centroid of cells i-1,i,i+1
+
+    double xc1(0.5*((*x)[2*(i-1)]+(*x)[2*(i-1)+1]));
+    double xc2(0.5*((*x)[2*i]+(*x)[2*i+1]));
+    double xc3(0.5*((*x)[2*(i+1)]+(*x)[2*(i+1)+1]));
+
+// compute left and right flux gradient
+
+    double dfl(((*f)[i]-(*f)[i-1])/(xc2-xc1));
+    double dfr(((*f)[i+1]-(*f)[i])/(xc3-xc2));
+
+// change in middle cell flux due to left gradient
+
+    double dphi_l(dfl*(xc3-xc2));
+
+// change in middle cell flux due to right gradient
+
+    double dphi_r(dfr*(xc2-xc1));
+
+// total change in middle cell flux
+
+    double dphi(dphi_l+dphi_r);
+
+// gradient at middle centroid to second order
+
+    double dphidx2(dphi/(xc3-xc1));
+
+    cout<<i<<" "<<xc1<<" "<<xc2<<" "<<xc3<<endl;
+    phi[2*i]=10.0;
+    phi[2*i+1]=-10.0;
+  }
+
+  return;
 
 }
 
