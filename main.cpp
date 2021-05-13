@@ -33,6 +33,7 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 double et(int n,VD*m,VD*e,VD*u, int nloc); // signature fot total energy
 void fadvec(VD*f,VD*x,int n,double*phi); // signature for flux advection function
 template <typename T> int sgn(T val); // signature for the sgn template
+template <typename T> double min3(T val1, T val2, T val3); // signature for the min template
 
 using namespace std;
 
@@ -46,7 +47,7 @@ int main(){
 
 // global data
 
-  int const n(2),ng(n+4),order(1);                    // no. ncells (min 2), ghosts and element order
+  int const n(100),ng(n+4),order(1);                    // no. ncells (min 2), ghosts and element order
   Shape S1(order),S2(order),S3(order);                  // load FE stencils for energy/momentum equation
   Shape*S[2]={&S3,&S3};                                 // pack the shapes into an array
   vector<double> d(ng),p(ng),V0(ng),V1(ng),m(ng);       // pressure, density, volume & mass
@@ -59,6 +60,7 @@ int main(){
   vector<double> c(ng);                                 // sound speed in each element 
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
+  double dedge[2*ng],pedge[2*ng],cedge[2*ng];           // edge arrays for advected density, pressure and sound speed
 
   double l[4]={1.0,0.0,1.0,1.183216},r[4]={0.125,0.0,0.1,1.0583005}; // Sod's Shock Tube initial conditions
 //  double l[4]={1.0,-2.0,0.4,0.7483315},r[4]={1.0,2.0,0.4,0.7483315}; // 123 Problem initial conditions
@@ -122,30 +124,32 @@ int main(){
     for(long i=0;i<NSAMPLES+1;i++){rx.push_back(double(i)/double(NSAMPLES));}
     R.profile(&rx,time);
 
-// advect fluxes to cell edges
+// advect cell-centred fluxes to the cell edges
 
-    double dedge[2*ng],pedge[2*ng],cedge[2*ng]; // edge arrays for advected density, pressure and sound speed
-
-    fadvec(&d,&x0,ng,dedge);
+    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
 
 // move the nodes to their full-step position
 
     for(long i=1;i<=n+2;i++){
 
-// check the advected values
-
-      cout<<"advection check: "<<i<<" "<<dedge[2*i]<<" "<<dedge[2*i+1]<<endl;
-
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
       l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
       r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
+
+//      l[0]=dedge[2*i-1];l[1]=u0[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
+//      r[0]=dedge[2*i];r[1]=u0[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
+
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
       l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
       r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
+
+//      l[0]=dedge[2*i+1];l[1]=u0[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
+//      r[0]=dedge[2*(i+1)];r[1]=u0[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
+
       Riemann f1(Riemann::pvrs,l,r);
 
 //      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
@@ -164,10 +168,6 @@ int main(){
     x1.at((ng-1)*S3.nloc())=x1[(ng-1)*S3.nloc()-1];
     x1.at((ng-1)*S3.nloc()+1)=x0[(ng-1)*S3.nloc()+1]+0.5*(u0[(ng-1)*S3.nloc()+1]+u1[(ng-1)*S3.nloc()+1])*dt;
 
-// debug
-    exit(1);
-// debug
-
 // update cell volumes at the full-step
 
     for(int i=0;i<ng;i++){V1.at(i)=x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i];if(V1[i]<0.0){cout<<"ERROR:  -'ve volume in cell "<<i<<endl;exit(1);}}
@@ -180,23 +180,13 @@ int main(){
 
     for(int i=0;i<ng;i++){ec1.at(i)=max(ECUT,ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i]);}
 
+// advect cell-centred fluxes to the cell edges
+
+    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
+
+// ec1s cell-centred energy term
+
     for(long i=2;i<=n+1;i++){
-
-// width of cell, donor and acceptor
-
-      double dx1(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]),dx2(x1[S3.nloc()*(i+2)-1]-x1[S3.nloc()*(i+1)]);
-
-// determine pressure gradient using a parabolic fit between donor cell and the two neighbouring cells
-
-      double s1(((p[i+1]-p[i])*dx1*dx1+(p[i]-p[i-1])*dx2*dx2)/(dx1*dx2*(p[i]+p[i+1])));
-
-// determine two more slopes to use in the van Leer flux limiter
-
-      double s2((p[i+1]-p[i])/dx2),s3((p[i]-p[i-1])/dx1);
-
-// apply van Leer limiter to get a slope for extrapolation
-
-      double s4(0.5*(sgn(s3)+sgn(s2))*min(abs(s1),min(abs(s2),abs(s3))));
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
@@ -214,6 +204,10 @@ int main(){
       ec1s.at(i)=max(ECUT,ec0s[i]-0.5*(f0.pstar+f1.pstar)*(V1[i]-V0[i])/m[i]);
 
     }
+
+// advect cell-centred fluxes to the cell edges
+
+    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
 
 // Fds term - use forces from previous time-step
 
@@ -241,6 +235,10 @@ int main(){
       for(int jloc=0;jloc<S3.nloc();jloc++){w1.at(i)=max(ECUT,w0[i]+=f[i*S3.nloc()+jloc]*(x1[i*S3.nloc()+jloc]-x0[i*S3.nloc()+jloc])/m[i]);}
 //      for(int jloc=0;jloc<S3.nloc();jloc++){w1.at(i)=max(ECUT,w0[i]+=f[i*S3.nloc()+jloc]*(x1[i*S3.nloc()+jloc]-x0[i*S3.nloc()+jloc])/mnod[jloc]);}
     }
+
+// advect cell-centred fluxes to the cell edges
+
+    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
 
 // construct the full-step DG energy field
 
@@ -305,6 +303,10 @@ int main(){
 // update cell pressure at the full-step using PdV / DG energy field
 
     for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // use PdV
+
+// advect cell-centred fluxes to the cell edges
+
+    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
 
 // update nodal DG velocities at the full step
 
@@ -380,7 +382,9 @@ int main(){
 // some output - toggle this to output either the exact solutions from the Riemann solver or the finite element solution generated by the code
 
 //    for(int i=0;i<NSAMPLES+1;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
-    for(long i=2;i<=n+1;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<" "<<w1[i]<<" "<<f[S3.nloc()*i+iloc]<<endl;}} // high-order DG
+    for(long i=2;i<=n+1;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<endl;}} // DG
+//    for(long i=2;i<=n+1;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<" "<<w1[i]<<" "<<f[S3.nloc()*i+iloc]<<endl;}} // includes fDS and work-done terms
+
 
 // advance the time step
 
@@ -428,46 +432,50 @@ double et(int n,VD*m,VD*e,VD*u, int nloc){
 
 }
 
-// advect a cell-centred flux to the cell corners
+// advect a cell-centred flux to the cell corners to second order
 
 void fadvec(VD*f,VD*x,int n,double*phi){
 
-  cout<<"Inside fadvec(): n= "<<n<<endl;
-
-// loop over mesh out to level 1 halo (NB this requires 2 ghost levels)
+// loop over mesh out to level 1 halo (NB this requires 2 ghost levels which is all we have)
 
   for(int i=1;i<n-1;i++){
 
-// compute centroid of cells i-1,i,i+1
+// compute centroid of acceptor, upstream donor and downstream donor
 
     double xc1(0.5*((*x)[2*(i-1)]+(*x)[2*(i-1)+1]));
     double xc2(0.5*((*x)[2*i]+(*x)[2*i+1]));
     double xc3(0.5*((*x)[2*(i+1)]+(*x)[2*(i+1)+1]));
 
-// compute left and right flux gradient
+// compute flux gradient between acceptor and upstream/downstream donors
 
     double dfl(((*f)[i]-(*f)[i-1])/(xc2-xc1));
     double dfr(((*f)[i+1]-(*f)[i])/(xc3-xc2));
 
-// change in middle cell flux due to left gradient
+// change in acceptor flux due to downstream gradient
 
-    double dphi_l(dfl*(xc3-xc2));
+    double dphi_l(dfr*(xc2-xc1));
 
-// change in middle cell flux due to right gradient
+// change in acceptor flux due to upstream gradient
 
-    double dphi_r(dfr*(xc2-xc1));
+    double dphi_r(dfl*(xc3-xc2));
 
-// total change in middle cell flux
+// total change in acceptor flux
 
     double dphi(dphi_l+dphi_r);
 
-// gradient at middle centroid to second order
+// gradient across acceptor
 
     double dphidx2(dphi/(xc3-xc1));
 
-    cout<<i<<" "<<xc1<<" "<<xc2<<" "<<xc3<<endl;
-    phi[2*i]=10.0;
-    phi[2*i+1]=-10.0;
+// apply van Leer slope limiter to obtain slope for extrapolation (thus a parabolic fit)
+
+    double phi_prime(0.5*(sgn(dfl)+sgn(dfr))*min3(abs(dphidx2),abs(dfl),abs(dfr)));
+
+// advect along upstream and downstream gradients to populate corners of acceptor cell
+
+    phi[2*i]=(*f)[i]-phi_prime*(xc2-(*x)[2*i]);
+    phi[2*i+1]=(*f)[i]+phi_prime*((*x)[2*i+1]-xc2);
+
   }
 
   return;
@@ -477,3 +485,7 @@ void fadvec(VD*f,VD*x,int n,double*phi){
 // implement the sign function
 
 template <typename T> int sgn(T val){return (T(0)<val)-(val<T(0));}
+
+// implement the min function with 3 arguments
+
+template <typename T> double min3(T val1, T val2, T val3){return min(min(val1,val3),val2);}
