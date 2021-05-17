@@ -182,7 +182,7 @@ int main(){
 
 // advect cell-centred fluxes to the cell edges
 
-    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
+    fadvec(&d,&x1,ng,dedge);fadvec(&p,&x1,ng,pedge);fadvec(&c,&x1,ng,cedge);
 
 // ec1s cell-centred energy term - this is like -(p+q)*dV
 
@@ -207,7 +207,7 @@ int main(){
 
 // advect cell-centred fluxes to the cell edges
 
-    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
+    fadvec(&d,&x1,ng,dedge);fadvec(&p,&x1,ng,pedge);fadvec(&c,&x1,ng,cedge);
 
 // Fds term - use forces from previous time-step
 
@@ -238,7 +238,7 @@ int main(){
 
 // advect cell-centred fluxes to the cell edges
 
-    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
+    fadvec(&d,&x1,ng,dedge);fadvec(&p,&x1,ng,pedge);fadvec(&c,&x1,ng,cedge);
 
 // construct the full-step DG energy field
 
@@ -310,7 +310,7 @@ int main(){
 
 // advect cell-centred fluxes to the cell edges
 
-    fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
+    fadvec(&d,&x1,ng,dedge);fadvec(&p,&x1,ng,pedge);fadvec(&c,&x1,ng,cedge);
 
 // update nodal DG velocities at the full step
 
