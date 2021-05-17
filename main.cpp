@@ -130,26 +130,18 @@ int main(){
 
 // move the nodes to their full-step position
 
-    for(long i=1;i<=n+2;i++){
+    for(long i=2;i<n+2;i++){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
-
-//      l[0]=dedge[2*i-1];l[1]=u0[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
-//      r[0]=dedge[2*i];r[1]=u0[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
-
+      l[0]=dedge[2*i-1];l[1]=u0[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
+      r[0]=dedge[2*i];r[1]=u0[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
-
-//      l[0]=dedge[2*i+1];l[1]=u0[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
-//      r[0]=dedge[2*(i+1)];r[1]=u0[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
-
+      l[0]=dedge[2*i+1];l[1]=u0[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
+      r[0]=dedge[2*(i+1)];r[1]=u0[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
       Riemann f1(Riemann::pvrs,l,r);
 
 //      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[1]=0.5*(f0.ustar+f1.ustar);ustar[S3.nloc()-1]=f1.ustar;
@@ -160,13 +152,17 @@ int main(){
 
     }
 
-// move outer ghost cells - only 1 node to move so no Riemann problem here
+// move ghost cells
 
+    x1.at(3)=x1[4];
+    x1.at(2)=x0[2]+u0[2]*dt;
     x1.at(1)=x1[2];
-    x1.at(0)=x0[0]+0.5*(u0[0]+u1[0])*dt;
+    x1.at(0)=x0[0]+u0[0]*dt;
 
-    x1.at((ng-1)*S3.nloc())=x1[(ng-1)*S3.nloc()-1];
-    x1.at((ng-1)*S3.nloc()+1)=x0[(ng-1)*S3.nloc()+1]+0.5*(u0[(ng-1)*S3.nloc()+1]+u1[(ng-1)*S3.nloc()+1])*dt;
+    x1.at(2*(ng-1)-2)=x1[2*(ng-1)-3];
+    x1.at(2*(ng-1)-1)=x0[2*(ng-1)-1]+u0[2*(ng-1)-1]*dt;
+    x1.at(2*(ng-1))=x1[2*(ng-1)-1];
+    x1.at(2*(ng-1)+1)=x0[2*(ng-1)+1]+u0[2*(ng-1)+1]*dt;
 
 // update cell volumes at the full-step
 
@@ -176,6 +172,10 @@ int main(){
 
     for(int i=0;i<ng;i++){d.at(i)=m[i]/V1[i];} 
 
+// update sound speed due to density change
+
+    for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d[i]);}
+
 // update cell energy at the full-step
 
     for(int i=0;i<ng;i++){ec1.at(i)=max(ECUT,ec0[i]-(p[i]*(V1[i]-V0[i]))/m[i]);}
@@ -184,20 +184,20 @@ int main(){
 
     fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
 
-// ec1s cell-centred energy term
+// ec1s cell-centred energy term - this is like -(p+q)*dV
 
-    for(long i=2;i<=n+1;i++){
+    for(long i=2;i<n+2;i++){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
+      l[0]=dedge[2*i-1];l[1]=u0[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
+      r[0]=dedge[2*i];r[1]=u0[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
+      l[0]=dedge[2*i+1];l[1]=u0[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
+      r[0]=dedge[2*(i+1)];r[1]=u0[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
       Riemann f1(Riemann::pvrs,l,r);
 
 //      ec1s.at(i)=max(ECUT,ec0s[i]-(f0.pstar*(x0[S3.nloc()*i]-x1[S3.nloc()*i])+f1.pstar*(x1[S3.nloc()*(i+1)-1]-x0[S3.nloc()*(i+1)-1]))/m[i]);
@@ -213,18 +213,18 @@ int main(){
 
     double tesum(0.0),kesum(0.0),iesum(0.0);
 
-    for(long i=2;i<=n+1;i++){
+    for(long i=2;i<n+2;i++){
 
 // fluxes on left and right sides of face 0 (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
+      l[0]=dedge[2*i-1];l[1]=u0[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
+      r[0]=dedge[2*i];r[1]=u0[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on left and right sides of face 1 (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
+      l[0]=dedge[2*i+1];l[1]=u0[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
+      r[0]=dedge[2*(i+1)];r[1]=u0[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
       Riemann f1(Riemann::pvrs,l,r);
 
       double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
@@ -242,20 +242,20 @@ int main(){
 
 // construct the full-step DG energy field
 
-    for(int i=2;i<=n+1;i++){
+    for(int i=2;i<n+2;i++){
 
       double dx(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]); // cell width for Jacobian
 
 // fluxes on face 0 of i (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
+      l[0]=dedge[2*i-1];l[1]=u0[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
+      r[0]=dedge[2*i];r[1]=u0[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
+      l[0]=dedge[2*i+1];l[1]=u0[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
+      r[0]=dedge[2*(i+1)];r[1]=u0[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
       Riemann f1(Riemann::pvrs,l,r);
 
 // pressure and velocity on each face
@@ -304,28 +304,30 @@ int main(){
 
     for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // use PdV
 
+// update sound speed due to pressure change
+
+    for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d[i]);}
+
 // advect cell-centred fluxes to the cell edges
 
     fadvec(&d,&x0,ng,dedge);fadvec(&p,&x0,ng,pedge);fadvec(&c,&x0,ng,cedge);
 
 // update nodal DG velocities at the full step
 
-    for(int i=2;i<=n+1;i++){
+    for(int i=2;i<n+2;i++){
 
       double dx(x1[S3.nloc()*(i+1)-1]-x1[S3.nloc()*i]); // cell width for Jacobian
 
 // fluxes on face 0 of i (left boundary of cell)
 
-      l[0]=d[i-1];l[1]=u0[S3.nloc()*i-1];l[2]=p[i-1];l[3]=sqrt(GAMMA*p[i-1]/d[i-1]);
-      r[0]=d[i];r[1]=u0[S3.nloc()*i];r[2]=p[i];r[3]=sqrt(GAMMA*p[i]/d[i]);
-
+      l[0]=dedge[2*i-1];l[1]=u0[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
+      r[0]=dedge[2*i];r[1]=u0[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
       Riemann f0(Riemann::pvrs,l,r);
 
 // fluxes on face 1 of i (right boundary of cell)
 
-      l[0]=d[i];l[1]=u0[S3.nloc()*(i+1)-1];l[2]=p[i];l[3]=sqrt(GAMMA*p[i]/d[i]);
-      r[0]=d[i+1];r[1]=u0[S3.nloc()*(i+1)];r[2]=p[i+1];r[3]=sqrt(GAMMA*p[i+1]/d[i+1]);
-
+      l[0]=dedge[2*i+1];l[1]=u0[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
+      r[0]=dedge[2*(i+1)];r[1]=u0[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
       Riemann f1(Riemann::pvrs,l,r);
 
 // pressure and velocity on each face
@@ -382,8 +384,8 @@ int main(){
 // some output - toggle this to output either the exact solutions from the Riemann solver or the finite element solution generated by the code
 
 //    for(int i=0;i<NSAMPLES+1;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
-    for(long i=2;i<=n+1;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<endl;}} // DG
-//    for(long i=2;i<=n+1;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<" "<<w1[i]<<" "<<f[S3.nloc()*i+iloc]<<endl;}} // includes fDS and work-done terms
+    for(long i=2;i<=n+1;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<ec1s[i]<<endl;}} // DG
+//    for(long i=2;i<=n+1;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<" "<<w1[i]<<" "<<f[S3.nloc()*i+iloc]<<endl;}} // includes all energy terms
 
 
 // advance the time step
