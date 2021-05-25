@@ -267,6 +267,9 @@ int main(){
 // debug
     }
 
+    w1.at(1)=w1[2];w1.at(0)=w1[1];
+    w1.at(n+2)=w1[n+1];w1.at(n+3)=w1[n+2];
+
 // debug
     cout<<fixed<<setprecision(17);
     for(int i=2;i<n+2;i++){
@@ -343,7 +346,7 @@ int main(){
 
 //    for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // using basic PdV term - probably wrong as this excludes shock-heating
     for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1s[i]);} // using Riemann equivalent of (P+Q)dV - should be valid as it's inclusive of shock-heating
-//    for(int i=0;i<ng;i++){p.at(i)=P(d[i],w1[2*i]);} // using Fds (work done) term
+//    for(int i=0;i<ng;i++){p.at(i)=P(d[i],w1[i]);} // using Fds (work done) term
 
 // update sound speed due to pressure change
 
@@ -448,14 +451,17 @@ int main(){
 //        f[i*S3.nloc()+iloc]=as*0.5*m[i]; // f=ma
 //      }
       double acc[2]={};acc[0]=((us1[2*i]-us0[2*i])/dt);acc[1]=((us1[2*i+1]-us0[2*i+1])/dt); // vertex acceleration
-//      double mass[2]={};mass[0]=(0.5*(V1[i-1]*dedge[2*i-1]+V1[i]*dedge[2*i]));mass[1]=(0.5*(V1[i]*dedge[2*i+1]+V1[i+1]*dedge[2*i+2])); // vertex mass
+////      double mass[2]={};mass[0]=(0.5*(V1[i-1]*dedge[2*i-1]+V1[i]*dedge[2*i]));mass[1]=(0.5*(V1[i]*dedge[2*i+1]+V1[i+1]*dedge[2*i+2])); // vertex mass
       double mass[2]={};mass[0]=(0.5*(m[i-1]+m[i]));mass[1]=(0.5*(m[i]+m[i+1])); // vertex mass
-//      double mass[2]={};mass[0]=0.5*m[i];mass[1]=0.5*m[i]; // vertex mass
-//      double mass[2]={};mass[0]=0.5*V1[i]*dedge[2*i];mass[1]=0.5*V1[i]*dedge[2*i+1]; // nodal mass
+////      double mass[2]={};mass[0]=0.5*m[i];mass[1]=0.5*m[i]; // vertex mass
+////      double mass[2]={};mass[0]=0.5*V1[i]*dedge[2*i];mass[1]=0.5*V1[i]*dedge[2*i+1]; // nodal mass
       double ie(w0[i]*m[i]); // absolute internal energy
       double ds[2]={};ds[0]=(x1[2*i]-x0[2*i]);ds[1]=(x1[2*i+1]-x0[2*i+1]);
-      f.at(2*i)=mass[0]*acc[0]; // force on left vertex
-      f.at(2*i+1)=mass[1]*acc[1]; // force on right vertex
+
+// forces on the vertex
+
+      f.at(2*i)=mass[0]*acc[0]; // force on left edge
+      f.at(2*i+1)=mass[1]*acc[1]; // force on right edge
 
 // work done
 
