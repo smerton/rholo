@@ -12,7 +12,7 @@
 #define GAMMA 1.4         // ratio of specific heats for ideal gases
 #define ECUT 1.0-8        // cut-off on the energy field
 #define NSAMPLES 500     // number of sample points for the exact solution
-#define VISFREQ 10       // frequency of the graphics dumps
+#define VISFREQ 99999       // frequency of the graphics dumps
 #define VD vector<double> // vector of doubles
 
 #include <iostream>
@@ -54,6 +54,7 @@ int main(){
   vector<double> e0(S3.nloc()*ng),e1(S3.nloc()*ng);     // fe DG energy field
   vector<double> ec0(ng),ec1(ng),ec0s(ng),ec1s(ng);     // cell-centred energy field
   vector<double> u0(S3.nloc()*ng),u1(S3.nloc()*ng);     // velocity field
+  vector<double> us0(S3.nloc()*ng),us1(S3.nloc()*ng);     // u^star velocity field
   vector<double> x0(S3.nloc()*ng),x1(S3.nloc()*ng);     // spatial coordinates
   vector<double> f(S3.nloc()*ng);                       // force on each dg node
   vector<double> w0(ng),w1(ng);                         // work done
@@ -69,6 +70,10 @@ int main(){
   double S1S[S1.nloc()][S1.nloc()]={};                  // empty surface block for S1 shape function
   double S2S[S2.nloc()][S2.nloc()]={};                  // empty surface block for S2 shape function
   double S3S[S3.nloc()][S3.nloc()]={};                  // empty surface block for S3 shape function
+
+// debug
+  double fds[2*ng],pdv[2*ng];
+// debug
 
 // initialise the problem
 
@@ -150,6 +155,10 @@ int main(){
 
       for(int iloc=0;iloc<S3.nloc();iloc++){x1.at(S3.nloc()*i+iloc)=x0[S3.nloc()*i+iloc]+ustar[iloc]*dt;}
 
+// store Riemann velocities globally
+
+      us0[2*i]=f0.ustar;us0[2*i+1]=f1.ustar;
+
     }
 
 // move ghost cells
@@ -203,6 +212,11 @@ int main(){
 //      ec1s.at(i)=max(ECUT,ec0s[i]-(f0.pstar*(x0[S3.nloc()*i]-x1[S3.nloc()*i])+f1.pstar*(x1[S3.nloc()*(i+1)-1]-x0[S3.nloc()*(i+1)-1]))/m[i]);
       ec1s.at(i)=max(ECUT,ec0s[i]-0.5*(f0.pstar+f1.pstar)*(V1[i]-V0[i])/m[i]);
 
+// debug
+      pdv[2*i]=0.5*f0.pstar*(V1[i]-V0[i]);
+      pdv[2*i+1]=0.5*f1.pstar*(V1[i]-V0[i]);
+// debug
+
     }
 
 // update ghosts
@@ -215,30 +229,51 @@ int main(){
 
 // Fds term - use forces from previous time-step
 
-    double tesum(0.0),kesum(0.0),iesum(0.0);
-
     for(long i=2;i<n+2;i++){
-
-// fluxes on left and right sides of face 0 (left boundary of cell)
-
-      l[0]=dedge[2*i-1];l[1]=u0[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
-      r[0]=dedge[2*i];r[1]=u0[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
-      Riemann f0(Riemann::pvrs,l,r);
-
-// fluxes on left and right sides of face 1 (right boundary of cell)
-
-      l[0]=dedge[2*i+1];l[1]=u0[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
-      r[0]=dedge[2*(i+1)];r[1]=u0[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
-      Riemann f1(Riemann::pvrs,l,r);
-
-      double ustar[S3.nloc()]={};ustar[0]=f0.ustar;ustar[S3.nloc()-1]=f1.ustar;
 
 // sum in component from each node to find total work done on element i
 
-      double mnod[2]={};mnod[0]=0.5*(m[i-1]+m[i]);mnod[1]=0.5*(m[i]+m[i+1]);
-      for(int jloc=0;jloc<S3.nloc();jloc++){w1.at(i)=max(ECUT,w0[i]+=f[i*S3.nloc()+jloc]*(x1[i*S3.nloc()+jloc]-x0[i*S3.nloc()+jloc])/m[i]);}
-////      for(int jloc=0;jloc<S3.nloc();jloc++){w1.at(i)=max(ECUT,w0[i]+=f[i*S3.nloc()+jloc]*(x1[i*S3.nloc()+jloc]-x0[i*S3.nloc()+jloc])/mnod[jloc]);}
+      double wl(f[2*i]*sgn((V1[i]-V0[i]))*(x0[2*i]-x1[2*i])); // work done through vertex i-1/2
+      double wr(f[2*i+1]*sgn((V1[i]-V0[i]))*(x0[2*i+1]-x1[2*i+1])); // work done through vertex i+1/2
+
+      w1.at(i)=max(ECUT,w0[i]*m[i]+wl+wr)/m[i]; // total work done on element
+
+// debug
+      double nout[2]={};nout[0]=-1.0;nout[1]=1.0;
+//      fds[2*i]=f[2*i]*(0.5*(V1[i]-V0[i]));
+//      fds[2*i]=(f[2*i]*(0.5*(V1[i]-V0[i])))+(f[2*i-1]*(0.5*(V1[i-1]-V0[i-1])));
+//      fds[2*i]=f[2*i]*(x0[2*i]-x1[2*i]);
+//      fds[2*i]=f[2*i]*sgn(x1[2*i]-x0[2*i])*(x1[2*i]-x0[2*i]);
+      fds[2*i]=f[2*i]*sgn((V1[i]-V0[i]))*(x1[2*i]-x0[2*i]); // divergence implies energy loss
+
+//      double ds1(x1[2*i]-x0[2*i]);
+//      if(ds1>0.0){
+//        fds[2*i]=f[2*i]*ds1;
+//      }else{
+//        fds[2*i]=-f[2*i]*ds1;
+//      }
+//      fds[2*i+1]=f[2*i+1]*(0.5*(V1[i]-V0[i]));
+//      fds[2*i+1]=(f[2*i+1]*(0.5*(V1[i]-V0[i])))+(f[2*i+2]*(0.5*(V1[i+1]-V0[i+1])));
+//      fds[2*i+1]=f[2*i+1]*(x0[2*i+1]-x1[2*i+1]);
+//      fds[2*i+1]=f[2*i+1]*sgn(x1[2*i+1]-x0[2*i+1])*(x1[2*i+1]-x0[2*i+1]);
+      fds[2*i+1]=f[2*i+1]*sgn((V1[i]-V0[i]))*(x1[2*i+1]-x0[2*i+1]); // divergence implies energy loss
+
+//      double ds2(x1[2*i+1]-x0[2*i+1]);
+//      if(ds2>0.0){
+//        fds[2*i+1]=f[2*i+1]*ds2;
+//      }else{
+//        fds[2*i+1]=-f[2*i+1]*ds2;
+//      }
+// debug
     }
+
+// debug
+    cout<<fixed<<setprecision(17);
+    for(int i=2;i<n+2;i++){
+//      cout<<x1[2*i]<<" "<<pdv[2*i]<<" "<<fds[2*i]<<endl;
+//      cout<<x1[2*i+1]<<" "<<pdv[2*i+1]<<" "<<fds[2*i+1]<<endl;
+    }
+// debug
 
 // advect cell-centred fluxes to the cell edges
 
@@ -308,6 +343,7 @@ int main(){
 
 //    for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1[i]);} // using basic PdV term - probably wrong as this excludes shock-heating
     for(int i=0;i<ng;i++){p.at(i)=P(d[i],ec1s[i]);} // using Riemann equivalent of (P+Q)dV - should be valid as it's inclusive of shock-heating
+//    for(int i=0;i<ng;i++){p.at(i)=P(d[i],w1[2*i]);} // using Fds (work done) term
 
 // update sound speed due to pressure change
 
@@ -365,9 +401,9 @@ int main(){
 
 // forces
 
-      double mvtx[2]={};mvtx[0]=0.5*(m[i-1]+m[i]);mvtx[1]=0.5*(m[i]+m[i+1]); // mass of the vertex
-      for(int iloc=0;iloc<S3.nloc();iloc++){f[i*S3.nloc()+iloc]=soln[iloc]*(0.5*m[i]);} // f=ma
-//      for(int iloc=0;iloc<S3.nloc();iloc++){f[i*S3.nloc()+iloc]=soln[iloc]*mvtx[iloc];} // f=ma
+//      double mvtx[2]={};mvtx[0]=0.5*(m[i-1]+m[i]);mvtx[1]=0.5*(m[i]+m[i+1]); // mass of the vertex
+//      for(int iloc=0;iloc<S3.nloc();iloc++){f[i*S3.nloc()+iloc]=soln[iloc]*(0.5*m[i]);} // f=ma
+////      for(int iloc=0;iloc<S3.nloc();iloc++){f[i*S3.nloc()+iloc]=soln[iloc]*mvtx[iloc];} // f=ma
 
 // advance the solution
 
@@ -377,16 +413,61 @@ int main(){
 
 // impose a constraint on the acceleration field at domain boundaries to stop the mesh taking off
 
-      for(int i=0;i<S3.nloc();i++){u1.at(i)=u0[i];u1.at(S3.nloc()*(n+1)+i)=u0[S3.nloc()*(n+1)+i];}
+      for(int iloc=0;iloc<S3.nloc();iloc++){u1.at(iloc)=u0[iloc];u1.at(S3.nloc()*(n+1)+iloc)=u0[S3.nloc()*(n+1)+iloc];}
+
+    }
+
+// store end of step Riemann velocities
+
+    for(int i=2;i<n+2;i++){
+
+// fluxes on face 0 of i (left boundary of cell)
+
+      l[0]=dedge[2*i-1];l[1]=u1[2*i-1];l[2]=pedge[2*i-1];l[3]=cedge[2*i-1];
+      r[0]=dedge[2*i];r[1]=u1[2*i];r[2]=pedge[2*i];r[3]=cedge[2*i];
+      Riemann f0(Riemann::pvrs,l,r);
+
+// fluxes on face 1 of i (right boundary of cell)
+
+      l[0]=dedge[2*i+1];l[1]=u1[2*i+1];l[2]=pedge[2*i+1];l[3]=cedge[2*i+1];
+      r[0]=dedge[2*(i+1)];r[1]=u1[2*(i+1)];r[2]=pedge[2*(i+1)];r[3]=cedge[2*(i+1)];
+      Riemann f1(Riemann::pvrs,l,r);
+
+      us1[2*i]=f0.ustar;us1[2*i+1]=f1.ustar;
+
+    }
+
+// compute forces for fds calculation - this uses Riemann velocities to derive accelerations consistent with mesh movement
+
+    for(int i=2;i<n+2;i++){
+
+// derive acceleration field in Riemann space
+
+//      for(int iloc=0;iloc<S3.nloc();iloc++){
+//        double as((us1[2*i+iloc]-us0[2*i+iloc])/dt);
+//        f[i*S3.nloc()+iloc]=as*0.5*m[i]; // f=ma
+//      }
+      double acc[2]={};acc[0]=((us1[2*i]-us0[2*i])/dt);acc[1]=((us1[2*i+1]-us0[2*i+1])/dt); // vertex acceleration
+//      double mass[2]={};mass[0]=(0.5*(V1[i-1]*dedge[2*i-1]+V1[i]*dedge[2*i]));mass[1]=(0.5*(V1[i]*dedge[2*i+1]+V1[i+1]*dedge[2*i+2])); // vertex mass
+      double mass[2]={};mass[0]=(0.5*(m[i-1]+m[i]));mass[1]=(0.5*(m[i]+m[i+1])); // vertex mass
+//      double mass[2]={};mass[0]=0.5*m[i];mass[1]=0.5*m[i]; // vertex mass
+//      double mass[2]={};mass[0]=0.5*V1[i]*dedge[2*i];mass[1]=0.5*V1[i]*dedge[2*i+1]; // nodal mass
+      double ie(w0[i]*m[i]); // absolute internal energy
+      double ds[2]={};ds[0]=(x1[2*i]-x0[2*i]);ds[1]=(x1[2*i+1]-x0[2*i+1]);
+      f.at(2*i)=mass[0]*acc[0]; // force on left vertex
+      f.at(2*i+1)=mass[1]*acc[1]; // force on right vertex
+
+// work done
+
+//      for(int iloc=0;iloc<S3.nloc();iloc++){w1.at(i)=max(ECUT,w0[i]+=f[i*S3.nloc()+iloc]*abs(x1[i*S3.nloc()+iloc]-x0[i*S3.nloc()+iloc])/m[i]);}
 
     }
 
 // some output - toggle this to output either the exact solutions from the Riemann solver or the finite element solution generated by the code
 
 //    for(int i=0;i<NSAMPLES+1;i++){cout<<rx[i]<<" "<<R.density(i)<<" "<<R.pressure(i)<<" "<<R.velocity(i)<<" "<<R.energy(i)<<endl;} // exact solution from Riemann solver
-    for(long i=2;i<n+2;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<ec1s[i]<<" "<<w1[i]<<endl;}} // DG
+    for(long i=2;i<n+2;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<ec1s[i]<<" "<<" "<<f[2*i+iloc]<<" "<<w1[i]<<endl;}} // DG
 //    for(long i=2;i<n+2;i++){for(int iloc=0;iloc<S3.nloc();iloc++){cout<<x1[S3.nloc()*i+iloc]<<" "<<d[i]<<" "<<p[i]<<" "<<u1[S3.nloc()*i+iloc]<<" "<<e1[S3.nloc()*i+iloc]<<" "<<ec1[i]<<" "<<ec1s[i]<<" "<<" "<<w1[i]<<" "<<f[S3.nloc()*i+iloc]<<endl;}} // includes all energy terms
-
 
 // advance the time step
 
