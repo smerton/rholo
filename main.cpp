@@ -1,7 +1,9 @@
-// Main program for finite-difference variant of RhoLo (Riemann-based Hydro in One-dimension at Low Order - RhoLo)
+// Finite difference variant of RhoLo (Riemann-based Hydro in One-dimension at Low Order - RhoLo)
 // RhoLo is an ultra simple 1-D discontinuous finite element (DG) hydrodynamics test code
-// This solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
-// This finite difference variant uses a staggered grid approach to the non-conservative Euler equations (cell-centred thermodynamic variable d,rho,e with node centred kinematic variables u,a), and artificial viscosity to increase entropy on the element boundaries.
+// This finite difference variant solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
+// using a staggered-grid finite difference method (cell-centred thermodynamic variable d,rho,e with node 
+// centred kinematic variables u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
+// implementation is only first order in time
 // for graphics: convert -density 300 filename.png filename.pdf
 
 // Author S. R. Merton
@@ -17,10 +19,9 @@
 #include <iostream>
 #include <vector>
 #include <iomanip>
-#include "riemann.h"
 #include <cmath>
+#include "riemann.h"
 #include "matrix.h"
-#include "mesh.h"
 
 // sigantures for eos lookups
 
@@ -33,10 +34,6 @@ using namespace std;
 int main(){
 
   cout<<"main(): Starting up main loop..."<<endl;
-
-// initialise a new mesh from file
-
-  Mesh M((char*) "input.mesh");
 
 // global data
 
