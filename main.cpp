@@ -63,7 +63,7 @@ int main(){
 
 // start the Riemann solvers from initial flux states
 
-  Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),R2(Riemann::exact,l,r);
+  Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r);
 
 // set output precision
 
@@ -84,10 +84,8 @@ int main(){
     vector<double> r0x,rx;vempty(r0x); // sample point coordinates
     for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
     R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
-    rx.clear();for(int i=0;i<ng;i++){rx.push_back(0.5*(x1[i]+x1[i+1]));} // cell centres
-    R1.profile(&rx,time+dt); // Riemann solution at the cell centres
-    rx.clear();for(int i=0;i<ng+1;i++){rx.push_back(x1[i]);} // nodes
-    R2.profile(&rx,time+dt); // Riemann solution at the nodes of the mesh
+    rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
+    R1.profile(&rx,time+dt);
 
 // update cell volumes at the full-step
 
@@ -98,7 +96,7 @@ int main(){
     for(int i=0;i<ng;i++){d.at(i)=m[i]/V1[i];} 
 
 // debug
-    for(int i=0;i<ng;i++){d.at(i)=R1.density(i);} // R1 is the Riemann solution at the cell centres
+    for(int i=0;i<ng;i++){d.at(i)=R1.density(3*i+1);} // 3*i+1 is cell-centre address
 // debug
 
 // update cell energy at the full-step
@@ -106,7 +104,7 @@ int main(){
     for(int i=0;i<ng;i++){e1.at(i)=max(ECUT,e0[i]-(p[i]+q[i])*(V1[i]-V0[i])/m[i]);}
 
 // debug
-    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(i);} // R1 is the Riemann solution at the cell centres
+    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(3*i+1);} // 3*i+1 is cell-centre address
 // debug
 
 // update cell pressure at the full-step
@@ -126,7 +124,7 @@ int main(){
     }
 
 // debug
-    for(int i=0;i<ng+1;i++){u1.at(i)=R2.velocity(i);} // R2 is the Riemann solution at the nodesd
+    for(int i=0;i<ng;i++){u1.at(i)=R1.velocity(3*i);u1.at(i+1)=R1.velocity(3*i+2);} // 3*i,3*i+2 are nodal address
 // debug
 
 // impose a constraint on the acceleration field at domain boundaries to stop the mesh taking off
