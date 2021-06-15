@@ -69,13 +69,6 @@ int main(){
   for(int i=0;i<ng;i++){q.at(i)=0.0;}
   for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d[i]);}
 
-// initialise bulk viscosity
-
-//  for(int i=0;i<ng;i++){
-//    double l(x0[i+1]-x0[i]),div(V1[i]-V0[i]),dx(x0[i+1]-x0[i]),du((u0[i+1]-u0[i])/dx);q.at(i)=0.0;
-//    if(du!=0.0&&div<0.0){q.at(i)=(cq*d[i]*pow(l*du,2))-(cl*d[i]*c[i]*l*pow(du,2)/du);}
-//  }
-
 // start the Riemann solvers from initial flux states
 
   Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r);
@@ -118,7 +111,6 @@ int main(){
 // update cell energy at the full-step
 
     for(int i=0;i<ng;i++){e1.at(i)=max(ECUT,e0[i]-((p[i]+q[i])*(V1[i]-V0[i]))/m[i]);}
-//    for(int i=0;i<ng;i++){e1.at(i)=max(ECUT,e0[i]-((p[i])*(V1[i]-V0[i]))/m[i]);}
 
 // debug
     for(int i=0;i<ng;i++){e1.at(i)=R1.energy(3*i+1);} // 3*i+1 is cell-centre address
@@ -132,7 +124,8 @@ int main(){
 
     for(int i=2;i<ng-1;i++){
 
-      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i+1]),pl(p[i-1]+q[i-1]),pr(p[i+1]+q[i+1]);
+//      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i+1]),pl(p[i-1]+q[i-1]),pr(p[i+1]+q[i+1]);
+      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i+1]),pl(p[i-1]),pr(p[i+1]);
       double udot((pl-pr)/(0.5*((dl*dxl)+(dr*dxr))));
 
 // advance the solution
@@ -157,21 +150,23 @@ int main(){
     time+=dt;
     step++;
 
-// advance the solution for the new time step
+// bulk q
 
-    for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d[i]);}
     for(int i=0;i<ng;i++){
-      double l(x1[i+1]-x1[i]),div(V1[i]-V0[i]),dx(x1[i+1]-x1[i]),du((u1[i+1]-u1[i])/(x1[i+1]-x1[i]));
+      c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d[i]);
+      double dx(x1[i+1]-x1[i]),l(dx),gradu((u1[i+1]-u1[i])/dx),div(V1[i]-V0[i]);
       q.at(i)=0.0;
-      if(div<0.0){ // turn off q if element divergence indicates expansion
-        q.at(i)=(cq*d[i]*pow(l*du,2))-(cl*d[i]*c[i]*l*abs(du));
-      }else{
-        q.at(i)=0.0;
+      if(div>0.0){
+        q.at(i)=(cq*d[i]*pow((l*gradu),2))-(cl*d[i]*c[i]*d[i]*l*abs(gradu));
       }
     }
+
 // debug
     for(int i=0;i<ng;i++){u1.at(i)=R1.velocity(3*i);u1.at(i+1)=R1.velocity(3*i+2);} // 3*i,3*i+2 are nodal address
 // debug
+
+// advance the solution for the new time step
+
     for(int i=0;i<ng+1;i++){u0.at(i)=u1[i];}
     for(int i=0;i<ng+1;i++){x0.at(i)=x1[i];}
     for(int i=0;i<ng;i++){e0.at(i)=e1[i];}
