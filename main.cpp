@@ -15,6 +15,7 @@
 #define NSAMPLES 500     // number of sample points for the exact solution
 #define VISFREQ 10000       // frequency of the graphics dumps
 #define VD vector<double> // vector of doubles
+#define VTOL 1.0e-10      // threshold for volume errors
 
 #include <iostream>
 #include <vector>
@@ -98,7 +99,7 @@ int main(){
 
 // update cell volumes at the full-step
 
-    for(int i=0;i<ng;i++){V1.at(i)=x1[i+1]-x1[i];}
+    for(int i=0;i<ng;i++){V1.at(i)=x1[i+1]-x1[i];if(V1[i]<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}}
 
 // update cell density at the full-step
 
