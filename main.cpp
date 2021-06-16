@@ -68,7 +68,7 @@ int main(){
   for(int i=0;i<ng+1;i++){u1.at(i)=u0[i];}
   for(int i=0;i<ng+1;i++){utmp.at(i)=u0[i];}
   for(int i=0;i<ng;i++){q.at(i)=0.0;}
-  for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d[i]);}
+  for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d[i]);}
 
 // start the Riemann solvers from initial flux states
 
