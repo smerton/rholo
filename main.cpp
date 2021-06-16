@@ -154,7 +154,7 @@ int main(){
 // bulk q
 
     for(int i=0;i<ng;i++){
-      c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d[i]);
+      c.at(i)=sqrt(GAMMA*p[i]/d[i]);
       double dx(x1[i+1]-x1[i]),l(dx),gradu((u1[i+1]-u1[i])/dx),div(V1[i]-V0[i]);
       q.at(i)=0.0;
       if(div>0.0){
