@@ -44,7 +44,7 @@ int main(){
 
   ofstream f1,f2,f3,f4;                                 // files for output
   int const n(100),ng(n+4);                             // no. ncells, no. ghosts
-  double const cl(0.1),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.1),cq(1.15);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d(ng),p(ng),q(ng),V0(ng),V1(ng),m(ng); // pressure, bulk viscosity, density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
   vector<double> c(ng);                                 // element sound speed
