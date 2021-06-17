@@ -90,7 +90,7 @@ int main(){
 
 // calculate a new stable time-step
 
-    for(int i=0;i<ng;i++){double l(x0[i+1]-x0[i]);dt_cfl.at(i)=(COURANT*l/c[i]);} // impose the CFL limit on each element
+    for(int i=0;i<ng;i++){double l(x0[i+1]-x0[i]);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d[i]));} // impose the CFL limit on each element
     double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end())); // reduce across element and apply a saftey factor
 
     cout<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<endl;
