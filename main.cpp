@@ -171,7 +171,7 @@ int main(){
       if(div<0.0){
         q.at(i)=(cq*d[i]*pow((l*gradu),2))-(cl*d[i]*c[i]*d[i]*l*abs(gradu));
       }else{
-        q.at(i)=0.0;
+        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
       }
     }
 
