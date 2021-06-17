@@ -11,11 +11,13 @@
 #define DTSTART 0.0005    // insert a macro for the first time step
 #define ENDTIME 0.25      // insert a macro for the end time
 #define GAMMA 1.4         // ratio of specific heats for ideal gases
-#define ECUT 1.0-8        // cut-off on the energy field
-#define NSAMPLES 500     // number of sample points for the exact solution
-#define VISFREQ 10000       // frequency of the graphics dumps
+#define ECUT 1.0e-8        // cut-off on the energy field
+#define NSAMPLES 500      // number of sample points for the exact solution
+#define VISFREQ 10000     // frequency of the graphics dumps
 #define VD vector<double> // vector of doubles
 #define VTOL 1.0e-10      // threshold for volume errors
+#define COURANT 0.333     // Courant number for CFL condition
+#define DTSFACTOR 0.5     // safety factor on time-step control
 
 #include <iostream>
 #include <vector>
@@ -24,6 +26,7 @@
 #include <fstream>
 #include "riemann.h"
 #include "matrix.h"
+#include <bits/stdc++.h>
 
 // sigantures for eos lookups
 
@@ -47,6 +50,7 @@ int main(){
   vector<double> c(ng);                                 // element sound speed
   vector<double> u0(ng+1),u1(ng+1),utmp(ng+1);          // node velocity
   vector<double> x0(ng+1),x1(ng+1);                     // node coordinates
+  vector<double> dt_cfl(ng);                            // element time-step
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for the problem
@@ -83,6 +87,11 @@ int main(){
 // time integration
 
   while(time<ENDTIME+dt){
+
+// calculate a new stable time-step
+
+    for(int i=0;i<ng;i++){double l(x0[i+1]-x0[i]);dt_cfl.at(i)=(COURANT*l/c[i]);} // impose the CFL limit on each element
+    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end())); // reduce across element and apply a saftey factor
 
     cout<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<endl;
 
@@ -121,7 +130,7 @@ int main(){
 
 // update cell pressure at the full-step
 
-    for(int i=0;i<ng;i++){p.at(i)=P(d[i],e1[i]);}
+    for(int i=0;i<ng;i++){p.at(i)=P(d[i],e1[i]);if(p[i]<0.0){cout<<"-'ve pressure detected in cell "<<i<<" e1= "<<e1[i]<<endl;exit(1);}}
 
 // update acceleration field at node i
 
