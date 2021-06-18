@@ -43,7 +43,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  int const n(50),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
   double const cl(0.1),cq(1.15);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d(ng),p(ng),q(ng),V0(ng),V1(ng),m(ng); // pressure, bulk viscosity, density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
@@ -134,7 +134,8 @@ int main(){
 
     for(int i=2;i<ng-1;i++){
 
-      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i+1]),pl(p[i-1]+q[i-1]),pr(p[i+1]+q[i+1]);
+//      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i+1]),pl(p[i-1]+q[i-1]),pr(p[i+1]+q[i+1]);
+      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i]),pl(p[i-1]+q[i-1]),pr(p[i]+q[i]);
 //      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i+1]),pl(p[i-1]),pr(p[i+1]);
       double udot((pl-pr)/(0.5*((dl*dxl)+(dr*dxr))));
 
@@ -179,7 +180,7 @@ int main(){
     step++;
 
 // debug
-    for(int i=0;i<ng;i++){u1.at(i)=R1.velocity(3*i);u1.at(i+1)=R1.velocity(3*i+2);} // 3*i,3*i+2 are nodal address
+//    for(int i=0;i<ng;i++){u1.at(i)=R1.velocity(3*i);u1.at(i+1)=R1.velocity(3*i+2);} // 3*i,3*i+2 are nodal address
 // debug
 
 // advance the solution for the new time step
