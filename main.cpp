@@ -43,7 +43,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(50),ng(n+4);                             // no. ncells, no. ghosts
   double const cl(0.1),cq(1.15);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d(ng),p(ng),q(ng),V0(ng),V1(ng),m(ng); // pressure, bulk viscosity, density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
@@ -61,10 +61,8 @@ int main(){
 
   double dx(1.0/n);x0.at(0)=-2.0*dx;x1.at(0)=x0[0];
   for(int i=1;i<ng+1;i++){x0.at(i)=x0[i-1]+dx;x1.at(i)=x0[i];}
-//  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[2]:r[2];}
-  for(int i=0;i<ng;i++){p.at(i)=(x0[i+1]<=0.5)?l[2]:r[2];}
-//  for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[0]:r[0];}
-  for(int i=0;i<ng;i++){d.at(i)=(x0[i+1]<=0.5)?l[0]:r[0];}
+  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[2]:r[2];}
+  for(int i=0;i<ng;i++){d.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[0]:r[0];}
   for(int i=0;i<ng;i++){e0.at(i)=E(d[i],p[i]);}
   for(int i=0;i<ng;i++){e1.at(i)=e0[i];}
   for(int i=0;i<ng;i++){V0.at(i)=x0[i+1]-x0[i];}
