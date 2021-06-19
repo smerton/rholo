@@ -44,7 +44,7 @@ int main(){
 
   ofstream f1,f2,f3,f4;                                 // files for output
   int const n(100),ng(n+4);                             // no. ncells, no. ghosts
-  double const cl(0.1),cq(1.15);                         // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.01),cq(4.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d(ng),p(ng),q(ng),V0(ng),V1(ng),m(ng); // pressure, bulk viscosity, density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
   vector<double> c(ng);                                 // element sound speed
@@ -100,8 +100,8 @@ int main(){
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
     vector<double> r0x,rx;vempty(r0x); // sample point coordinates
-    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
-//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
+//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
+    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
     R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
     rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
     R1.profile(&rx,time+dt);
@@ -130,13 +130,11 @@ int main(){
 
     for(int i=0;i<ng;i++){p.at(i)=P(d[i],e1[i]);if(p[i]<0.0){cout<<"-'ve pressure detected in cell "<<i<<" e1= "<<e1[i]<<endl;exit(1);}}
 
-// update acceleration field at node i
+// update acceleration field
 
-    for(int i=2;i<ng-1;i++){
+    for(int i=1;i<ng;i++){
 
-//      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i+1]),pl(p[i-1]+q[i-1]),pr(p[i+1]+q[i+1]);
       double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i]),pl(p[i-1]+q[i-1]),pr(p[i]+q[i]);
-//      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i+1]),pl(p[i-1]),pr(p[i+1]);
       double udot((pl-pr)/(0.5*((dl*dxl)+(dr*dxr))));
 
 // advance the solution
@@ -147,8 +145,7 @@ int main(){
 
 // impose a constraint on the acceleration field at domain boundaries to stop the mesh taking off
 
-    u1.at(1)=u1[2];u1.at(0)=u1[1];u1.at(ng-1)=u1[ng-2];u1.at(ng)=u1[ng-1];
-    utmp.at(1)=utmp[2];utmp.at(0)=utmp[1];utmp.at(ng-1)=utmp[ng-2];utmp.at(ng)=utmp[ng-1];
+    u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
 
 // some output
 
