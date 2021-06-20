@@ -165,7 +165,7 @@ int main(){
       c.at(i)=sqrt(GAMMA*p[i]/d[i]);
       double dx(x1[i+1]-x1[i]),l(dx),gradu((u1[i+1]-u1[i])/dx),div(V1[i]-V0[i]);
       if(div<0.0){
-        q.at(i)=(cq*d[i]*pow((l*gradu),2))-(cl*d[i]*c[i]*d[i]*l*abs(gradu));
+        q.at(i)=(cq*d[i]*pow((l*gradu),2))-(cl*d[i]*c[i]*l*abs(gradu));
       }else{
         q.at(i)=0.0; // turn off q as cell divergence indicates expansion
       }
