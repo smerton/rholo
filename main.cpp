@@ -51,6 +51,7 @@ int main(){
   vector<double> u0(ng+1),u1(ng+1),utmp(ng+1);          // node velocity
   vector<double> x0(ng+1),x1(ng+1);                     // node coordinates
   vector<double> dt_cfl(ng);                            // element time-step
+  double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for the problem
@@ -73,6 +74,8 @@ int main(){
   for(int i=0;i<ng+1;i++){utmp.at(i)=u0[i];}
   for(int i=0;i<ng;i++){q.at(i)=0.0;}
   for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d[i]);}
+  for(int i=2;i<ng-1;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];}
+  for(int i=2;i<ng-2;i++){ie+=e1[i]*m[i];}
 
 // start the Riemann solvers from initial flux states
 
@@ -91,11 +94,15 @@ int main(){
     for(int i=0;i<ng;i++){double l(x0[i+1]-x0[i]);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d[i]));} // impose the CFL limit on each element
     double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end())); // reduce across element and apply a saftey factor
 
-    cout<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<endl;
+    cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
 // move the nodes to their full-step position
 
     for(int i=0;i<ng+1;i++){x1.at(i)=x0[i]+u0[i]*dt;}
+
+// update kinetic energy for conservation checks
+
+    ke=0.0;for(int i=2;i<ng-1;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];}
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
@@ -121,6 +128,10 @@ int main(){
 // update cell energy at the full-step
 
     for(int i=0;i<ng;i++){e1.at(i)=max(ECUT,e0[i]-((p[i]+q[i])*(V1[i]-V0[i]))/m[i]);}
+
+// update internal energy for conservation checks
+
+    ie=0.0;for(int i=2;i<ng-2;i++){ie+=e1[i]*m[i];}
 
 // debug
 //    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(3*i+1);} // 3*i+1 is cell-centre address
