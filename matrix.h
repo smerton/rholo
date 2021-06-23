@@ -19,6 +19,7 @@ class Matrix{
   void copy(double**A);                    // copy to a matrix class object
   double read(int i,int j);                // reads element i,j of the member object
   void write(int i,int j,double dat);      // writes data dat to element i,j of the member object
+  void add(int i,int j,double dat);        // adds data dat to element i,j of the member object
 
   int NRows();                             // returns the number of rows
   int NCols();                             // returns the number of columns

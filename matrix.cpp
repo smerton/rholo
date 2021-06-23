@@ -18,15 +18,22 @@ Matrix::Matrix(int n){
     mMat[i]=new double[NCols()];
   }
 
+// initialise elements of the matrix
+
+  for(int i=0;i<this->NRows();i++){
+    for(int j=0;j<this->NCols();j++){
+      this->write(i,j,0.0);
+    }
+  }
 }
 
 // Member function to return the number of rows
 
-inline int Matrix::NRows(){return mN;}
+int Matrix::NRows(){return mN;}
 
 // Member function to return the number of columns
 
-inline int Matrix::NCols(){return mN;}
+int Matrix::NCols(){return mN;}
 
 // Member function to return the transpose
 
@@ -195,6 +202,10 @@ double Matrix::read(int i,int j){return mMat[i][j];}
 // Member function to write data into the member object
 
 void Matrix::write(int i,int j,double dat){mMat[i][j]=dat;}
+
+// Member function to add data into the member object
+
+void Matrix::add(int i,int j,double dat){mMat[i][j]+=dat;}
 
 // Destructor for the matrix class
 
