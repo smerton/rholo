@@ -44,7 +44,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  int const n(10),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(200),ng(n+4);                             // no. ncells, no. ghosts
   Shape S(1);                                           // p1 shape function
   double const cl(0.0),cq(4.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d(ng),p(ng),q(ng),V0(ng),V1(ng),m(ng); // pressure, bulk viscosity, density, volume & mass
@@ -104,7 +104,8 @@ int main(){
 
 // update kinetic energy for conservation checks
 
-    ke=0.0;for(int i=2;i<ng-1;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];}
+//    ke=0.0;for(int i=2;i<ng-1;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];}
+    ke=0.0;for(int i=0;i<ng+1;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];}
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
@@ -147,7 +148,8 @@ int main(){
 
 // update internal energy for conservation checks
 
-    ie=0.0;for(int i=2;i<ng-2;i++){ie+=e1[i]*m[i];}
+//    ie=0.0;for(int i=2;i<ng-2;i++){ie+=e1[i]*m[i];}
+    ie=0.0;for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
 
 // debug
 //    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(3*i+1);} // 3*i+1 is cell-centre address
@@ -169,23 +171,22 @@ int main(){
       }
     }
 
+// assemble acceleration field
 
-// debug
-
-  Matrix A(n+3);double b[n+3],x[n+3];for(int i=0;i<n+2;i++){b[i]=0.0;}
+  Matrix A(ng+1);double b[ng+1],x[ng+1];for(int i=0;i<ng+1;i++){b[i]=0.0;}
   double m[2][2]={};m[0][0]=0.5;m[1][1]=0.5;// for mass lumping
 
-// assemble momentum equation using a continuous finite element method
+// next block codes for matrix assembly with a continuous Galerkin finite element
 
-  for(int iel=1;iel<n+3;iel++){
+  for(int iel=0;iel<ng;iel++){
     for(int iloc=0;iloc<S.nloc();iloc++){
-      int i((iel-1)+iloc); // column address in the global matrix
+      int i(iel+iloc); // column address in the global matrix
       for(int gi=0;gi<S.ngi();gi++){b[i]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);} // integrate the shape derivative for rhs
       for(int jloc=0;jloc<S.nloc();jloc++){
         double nn(0.0); // mass matrix
-        int j((iel-1)+jloc); // row address in the global matrix
+        int j(iel+jloc); // row address in the global matrix
         for(int gi=0;gi<S.ngi();gi++){
-          nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*2.0/(x1[iel+1]-x1[iel]);
+          nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*0.5*(x1[iel+1]-x1[iel]); // DG & notes use this - double check ??
         }
         A.add(i,j,d[iel]*nn);
 //        A.add(i,j,d[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
@@ -196,42 +197,9 @@ int main(){
 
   A.solve(x,b);
 
-//  for(int i=0;i<A.NCols();i++){cout<<i+1<<"       ";}
-//  cout<<endl;
-//  for(int i=0;i<A.NCols();i++){
-//    for(int j=0;j<A.NRows();j++){
-//      cout<<A.read(i,j)<<" ";
-//    }
-//    cout<<endl;
-//  }
-//  cout<<endl;
-//  for(int i=0;i<A.NCols();i++){cout<<i<<" "<<x[i]<<endl;}
-
-
-  for(int i=2;i<n+2;i++){u2[i]=u0[i]+x[i-1]*dt;}
-  u2[1]=0.0;u2[ng-1]=0.0;
-  u2.at(0)=u2[1];u2.at(ng)=u2[ng-1];
-//  for(int i=0;i<A.NCols();i++){cout<<i+1<<" "<<x[i]<<endl;}cout<<endl;
-
-// debug
-
-// update acceleration field
-
-    for(int i=1;i<ng;i++){
-
-      double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d[i-1]),dr(d[i]),pl(p[i-1]+q[i-1]),pr(p[i]+q[i]);
-      double udot((pl-pr)/(0.5*((dl*dxl)+(dr*dxr))));
-      utmp.at(i)=udot*dt*0.5*(V1[i]+V1[i-1])*(p[i-1]-p[i])/(0.5*(dxl+dxr)); // force on the mesh vertex
-
 // advance the solution
 
-      u1.at(i)=u0[i]+udot*dt;
-
-    }
-
-// impose a constraint on the acceleration field at domain boundaries to stop the mesh taking off
-
-    u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
+  for(int i=2;i<ng-1;i++){u1.at(i)=u0[i]+x[i]*dt;}
 
 // some output
 
@@ -241,13 +209,9 @@ int main(){
     for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;}
     for(int i=2;i<n+2;i++){f2<<0.5*(x1[i]+x1[i+1])<<" "<<d[i]<<" "<<p[i]<<" "<<e1[i]<<" "<<endl;}
     for(int i=2;i<n+2;i++){f3<<0.5*(x1[i]+x1[i+1])<<" "<<q[i]<<endl;}
-    for(int i=2;i<n+3;i++){f4<<x1[i]<<" "<<u1[i]<<" "<<u2[i]<<endl;}
+    for(int i=2;i<n+3;i++){f4<<x1[i]<<" "<<u1[i]<<endl;}
 
     f1.close();f2.close();f3.close();f4.close();
-
-// debug
-  if(step==100){exit(1);}
-// debug
 
 // advance the time step
 
