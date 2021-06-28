@@ -44,7 +44,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  int const n(200),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
   Shape S(1);                                           // p1 shape function
   double const cl(0.0),cq(4.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d(ng),p(ng),q(ng),V0(ng),V1(ng),m(ng); // pressure, bulk viscosity, density, volume & mass
@@ -76,8 +76,8 @@ int main(){
   for(int i=0;i<ng+1;i++){utmp.at(i)=u0[i];}
   for(int i=0;i<ng;i++){q.at(i)=0.0;}
   for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d[i]);}
-  for(int i=2;i<ng-1;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];}
-  for(int i=2;i<ng-2;i++){ie+=e1[i]*m[i];}
+  for(int i=1;i<ng;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];};ke+=0.25*m[0]*u0[0]*u0[0];ke+=0.25*m[ng-1]*u0[ng]*u0[ng];
+  for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
 
 // start the Riemann solvers from initial flux states
 
@@ -104,8 +104,8 @@ int main(){
 
 // update kinetic energy for conservation checks
 
-//    ke=0.0;for(int i=2;i<ng-1;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];}
-    ke=0.0;for(int i=0;i<ng+1;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];}
+    ke=0.0;for(int i=1;i<ng;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];} // include level 1 halo
+    ke+=0.25*m[0]*u0[0]*u0[0];ke+=0.25*m[ng-1]*u0[ng]*u0[ng]; // update level 2 halo
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
@@ -148,7 +148,6 @@ int main(){
 
 // update internal energy for conservation checks
 
-//    ie=0.0;for(int i=2;i<ng-2;i++){ie+=e1[i]*m[i];}
     ie=0.0;for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
 
 // debug
@@ -173,7 +172,8 @@ int main(){
 
 // assemble acceleration field
 
-  Matrix A(ng+1);double b[ng+1],x[ng+1];for(int i=0;i<ng+1;i++){b[i]=0.0;}
+//  Matrix A(ng+1);double b[ng+1],x[ng+1];for(int i=0;i<ng+1;i++){b[i]=0.0;} // include level 2 halo
+  Matrix A(ng-1);double b[ng-1],x[ng-1];for(int i=1;i<ng-1;i++){b[i-1]=0.0;} // exclude level 2 halo
   double m[2][2]={};m[0][0]=0.5;m[1][1]=0.5;// for mass lumping
 
 // next block codes for matrix assembly with a continuous Galerkin finite element
@@ -181,25 +181,31 @@ int main(){
   for(int iel=0;iel<ng;iel++){
     for(int iloc=0;iloc<S.nloc();iloc++){
       int i(iel+iloc); // column address in the global matrix
-      for(int gi=0;gi<S.ngi();gi++){b[i]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);} // integrate the shape derivative for rhs
+      if((i>0&&i<ng)){for(int gi=0;gi<S.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
       for(int jloc=0;jloc<S.nloc();jloc++){
         double nn(0.0); // mass matrix
         int j(iel+jloc); // row address in the global matrix
         for(int gi=0;gi<S.ngi();gi++){
           nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*0.5*(x1[iel+1]-x1[iel]); // DG & notes use this - double check ??
         }
-        A.add(i,j,d[iel]*nn);
-//        A.add(i,j,d[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
+        if((i>0&&i<ng)&&(j>0&&j<ng)){
+          A.add(i-1,j-1,d[iel]*nn);
+//          A.add(i-1,j-1,d[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
+        }
       }
     }
 
   }
 
+// solve global system
+
   A.solve(x,b);
 
 // advance the solution
 
-  for(int i=2;i<ng-1;i++){u1.at(i)=u0[i]+x[i]*dt;}
+  for(int i=1;i<ng;i++){u1.at(i)=u0[i]+x[i-1]*dt;}
+  u1.at(1)=u1[2];u1.at(0)=u1[1];u1.at(ng-1)=u1[ng-2];u1.at(ng)=u1[ng-1];
+//  u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
 
 // some output
 
