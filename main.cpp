@@ -96,7 +96,7 @@ int main(){
     for(int i=0;i<ng;i++){double l(x0[i+1]-x0[i]);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d[i]));} // impose the CFL limit on each element
     double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end())); // reduce across element and apply a saftey factor
 
-    cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
+    cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(9)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
 // move the nodes to their full-step position
 
@@ -172,8 +172,7 @@ int main(){
 
 // assemble acceleration field
 
-//  Matrix A(ng+1);double b[ng+1],x[ng+1];for(int i=0;i<ng+1;i++){b[i]=0.0;} // include level 2 halo
-  Matrix A(ng-1);double b[ng-1],x[ng-1];for(int i=1;i<ng-1;i++){b[i-1]=0.0;} // exclude level 2 halo
+  Matrix A(n+3);double b[n+3],x[n+3];for(int i=0;i<n+3;i++){b[i]=0.0;x[i]=0.0;}
   double m[2][2]={};m[0][0]=0.5;m[1][1]=0.5;// for mass lumping
 
 // next block codes for matrix assembly with a continuous Galerkin finite element
@@ -203,9 +202,12 @@ int main(){
 
 // advance the solution
 
-  for(int i=1;i<ng;i++){u1.at(i)=u0[i]+x[i-1]*dt;}
-  u1.at(1)=u1[2];u1.at(0)=u1[1];u1.at(ng-1)=u1[ng-2];u1.at(ng)=u1[ng-1];
-//  u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
+  for(int i=0;i<n+3;i++){u1.at(i+1)=u0[i+1]+x[i]*dt;}
+
+// impose boundary constraints on the acceleration field
+
+  u1.at(1)=u1[2];u1.at(ng-1)=u1[ng-2];
+  u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
 
 // some output
 
