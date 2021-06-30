@@ -189,8 +189,8 @@ int main(){
           nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*0.5*(x1[iel+1]-x1[iel]); // DG & notes use this - double check ??
         }
         if((i>0&&i<ng)&&(j>0&&j<ng)){
-//          A.add(i-1,j-1,d1[iel]*nn);
-          A.add(i-1,j-1,d1[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
+          A.add(i-1,j-1,d1[iel]*nn);
+//          A.add(i-1,j-1,d1[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
         }
       }
     }
