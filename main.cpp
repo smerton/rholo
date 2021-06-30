@@ -46,10 +46,10 @@ int main(){
   ofstream f1,f2,f3,f4;                                 // files for output
   int const n(100),ng(n+4);                             // no. ncells, no. ghosts
   Shape S(1);                                           // p1 shape function
-  double const cl(0.2),cq(1.0);                        // linear & quadratic coefficients for bulk viscosity
-  vector<double> d0(ng),d1(ng),p(ng),q(ng),V0(ng),V1(ng),m(ng); // pressure, bulk viscosity, density, volume & mass
+  double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
+  vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
-  vector<double> c(ng);                                 // element sound speed
+  vector<double> c(ng),p(ng),q(ng);                     // element sound speed, pressure and bulk viscosity
   vector<double> u0(ng+1),u1(ng+1),utmp(ng+1),u2(ng+1); // node velocity
   vector<double> x0(ng+1),x1(ng+1);                     // node coordinates
   vector<double> dt_cfl(ng);                            // element time-step
@@ -189,8 +189,8 @@ int main(){
           nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*0.5*(x1[iel+1]-x1[iel]); // DG & notes use this - double check ??
         }
         if((i>0&&i<ng)&&(j>0&&j<ng)){
-          A.add(i-1,j-1,d1[iel]*nn);
-//          A.add(i-1,j-1,d1[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
+//          A.add(i-1,j-1,d1[iel]*nn);
+          A.add(i-1,j-1,d1[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
         }
       }
     }
