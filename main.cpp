@@ -46,8 +46,7 @@ int main(){
   ofstream f1,f2,f3,f4;                                 // files for output
   int const n(100),ng(n+4);                             // no. ncells, no. ghosts
   Shape S(1);                                           // p1 shape function
-//  double const cl(-0.2),cq(2.0);                      // linear & quadratic coefficients for bulk viscosity
-  double const cl(-0.3),cq(1.0);                        // linear & quadratic coefficients for bulk viscosity (-0.3,1.0)
+  double const cl(0.2),cq(1.0);                        // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),p(ng),q(ng),V0(ng),V1(ng),m(ng); // pressure, bulk viscosity, density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
   vector<double> c(ng);                                 // element sound speed
@@ -164,23 +163,13 @@ int main(){
 
     for(int i=0;i<ng;i++){
       c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
-      double dx(x1[i+1]-x1[i]),l(dx),gradu((u1[i+1]-u1[i])/dx),div(V1[i]-V0[i]);
-      if(div<0.0){
-        q.at(i)=(cq*d1[i]*pow(l*gradu,2))-(cl*d1[i]*c[i]*l*abs(gradu));
+      double l(x1[i+1]-x1[i]),divu((d0[i]-d1[i])/(d1[i]*dt));
+      if(divu<0.0){
+        q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
       }else{
         q.at(i)=0.0; // turn off q as cell divergence indicates expansion
       }
     }
-
-//    for(int i=0;i<ng;i++){
-//      c.at(i)=sqrt(GAMMA*p[i]/d[i]);
-//      double dx(cbrt(V1[i])),l(cbrt(V1[i])),gradu((u1[i+1]-u1[i])/dx),div(V1[i]-V0[i]);
-//      if(div<0.0){
-//        q.at(i)=(cq*d[i]*pow(l*gradu,2))-(cl*d[i]*c[i]*l*abs(gradu));
-//      }else{
-//        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
-//      }
-//    }
 
 // assemble acceleration field
 
