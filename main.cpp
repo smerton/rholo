@@ -18,7 +18,6 @@
 #define VTOL 1.0e-10      // threshold for volume errors
 #define COURANT 0.333     // Courant number for CFL condition
 #define DTSFACTOR 0.5     // safety factor on time-step control
-#define GNOD i*(S.nloc()-1)+j // global FE node address
 
 #include <iostream>
 #include <vector>
@@ -45,19 +44,15 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  int const n(4),ng(n+4);                             // no. ncells, no. ghosts
-  Shape S(2);                                           // load FE stencil
-  int nnodes(n*(S.nloc()-1)+1),ngnodes(ng*(S.nloc()-1)+1); // no. FE nodes
+  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
+  Shape S(1);                                           // p1 shape function
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
   vector<double> c(ng),p(ng),q(ng);                     // element sound speed, pressure and bulk viscosity
-  vector<double> u0(ngnodes),u1(ngnodes);               // node velocity
-  vector<double> x0(ngnodes),x1(ngnodes);               // node coordinates
-  vector<double> xc(ng);                                // cell centroids
+  vector<double> u0(ng+1),u1(ng+1),utmp(ng+1),u2(ng+1); // node velocity
+  vector<double> x0(ng+1),x1(ng+1);                     // node coordinates
   vector<double> dt_cfl(ng);                            // element time-step
-  double Vn[S.nloc()],mn[ngnodes];                      // volume and mass of an FE node
-  double detJ[S.ngi()];                                 // determinant of the Jacobian at each Gauss point
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -67,33 +62,23 @@ int main(){
 
 // initialise the problem
 
-  double dx(1.0/n);x0.at(0)=-2.0*dx;x1.at(0)=x0[0];xc[0]=-1.5*dx;
-  for(int i=1;i<ng;i++){xc.at(i)=xc[i-1]+dx;}
-  for(int i=1;i<ngnodes;i++){x0.at(i)=x0[i-1]+1.0/(n*(S.nloc()-1));x1.at(i)=x0[i];}
-  for(int i=0;i<ng;i++){p.at(i)=(xc[i]<=0.5)?l[2]:r[2];}
-  for(int i=0;i<ng;i++){d0.at(i)=(xc[i]<=0.5)?l[0]:r[0];}
-  for(int i=0;i<ng;i++){d1.at(i)=(xc[i]<=0.5)?l[0]:r[0];}
+  double dx(1.0/n);x0.at(0)=-2.0*dx;x1.at(0)=x0[0];
+  for(int i=1;i<ng+1;i++){x0.at(i)=x0[i-1]+dx;x1.at(i)=x0[i];}
+  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[2]:r[2];}
+  for(int i=0;i<ng;i++){d0.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[0]:r[0];}
+  for(int i=0;i<ng;i++){d1.at(i)=(0.5*(x1[i]+x1[i+1])<=0.5)?l[0]:r[0];}
   for(int i=0;i<ng;i++){e0.at(i)=E(d0[i],p[i]);}
   for(int i=0;i<ng;i++){e1.at(i)=E(d1[i],p[i]);}
-  for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){mn[GNOD]=0.0;}}
-
-  for(int i=0;i<ng;i++){
-    V0.at(i)=0.0;V1.at(i)=0.0;
-    for(int gi=0;gi<S.ngi();gi++){detJ[gi]=0.0;for(int j=0;j<S.nloc();j++){detJ[gi]+=S.dvalue(j,gi)*x0[GNOD];}}
-    for(int j=0;j<S.nloc();j++){Vn[j]=0.0;for(int gi=0;gi<S.ngi();gi++){Vn[j]+=S.value(j,gi)*detJ[gi]*S.wgt(gi);}}
-    for(int j=0;j<S.nloc();j++){V0.at(i)+=Vn[j];V1.at(i)=V0[i];mn[GNOD]+=d0[i]*Vn[j];}
-  }
-
+  for(int i=0;i<ng;i++){V0.at(i)=x0[i+1]-x0[i];}
+  for(int i=0;i<ng;i++){V1.at(i)=x1[i+1]-x1[i];}
   for(int i=0;i<ng;i++){m.at(i)=d0[i]*V0[i];}
-  for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){u0.at(GNOD)=(x0[GNOD]<=0.5)?l[1]:r[1];u1.at(GNOD)=u0[GNOD];}}
+  for(int i=0;i<ng+1;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];}
+  for(int i=0;i<ng+1;i++){u1.at(i)=u0[i];}
+  for(int i=0;i<ng+1;i++){utmp.at(i)=u0[i];}
   for(int i=0;i<ng;i++){q.at(i)=0.0;}
   for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
-  for(int i=2;i<ng-1;i++){for(int j=0;j<S.nloc();j++){ke+=0.5*mn[GNOD]*u0[GNOD]*u0[GNOD];}}
+  for(int i=1;i<ng;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];};ke+=0.25*m[0]*u0[0]*u0[0];ke+=0.25*m[ng-1]*u0[ng]*u0[ng];
   for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
-
-// debug
-  exit(1);
-// debug
 
 // start the Riemann solvers from initial flux states
 
