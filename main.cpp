@@ -45,8 +45,8 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  int const n(4),ng(n+4);                             // no. ncells, no. ghosts
-  Shape S(2);                                           // load FE stencil
+  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
+  Shape S(1);                                           // load FE stencil
   int nnodes(n*(S.nloc()-1)+1),ngnodes(ng*(S.nloc()-1)+1); // no. FE nodes
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
@@ -91,13 +91,9 @@ int main(){
   for(int i=2;i<ng-1;i++){for(int j=0;j<S.nloc();j++){ke+=0.5*mn[GNOD]*u0[GNOD]*u0[GNOD];}}
   for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
 
-// debug
-  exit(1);
-// debug
-
 // start the Riemann solvers from initial flux states
 
-  Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r);
+  Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),R2(Riemann::exact,l,r);
 
 // set output precision
 
@@ -109,19 +105,22 @@ int main(){
 
 // calculate a new stable time-step
 
-    for(int i=0;i<ng;i++){double l(x0[i+1]-x0[i]);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
+    for(int i=0;i<ng;i++){double l(x0[i*(S.nloc()-1)+S.nloc()-1]-x0[i*(S.nloc()-1)]);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
+
     double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end())); // reduce across element and apply a saftey factor
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
 // move the nodes to their full-step position
 
-    for(int i=0;i<ng+1;i++){x1.at(i)=x0[i]+u0[i]*dt;}
+//    for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x1.at(GNOD)=x0[GNOD]+u0[GNOD]*dt;}xc[i]=0.5*(x1[i*(S.nloc()-1)+S.nloc()-1]+x1[i*(S.nloc()-1)]);}
+// debug
+    if(step>0){for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x1.at(GNOD)=x0[GNOD]+R2.velocity(GNOD)*dt;}xc[i]=0.5*(x1[i*(S.nloc()-1)+S.nloc()-1]+x1[i*(S.nloc()-1)]);}}
+// debug
 
 // update kinetic energy for conservation checks
 
-    ke=0.0;for(int i=1;i<ng;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];} // include level 1 halo
-//    ke+=0.25*m[0]*u0[0]*u0[0];ke+=0.25*m[ng-1]*u0[ng]*u0[ng]; // update level 2 halo
+    ke=0.0;for(int i=2;i<ng-1;i++){for(int j=0;j<S.nloc();j++){ke+=0.5*mn[GNOD]*u0[GNOD]*u0[GNOD];}}
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
@@ -129,19 +128,25 @@ int main(){
 //    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
     for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
     R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
-    rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
+    rx.clear();for(int i=0;i<ng;i++){rx.push_back(xc[i]);}
     R1.profile(&rx,time+dt);
+    rx.clear();for(int i=0;i<ng;i++){for(int j=0;j<S.nloc()-1;j++){rx.push_back(x1[i*(S.nloc()-1)+j]);}}
+    R2.profile(&rx,time+dt);
 
 // update cell volumes at the full-step
 
-    for(int i=0;i<ng;i++){V1.at(i)=x1[i+1]-x1[i];if(V1[i]<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}}
+    for(int i=0;i<ng;i++){
+      V1.at(i)=0.0;
+      for(int gi=0;gi<S.ngi();gi++){detJ[gi]=0.0;for(int j=0;j<S.nloc();j++){detJ[gi]+=S.dvalue(j,gi)*x1[GNOD];}}
+      for(int j=0;j<S.nloc();j++){for(int gi=0;gi<S.ngi();gi++){V1.at(i)+=S.value(j,gi)*detJ[gi]*S.wgt(gi);}}
+    }
 
 // update cell density at the full-step
 
     for(int i=0;i<ng;i++){d1.at(i)=m[i]/V1[i];}
 
 // debug
-//    for(int i=0;i<ng;i++){d1.at(i)=R1.density(3*i+1);} // 3*i+1 is cell-centre address
+    for(int i=0;i<ng;i++){d1.at(i)=R1.density(i);} // 3*i+1 is cell-centre address
 // debug
 
 // update cell energy at the full-step
@@ -167,7 +172,7 @@ int main(){
     ie=0.0;for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
 
 // debug
-//    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(3*i+1);} // 3*i+1 is cell-centre address
+    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(i);} // 3*i+1 is cell-centre address
 // debug
 
 // update cell pressure at the full-step
@@ -178,7 +183,7 @@ int main(){
 
     for(int i=0;i<ng;i++){
       c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
-      double l(x1[i+1]-x1[i]),divu((d0[i]-d1[i])/(d1[i]*dt));
+      double l(x1[i*(S.nloc()-1)+S.nloc()-1]-x1[i*(S.nloc()-1)]),divu((d0[i]-d1[i])/(d1[i]*dt));
       if(divu<0.0){
         q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
       }else{
@@ -188,23 +193,26 @@ int main(){
 
 // assemble acceleration field
 
-  Matrix A(n+3);double b[n+3],x[n+3];for(int i=0;i<n+3;i++){b[i]=0.0;x[i]=0.0;}
-  double m[2][2]={};m[0][0]=0.5;m[1][1]=0.5;// for mass lumping
+  int matsiz((n+2)*(S.nloc()-1)+1);
+  Matrix A(matsiz);double b[matsiz],x[matsiz];for(int i=0;i<matsiz;i++){b[i]=0.0;x[i]=0.0;}
+
+  double m[S.nloc()][S.nloc()]={};m[0][0]=0.5;m[S.nloc()-1][S.nloc()-1]=0.5;// for mass lumping
 
 // next block codes for matrix assembly with a continuous Galerkin finite element type
 
   for(int iel=0;iel<ng;iel++){
+    for(int gi=0;gi<S.ngi();gi++){detJ[gi]=0.0;for(int j=0;j<S.nloc();j++){detJ[gi]+=S.dvalue(j,gi)*x1[iel*(S.nloc()-1)+j];}}
     for(int iloc=0;iloc<S.nloc();iloc++){
-      int i(iel+iloc); // column address in the global matrix
-      if((i>0&&i<ng)){for(int gi=0;gi<S.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
+      int i(iel*(S.nloc()-1)+iloc); // column address in the global matrix
+      if((i>=S.nloc()-1&&i<=(ng-1)*(S.nloc()-1))){for(int gi=0;gi<S.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
       for(int jloc=0;jloc<S.nloc();jloc++){
         double nn(0.0); // mass matrix
-        int j(iel+jloc); // row address in the global matrix
+        int j(iel*(S.nloc()-1)+jloc); // row address in the global matrix
         for(int gi=0;gi<S.ngi();gi++){
-          nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*0.5*(x1[iel+1]-x1[iel]); // DG & notes use this - double check ??
+          nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*detJ[gi]; // DG & notes use this - double check ??
         }
-        if((i>0&&i<ng)&&(j>0&&j<ng)){
-          A.add(i-1,j-1,d1[iel]*nn);
+        if((i>=S.nloc()-1&&i<=(ng-1)*(S.nloc()-1))&&(j>=S.nloc()-1&&j<=(ng-1)*(S.nloc()-1))){
+          A.add(i-(S.nloc()-1),j-(S.nloc()-1),d1[iel]*nn);
 //          A.add(i-1,j-1,d1[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
         }
       }
@@ -218,12 +226,12 @@ int main(){
 
 // advance the solution
 
-  for(int i=0;i<n+3;i++){u1.at(i+1)=u0[i+1]+x[i]*dt;}
+  for(int i=0;i<matsiz;i++){u1.at(i+S.nloc()-1)=u0[i+S.nloc()-1]+x[i]*dt;}
 
 // impose boundary constraints on the acceleration field
 
-  u1.at(1)=u1[2];u1.at(ng-1)=u1[ng-2];
-  u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
+//  u1.at(1)=u1[2];u1.at(ng-1)=u1[ng-2];
+//  u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
 
 // some output
 
@@ -231,9 +239,9 @@ int main(){
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
 
     for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;}
-    for(int i=2;i<n+2;i++){f2<<0.5*(x1[i]+x1[i+1])<<" "<<d1[i]<<" "<<p[i]<<" "<<e1[i]<<" "<<endl;}
-    for(int i=2;i<n+2;i++){f3<<0.5*(x1[i]+x1[i+1])<<" "<<q[i]<<endl;}
-    for(int i=2;i<n+3;i++){f4<<x1[i]<<" "<<u1[i]<<endl;}
+    for(int i=2;i<n+2;i++){f2<<xc[i]<<" "<<d1[i]<<" "<<p[i]<<" "<<e1[i]<<" "<<endl;}
+    for(int i=2;i<n+2;i++){f3<<xc[i]<<" "<<q[i]<<endl;}
+    for(int i=2;i<n+3;i++){for(int j=0;j<S.nloc();j++){f4<<x1[GNOD]<<" "<<u1[GNOD]<<endl;}}
 
     f1.close();f2.close();f3.close();f4.close();
 
@@ -243,13 +251,13 @@ int main(){
     step++;
 
 // debug
-//    for(int i=0;i<ng;i++){u1.at(i)=R1.velocity(3*i);u1.at(i+1)=R1.velocity(3*i+2);} // 3*i,3*i+2 are nodal address
+//    for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){u1.at(GNOD)=R2.velocity(GNOD);}} // 3*i,3*i+2 are nodal address
 // debug
 
 // advance the solution for the new time step
 
-    for(int i=0;i<ng+1;i++){u0.at(i)=u1[i];}
-    for(int i=0;i<ng+1;i++){x0.at(i)=x1[i];}
+    for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){u0.at(GNOD)=u1[GNOD];}}
+    for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x0.at(GNOD)=x1[GNOD];}}
     for(int i=0;i<ng;i++){e0.at(i)=e1[i];}
     for(int i=0;i<ng;i++){V0.at(i)=V1[i];}
     for(int i=0;i<ng;i++){d0.at(i)=d1[i];}
