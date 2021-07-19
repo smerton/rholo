@@ -12,7 +12,6 @@ SILO=/usr/lib/libsiloh5.a
 
 ${EXEC}: ${OBJECTS}
 	${MYCMP} ${MYFLAGS} ${MYINCS} -o $@ ${OBJECTS} ${SILO} ${HDF5} -lz -ldl -lsz ${MYLIBS} ${LAPACK} ${BLAS}
-	-cp ${EXEC} ../bin
 
 nolink: ${OBJECTS}
 	${MYCMP} ${MYFLAGS} -c ${OBJECTS}
