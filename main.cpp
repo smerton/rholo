@@ -205,7 +205,6 @@ int main(){
 // next block codes for matrix assembly with a continuous Galerkin finite element type
 
   for(int iel=0;iel<ng;iel++){
-    double m[S.nloc()][S.nloc()]={};// for mass lumping
     for(int gi=0;gi<S.ngi();gi++){detJ[gi]=0.0;for(int j=0;j<S.nloc();j++){detJ[gi]+=S.dvalue(j,gi)*x1[iel*(S.nloc()-1)+j];}}
     for(int iloc=0;iloc<S.nloc();iloc++){
       int i(iel*(S.nloc()-1)+iloc); // column address in the global matrix
@@ -216,26 +215,12 @@ int main(){
         for(int gi=0;gi<S.ngi();gi++){
           nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*detJ[gi]; // DG & notes use this - double check ??
         }
-        m[iloc][iloc]+=nn; // for mass lumping
         if((i>=S.nloc()-1&&i<=(ng-1)*(S.nloc()-1))&&(j>=S.nloc()-1&&j<=(ng-1)*(S.nloc()-1))){
-//          A.add(i-(S.nloc()-1),j-(S.nloc()-1),d1[iel]*nn);
-//          A.add(i-(S.nloc()-1),j-(S.nloc()-1),R2.density(iel*(S.nloc()-1)+jloc)*nn); // S2
-//          A.add(i-1,j-1,d1[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
+          A.add(i-(S.nloc()-1),j-(S.nloc()-1),d1[iel]*nn);
+//          A.add(i-(S.nloc()-1),i-(S.nloc()-1),d1[iel]*nn); // use mass lumping
         }
       }
     }
-
-// debug
-  for(int iloc=0;iloc<S.nloc();iloc++){
-    int i(iel*(S.nloc()-1)+iloc); // column address in the global matrix
-    for(int jloc=0;jloc<S.nloc();jloc++){
-      int j(iel*(S.nloc()-1)+jloc); // row address in the global matrix
-      if((i>=S.nloc()-1&&i<=(ng-1)*(S.nloc()-1))&&(j>=S.nloc()-1&&j<=(ng-1)*(S.nloc()-1))){
-        A.add(i-(S.nloc()-1),j-(S.nloc()-1),d1[iel]*m[iloc][jloc]); // use mass lumping
-      }
-    }
-  }
-// debug
   }
 
 // solve global system
@@ -283,7 +268,7 @@ int main(){
     step++;
 
 // debug
-//      if(step==647){cout<<" debug stop 1..."<<endl;exit(1);}
+//      if(step==20){cout<<" debug stop 1..."<<endl;exit(1);}
 //    for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){u1.at(GNOD)=R2.velocity(GNOD);}} // 3*i,3*i+2 are nodal address
 // debug
 
