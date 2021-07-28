@@ -19,6 +19,9 @@
 #define COURANT 0.333     // Courant number for CFL condition
 #define DTSFACTOR 0.5     // safety factor on time-step control
 #define GNOD i*(S.nloc()-1)+j // global FE node address
+#define DX0 x0[i*(S.nloc()-1)+S.nloc()-1]-x0[i*(S.nloc()-1)] // width of cell i at t0
+#define DX1 x1[i*(S.nloc()-1)+S.nloc()-1]-x1[i*(S.nloc()-1)] // width of cell i at t1
+#define CENTROID 0.5*(x1[i*(S.nloc()-1)+S.nloc()-1]+x1[i*(S.nloc()-1)]) // centroid of cell i
 
 #include <iostream>
 #include <vector>
@@ -105,7 +108,7 @@ int main(){
 
 // calculate a new stable time-step
 
-    for(int i=0;i<ng;i++){double l(x0[i*(S.nloc()-1)+S.nloc()-1]-x0[i*(S.nloc()-1)]);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
+    for(int i=0;i<ng;i++){double l(DX0);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
 
     double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end())); // reduce across element and apply a saftey factor
 
@@ -113,9 +116,10 @@ int main(){
 
 // move the nodes to their full-step position
 
-//    for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x1.at(GNOD)=x0[GNOD]+u0[GNOD]*dt;}xc[i]=0.5*(x1[i*(S.nloc()-1)+S.nloc()-1]+x1[i*(S.nloc()-1)]);}
+    for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x1.at(GNOD)=x0[GNOD]+u0[GNOD]*dt;}xc[i]=CENTROID;}
+
 // debug
-    if(step>0){for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x1.at(GNOD)=x0[GNOD]+R2.velocity(GNOD)*dt;}xc[i]=0.5*(x1[i*(S.nloc()-1)+S.nloc()-1]+x1[i*(S.nloc()-1)]);}}
+//    if(step>0){for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x1.at(GNOD)=x0[GNOD]+R2.velocity(GNOD)*dt;}xc[i]=CENTROID;}}
 // debug
 
 // update kinetic energy for conservation checks
@@ -130,7 +134,7 @@ int main(){
     R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
     rx.clear();for(int i=0;i<ng;i++){rx.push_back(xc[i]);}
     R1.profile(&rx,time+dt);
-    rx.clear();for(int i=0;i<ng;i++){for(int j=0;j<S.nloc()-1;j++){rx.push_back(x1[i*(S.nloc()-1)+j]);}}
+    rx.clear();for(int i=0;i<ng;i++){for(int j=0;j<S.nloc()-1;j++){rx.push_back(x1[GNOD]);}}
     R2.profile(&rx,time+dt);
 
 // update cell volumes at the full-step
@@ -146,7 +150,7 @@ int main(){
     for(int i=0;i<ng;i++){d1.at(i)=m[i]/V1[i];}
 
 // debug
-    for(int i=0;i<ng;i++){d1.at(i)=R1.density(i);} // 3*i+1 is cell-centre address
+//    for(int i=0;i<ng;i++){d1.at(i)=R1.density(i);} // 3*i+1 is cell-centre address
 // debug
 
 // update cell energy at the full-step
@@ -172,7 +176,7 @@ int main(){
     ie=0.0;for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
 
 // debug
-    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(i);} // 3*i+1 is cell-centre address
+//    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(i);} // 3*i+1 is cell-centre address
 // debug
 
 // update cell pressure at the full-step
@@ -183,7 +187,7 @@ int main(){
 
     for(int i=0;i<ng;i++){
       c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
-      double l(x1[i*(S.nloc()-1)+S.nloc()-1]-x1[i*(S.nloc()-1)]),divu((d0[i]-d1[i])/(d1[i]*dt));
+      double l(DX1),divu((d0[i]-d1[i])/(d1[i]*dt));
       if(divu<0.0){
         q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
       }else{
@@ -196,33 +200,61 @@ int main(){
   int matsiz((n+2)*(S.nloc()-1)+1);
   Matrix A(matsiz);double b[matsiz],x[matsiz];for(int i=0;i<matsiz;i++){b[i]=0.0;x[i]=0.0;}
 
-  double m[S.nloc()][S.nloc()]={};m[0][0]=0.5;m[S.nloc()-1][S.nloc()-1]=0.5;// for mass lumping
+//  double m[S.nloc()][S.nloc()]={};m[0][0]=0.5;m[S.nloc()-1][S.nloc()-1]=0.5;// for mass lumping
 
 // next block codes for matrix assembly with a continuous Galerkin finite element type
 
   for(int iel=0;iel<ng;iel++){
+    double m[S.nloc()][S.nloc()]={};// for mass lumping
     for(int gi=0;gi<S.ngi();gi++){detJ[gi]=0.0;for(int j=0;j<S.nloc();j++){detJ[gi]+=S.dvalue(j,gi)*x1[iel*(S.nloc()-1)+j];}}
     for(int iloc=0;iloc<S.nloc();iloc++){
       int i(iel*(S.nloc()-1)+iloc); // column address in the global matrix
-      if((i>=S.nloc()-1&&i<=(ng-1)*(S.nloc()-1))){for(int gi=0;gi<S.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
+      if((i>=S.nloc()-1&&i<=(ng-1)*(S.nloc()-1))){for(int gi=0;gi<S.ngi();gi++){b[i-(S.nloc()-1)]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
       for(int jloc=0;jloc<S.nloc();jloc++){
         double nn(0.0); // mass matrix
         int j(iel*(S.nloc()-1)+jloc); // row address in the global matrix
         for(int gi=0;gi<S.ngi();gi++){
           nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*detJ[gi]; // DG & notes use this - double check ??
         }
+        m[iloc][iloc]+=nn; // for mass lumping
         if((i>=S.nloc()-1&&i<=(ng-1)*(S.nloc()-1))&&(j>=S.nloc()-1&&j<=(ng-1)*(S.nloc()-1))){
-          A.add(i-(S.nloc()-1),j-(S.nloc()-1),d1[iel]*nn);
+//          A.add(i-(S.nloc()-1),j-(S.nloc()-1),d1[iel]*nn);
+//          A.add(i-(S.nloc()-1),j-(S.nloc()-1),R2.density(iel*(S.nloc()-1)+jloc)*nn); // S2
 //          A.add(i-1,j-1,d1[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
         }
       }
     }
 
+// debug
+  for(int iloc=0;iloc<S.nloc();iloc++){
+    int i(iel*(S.nloc()-1)+iloc); // column address in the global matrix
+    for(int jloc=0;jloc<S.nloc();jloc++){
+      int j(iel*(S.nloc()-1)+jloc); // row address in the global matrix
+      if((i>=S.nloc()-1&&i<=(ng-1)*(S.nloc()-1))&&(j>=S.nloc()-1&&j<=(ng-1)*(S.nloc()-1))){
+        A.add(i-(S.nloc()-1),j-(S.nloc()-1),d1[iel]*m[iloc][jloc]); // use mass lumping
+      }
+    }
+  }
+// debug
   }
 
 // solve global system
 
   A.solve(x,b);
+
+// debug
+//  for(int i=0;i<matsiz;i++){
+//    cout<<i<<" vel= "<<x[i]<<" "<<b[i]<<endl;
+//  }
+//  for(int iloc=0;iloc<S.nloc();iloc++){
+//    cout<<"iloc "<<iloc<<" shape values: ";
+//    for(int gi=0;gi<S.ngi();gi++){
+//      cout<<S.dvalue(iloc,gi)<<" ";
+//    }
+//    cout<<endl;
+//  }
+//  exit(1);
+// debug
 
 // advance the solution
 
@@ -251,6 +283,7 @@ int main(){
     step++;
 
 // debug
+//      if(step==647){cout<<" debug stop 1..."<<endl;exit(1);}
 //    for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){u1.at(GNOD)=R2.velocity(GNOD);}} // 3*i,3*i+2 are nodal address
 // debug
 
