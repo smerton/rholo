@@ -19,6 +19,8 @@
 #define COURANT 0.333     // Courant number for CFL condition
 #define DTSFACTOR 0.5     // safety factor on time-step control
 #define GNOD i*(S.nloc()-1)+j // global FE node address
+#define KNOD i*(K.nloc()-1)+j // global kinematic node address
+#define TNOD i*(T.nloc()-1)+j // global thermodynamic node address
 #define DX0 x0[i*(S.nloc()-1)+S.nloc()-1]-x0[i*(S.nloc()-1)] // width of cell i at t0
 #define DX1 x1[i*(S.nloc()-1)+S.nloc()-1]-x1[i*(S.nloc()-1)] // width of cell i at t1
 #define CENTROID 0.5*(x1[i*(S.nloc()-1)+S.nloc()-1]+x1[i*(S.nloc()-1)]) // centroid of cell i
@@ -47,20 +49,29 @@ int main(){
 
 // global data
 
-  ofstream f1,f2,f3,f4;                                 // files for output
+  ofstream f1,f2,f3,f4,f5;                                 // files for output
   int const n(100),ng(n+4);                             // no. ncells, no. ghosts
-  Shape S(1,2);                                           // load FE stencil
+  Shape S(1,2),T(1,3),K(2,3);                           // load FE stencils
   int nnodes(n*(S.nloc()-1)+1),ngnodes(ng*(S.nloc()-1)+1); // no. FE nodes
+  int nknodes(n*(K.nloc()-1)+1),ngknodes(ng*(K.nloc()-1)+1); // no. kinematic nodes
+  int ntnodes(n*(T.nloc()-1)+1),ngtnodes(ng*(T.nloc()-1)+1); // no. thermodynamic nodes
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
+  vector<double> dinit(ng);                             // initial density field
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
+  vector<double> e2(ng*T.nloc()),e3(ng*T.nloc());       // discontinuous energy field
   vector<double> c(ng),p(ng),q(ng);                     // element sound speed, pressure and bulk viscosity
   vector<double> u0(ngnodes),u1(ngnodes);               // node velocity
+  vector<double> u2(ngknodes),u3(ngknodes);             // high-order node velocity
   vector<double> x0(ngnodes),x1(ngnodes);               // node coordinates
+  vector<double> x2(ngtnodes),x3(ngtnodes);             // thermodynamic node coordinates
+  vector<double> x4(ngknodes),x5(ngknodes);             // kinematic node coordinates
   vector<double> xc(ng);                                // cell centroids
   vector<double> dt_cfl(ng);                            // element time-step
+  vector<double> qd(T.ngi()),qp(T.ngi()),qq(T.ngi());   // data at each integration point
+  vector<double> qc(T.ngi()),qe(T.ngi());               // data at each integration point
   double Vn[S.nloc()],mn[ngnodes];                      // volume and mass of an FE node
-  double detJ[S.ngi()];                                 // determinant of the Jacobian at each Gauss point
+  double detJ[ng*K.ngi()],detJ0[ng*K.ngi()];            // determinant of the Jacobian at each Gauss point
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -71,17 +82,33 @@ int main(){
 // initialise the problem
 
   double dx(1.0/n);x0.at(0)=-2.0*dx;x1.at(0)=x0[0];xc[0]=-1.5*dx;
+  x2.at(0)=x0[0];x3.at(0)=x0[0];x4.at(0)=x0[0];x5.at(0)=x0[0];
   for(int i=1;i<ng;i++){xc.at(i)=xc[i-1]+dx;}
   for(int i=1;i<ngnodes;i++){x0.at(i)=x0[i-1]+1.0/(n*(S.nloc()-1));x1.at(i)=x0[i];}
+  for(int i=1;i<ngtnodes;i++){x2.at(i)=x2[i-1]+1.0/(n*(T.nloc()-1));x3.at(i)=x2[i];}
+  for(int i=1;i<ngknodes;i++){x4.at(i)=x4[i-1]+1.0/(n*(K.nloc()-1));x5.at(i)=x4[i];}
   for(int i=0;i<ng;i++){p.at(i)=(xc[i]<=0.5)?l[2]:r[2];}
+  for(int i=0;i<ng;i++){dinit.at(i)=(xc[i]<=0.5)?l[0]:r[0];}
   for(int i=0;i<ng;i++){d0.at(i)=(xc[i]<=0.5)?l[0]:r[0];}
   for(int i=0;i<ng;i++){d1.at(i)=(xc[i]<=0.5)?l[0]:r[0];}
   for(int i=0;i<ng;i++){e0.at(i)=E(d0[i],p[i]);}
   for(int i=0;i<ng;i++){e1.at(i)=E(d1[i],p[i]);}
+  for(int i=0;i<ng;i++){for(int j=0;j<T.nloc();j++){e2.at(i*T.nloc()+j)=E(d0[i],p[i]);}}
+  for(int i=0;i<ng;i++){for(int j=0;j<T.nloc();j++){e3.at(i*T.nloc()+j)=E(d1[i],p[i]);}}
   for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){mn[GNOD]=0.0;}}
 
+// Initialise jacobian for strong mass conservation
+
   for(int i=0;i<ng;i++){
-    V0.at(i)=0.0;V1.at(i)=0.0;
+    for(int gi=0;gi<K.ngi();gi++){
+      detJ0[i*K.ngi()+gi]=0.0;detJ[i*K.ngi()+gi]=0.0;
+      for(int j=0;j<K.nloc();j++){detJ0[i*K.ngi()+gi]+=K.dvalue(j,gi)*x4[KNOD];}
+      for(int j=0;j<K.nloc();j++){detJ[i*K.ngi()+gi]+=K.dvalue(j,gi)*x5[KNOD];}
+    }
+  }
+
+  for(int i=0;i<ng;i++){
+    V0.at(i)=0.0;V1.at(i)=0.0;double detJ[S.ngi()];
     for(int gi=0;gi<S.ngi();gi++){detJ[gi]=0.0;for(int j=0;j<S.nloc();j++){detJ[gi]+=S.dvalue(j,gi)*x0[GNOD];}}
     for(int j=0;j<S.nloc();j++){Vn[j]=0.0;for(int gi=0;gi<S.ngi();gi++){Vn[j]+=S.value(j,gi)*detJ[gi]*S.wgt(gi);}}
     for(int j=0;j<S.nloc();j++){V0.at(i)+=Vn[j];V1.at(i)=V0[i];mn[GNOD]+=d0[i]*Vn[j];}
@@ -89,6 +116,8 @@ int main(){
 
   for(int i=0;i<ng;i++){m.at(i)=d0[i]*V0[i];}
   for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){u0.at(GNOD)=(x0[GNOD]<=0.5)?l[1]:r[1];u1.at(GNOD)=u0[GNOD];}}
+  for(int i=0;i<ng;i++){for(int j=0;j<K.nloc();j++){u2.at(KNOD)=(x4[KNOD]<=0.5)?l[1]:r[1];u3.at(KNOD)=u2[KNOD];}}
+
   for(int i=0;i<ng;i++){q.at(i)=0.0;}
   for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
   for(int i=2;i<ng-1;i++){for(int j=0;j<S.nloc();j++){ke+=0.5*mn[GNOD]*u0[GNOD]*u0[GNOD];}}
@@ -140,7 +169,7 @@ int main(){
 // update cell volumes at the full-step
 
     for(int i=0;i<ng;i++){
-      V1.at(i)=0.0;
+      V1.at(i)=0.0;double detJ[S.ngi()];
       for(int gi=0;gi<S.ngi();gi++){detJ[gi]=0.0;for(int j=0;j<S.nloc();j++){detJ[gi]+=S.dvalue(j,gi)*x1[GNOD];}}
       for(int j=0;j<S.nloc();j++){for(int gi=0;gi<S.ngi();gi++){V1.at(i)+=S.value(j,gi)*detJ[gi]*S.wgt(gi);}}
     }
@@ -205,6 +234,7 @@ int main(){
 // next block codes for matrix assembly with a continuous Galerkin finite element type
 
   for(int iel=0;iel<ng;iel++){
+    double detJ[S.ngi()];
     for(int gi=0;gi<S.ngi();gi++){detJ[gi]=0.0;for(int j=0;j<S.nloc();j++){detJ[gi]+=S.dvalue(j,gi)*x1[iel*(S.nloc()-1)+j];}}
     for(int iloc=0;iloc<S.nloc();iloc++){
       int i(iel*(S.nloc()-1)+iloc); // column address in the global matrix
@@ -252,15 +282,16 @@ int main(){
 
 // some output
 
-    f1.open("exact.dat");f2.open("dpe.dat");f3.open("q.dat");f4.open("u.dat");
-    f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
+    f1.open("exact.dat");f2.open("dpe.dat");f3.open("q.dat");f4.open("u.dat");f5.open("e.dat");
+    f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);f5<<fixed<<setprecision(17);
 
     for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;}
     for(int i=2;i<n+2;i++){f2<<xc[i]<<" "<<d1[i]<<" "<<p[i]<<" "<<e1[i]<<" "<<endl;}
     for(int i=2;i<n+2;i++){f3<<xc[i]<<" "<<q[i]<<endl;}
-    for(int i=2;i<n+3;i++){for(int j=0;j<S.nloc();j++){f4<<x1[GNOD]<<" "<<u1[GNOD]<<endl;}}
+    for(int i=2;i<n+2;i++){for(int j=0;j<S.nloc();j++){f4<<x1[GNOD]<<" "<<u1[GNOD]<<endl;}}
+    for(int i=2;i<n+2;i++){for(int j=0;j<T.nloc();j++){f5<<x3[TNOD]<<" "<<e3[i*T.nloc()+j]<<endl;}}
 
-    f1.close();f2.close();f3.close();f4.close();
+    f1.close();f2.close();f3.close();f4.close();f5.close();
 
 // advance the time step
 
@@ -275,7 +306,11 @@ int main(){
 // advance the solution for the new time step
 
     for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){u0.at(GNOD)=u1[GNOD];}}
+    for(int i=0;i<ng;i++){for(int j=0;j<K.nloc();j++){u2.at(KNOD)=u3[KNOD];}}
     for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x0.at(GNOD)=x1[GNOD];}}
+    for(int i=0;i<ng*(T.nloc()-1)+1;i++){x2.at(i)=x3[i];}
+    for(int i=0;i<ng*(K.nloc()-1)+1;i++){x4.at(i)=x5[i];}
+    for(int i=0;i<ng*T.nloc();i++){e2.at(i)=e3[i];}
     for(int i=0;i<ng;i++){e0.at(i)=e1[i];}
     for(int i=0;i<ng;i++){V0.at(i)=V1[i];}
     for(int i=0;i<ng;i++){d0.at(i)=d1[i];}
