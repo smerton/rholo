@@ -49,7 +49,7 @@ int main(){
 
   ofstream f1,f2,f3,f4;                                 // files for output
   int const n(100),ng(n+4);                             // no. ncells, no. ghosts
-  Shape S(1);                                           // load FE stencil
+  Shape S(1,2);                                           // load FE stencil
   int nnodes(n*(S.nloc()-1)+1),ngnodes(ng*(S.nloc()-1)+1); // no. FE nodes
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass

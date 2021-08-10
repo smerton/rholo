@@ -10,7 +10,7 @@ class Shape{
 
   public:
 
-    Shape(int n); // constructor function for a new shape of order n
+    Shape(int n, int m); // constructor function for a new shape of order n at m integration points
     ~Shape(); // destructor to release class storage
 
 // accessor functions to member data

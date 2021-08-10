@@ -12,7 +12,7 @@ using namespace std;
 
 // constructor to instantiate a new shape object and all its attributes
 
-Shape::Shape(int n){
+Shape::Shape(int n, int m){
 
 // set the polyhedral order
 
@@ -28,7 +28,13 @@ Shape::Shape(int n){
 
 // set number of integration points adequate for the shape
 
-  mngi=this->order()+1;
+  if(m<this->order()+1){
+    cout<<"Shape::Shape(): "<<m<<" integration point(s) insufficient to integrate a degree "<<order()<<" shape."<<endl;
+    cout<<"Shape::Shape(): Increase the number of points to at least "<<this->order()+1<<endl;
+    exit(1);
+  }
+
+  mngi=m;
 
 // set number of faces
 
@@ -49,7 +55,7 @@ Shape::Shape(int n){
 
 // load a quadrature rule for the numerical integration of the polynomials Px
 
-  QuadratureRule Q(this->order()+1);
+  QuadratureRule Q(mngi);
 
 // shape value at each integration point
 
@@ -82,7 +88,7 @@ void Shape::prolongate(double*u,double*v,int p){
 
 // create the destination element
 
-  Shape M(p);double P[this->nloc()][M.nloc()]={};
+  Shape M(p,p+1);double P[this->nloc()][M.nloc()]={};
 
 // form a matrix to map u to M
 
