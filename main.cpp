@@ -146,6 +146,9 @@ int main(){
 // move the nodes to their full-step position
 
     for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x1.at(GNOD)=x0[GNOD]+u0[GNOD]*dt;}xc[i]=CENTROID;}
+    for(int i=0;i<ng;i++){for(int j=0;j<K.nloc();j++){x5.at(KNOD)=x4[KNOD]+u2[KNOD]*dt;}}
+    cout<<"Need to update thermodynamic node position !!"<<endl;
+    exit(1);
 
 // debug
 //    if(step>0){for(int i=0;i<ng;i++){for(int j=0;j<S.nloc();j++){x1.at(GNOD)=x0[GNOD]+R2.velocity(GNOD)*dt;}xc[i]=CENTROID;}}
