@@ -4,7 +4,9 @@
 #include <vector>
 #include "mesh.h"
 #include "shape.h"
+#ifdef USE_SILO
 #include "silo.h"
+#endif
 #include <fstream>
 #include <cmath>
 #include <iomanip>
@@ -19,7 +21,7 @@
 using namespace std;
 
 void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cycle,double time){
-
+#ifdef USE_SILO
   DBfile*dbfile;
   int dberr;
   DBoptlist *optlist=NULL;
@@ -332,7 +334,7 @@ void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cyc
 // close the file
 
   dberr=DBClose(dbfile);
-
+#endif
   return;
 
 }
