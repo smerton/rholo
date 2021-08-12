@@ -8,16 +8,22 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 0.25      // insert a macro for the end time
-#define GAMMA 1.4         // ratio of specific heats for ideal gases
-#define ECUT 1.0e-8        // cut-off on the energy field
-#define NSAMPLES 500      // number of sample points for the exact solution
-#define VISFREQ 10000     // frequency of the graphics dumps
-#define VD vector<double> // vector of doubles
-#define VTOL 1.0e-10      // threshold for volume errors
-#define COURANT 0.333     // Courant number for CFL condition
-#define DTSFACTOR 0.5     // safety factor on time-step control
+#define DTSTART 0.0005        // insert a macro for the first time step
+#define ENDTIME 0.25          // insert a macro for the end time
+#define GAMMA 1.4             // ratio of specific heats for ideal gases
+#define ECUT 1.0e-8           // cut-off on the energy field
+#define NSAMPLES 500          // number of sample points for the exact solution
+#define VISFREQ 10000         // frequency of the graphics dumps
+#define VD vector<double>     // vector of doubles
+#define VTOL 1.0e-10          // threshold for volume errors
+#define COURANT 0.333         // Courant number for CFL condition
+#define DTSFACTOR 0.5         // safety factor on time-step control
+#define KNOD i*(K.nloc()-1)+j // global node number on kinematic mesh
+#define TNOD i*T.nloc()+j     // global node number on thermodynamic mesh
+#define GPNT i*T.ngi()+gi     // global address of Gauss point gi in element i
+#define DX0 x0[i*(K.nloc()-1)+K.nloc()-1]-x0[i*(K.nloc()-1)]            // cell width at start of step
+#define DX1 x1[i*(K.nloc()-1)+K.nloc()-1]-x1[i*(K.nloc()-1)]            // cell width at end of step
+#define CENTROID 0.5*(x1[i*(K.nloc()-1)+K.nloc()-1]+x1[i*(K.nloc()-1)]) // cell centroid
 
 #include <iostream>
 #include <vector>
@@ -44,41 +50,56 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
-  Shape S(1,2);                                         // p1 shape function
+  Shape K(2,3),T(1,3);                                  // p_n,p_n-1 shape functions
+  int const n(10),ng(n+4);                              // no. ncells, no. ghosts
+  int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
+  int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
-  vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
-  vector<double> e0(ng),e1(ng);                         // cell-centred energy field
-  vector<double> c(ng),p(ng),q(ng);                     // element sound speed, pressure and bulk viscosity
-  vector<double> u0(ng+1),u1(ng+1),utmp(ng+1),u2(ng+1); // node velocity
-  vector<double> x0(ng+1),x1(ng+1);                     // node coordinates
-  vector<double> dt_cfl(ng);                            // element time-step
+  vector<double> dinit(ng);                             // initial density field inside an element
+  vector<double> d0(ng*T.ngi()),d1(ng*T.ngi());         // density at each Gauss point in each element
+  vector<double> V0(ng),V1(ng),m(ng),xc(ng);            // volume, mass & centroid
+  vector<double> e0(ntg),e1(ntg);                       // discontinuous FE energy field
+  vector<double> c(ng*T.ngi()),p(ng*T.ngi());           // element sound speed & pressure at each Gauss point
+  vector<double> q(ng*T.ngi());                         // bulk viscosity at each Gauss point
+  vector<double> u0(nkg),u1(nkg);                       // node velocity
+  vector<double> x0(nkg),x1(nkg);                       // node coordinates
+  vector<double> dt_cfl(ng*T.ngi());                    // element time-step at each Gauss point
+  vector<double> detJ0(ng*T.ngi()),detJ(ng*T.ngi());    // determinant of the Jacobian
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
-  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for the problem
-//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};      // left/right flux states for the problem
-//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};   // left/right flux states for the problem
+  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for the problem: Sod
+//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};      // left/right flux states for the problem: 123 (R2R)
+//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};   // left/right flux states for the problem: blast wave
 
 // initialise the problem
 
   double dx(1.0/n);x0.at(0)=-2.0*dx;x1.at(0)=x0[0];
-  for(int i=1;i<ng+1;i++){x0.at(i)=x0[i-1]+dx;x1.at(i)=x0[i];}
-  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[2]:r[2];}
-  for(int i=0;i<ng;i++){d0.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[0]:r[0];}
-  for(int i=0;i<ng;i++){d1.at(i)=(0.5*(x1[i]+x1[i+1])<=0.5)?l[0]:r[0];}
-  for(int i=0;i<ng;i++){e0.at(i)=E(d0[i],p[i]);}
-  for(int i=0;i<ng;i++){e1.at(i)=E(d1[i],p[i]);}
-  for(int i=0;i<ng;i++){V0.at(i)=x0[i+1]-x0[i];}
-  for(int i=0;i<ng;i++){V1.at(i)=x1[i+1]-x1[i];}
-  for(int i=0;i<ng;i++){m.at(i)=d0[i]*V0[i];}
-  for(int i=0;i<ng+1;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];}
-  for(int i=0;i<ng+1;i++){u1.at(i)=u0[i];}
-  for(int i=0;i<ng+1;i++){utmp.at(i)=u0[i];}
-  for(int i=0;i<ng;i++){q.at(i)=0.0;}
-  for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
-  for(int i=1;i<ng;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];};ke+=0.25*m[0]*u0[0]*u0[0];ke+=0.25*m[ng-1]*u0[ng]*u0[ng];
-  for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
+  for(long i=0;i<nkg;i++){x0.at(i)=x0[0]+i*dx/(K.nloc()-1);x1.at(i)=x0[i];}
+  for(int i=0;i<ng;i++){xc.at(i)=CENTROID;}
+  for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=(xc[i]<=0.5)?l[2]:r[2];}}
+  for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d0.at(GPNT)=(xc[i]<=0.5)?l[0]:r[0];}}
+  for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1.at(GPNT)=(xc[i]<=0.5)?l[0]:r[0];}}
+  for(int i=0;i<ng;i++){for(int j=0;j<T.nloc();j++){e0.at(TNOD)=(xc[i]<=0.5)?E(l[0],l[2]):E(r[0],r[2]);}}
+  for(int i=0;i<ng;i++){for(int j=0;j<T.nloc();j++){e1.at(TNOD)=(xc[i]<=0.5)?E(l[0],l[2]):E(r[0],r[2]);}}
+  for(int i=0;i<ng;i++){V0.at(i)=DX0;V1.at(i)=DX1;}
+  for(int i=0;i<ng;i++){dinit.at(i)=(xc[i]<=0.5)?l[0]:r[0];}
+  for(int i=0;i<ng;i++){m.at(i)=(xc[i]<=0.5)?l[0]*V0[i]:r[0]*V0[i];}
+  for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];u1.at(i)=u0[i];}
+  for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
+  for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0[GPNT]);}}
+
+// set time-0 Jacobian
+
+  for(int i=0;i<ng;i++){
+    for(int gi=0;gi<T.ngi();gi++){
+      detJ0.at(GPNT)=0.0;
+      for(int j=0;j<K.nloc();j++){
+        detJ0.at(GPNT)+=K.dvalue(j,gi)*x0[KNOD];
+      }
+      if(detJ0.at(GPNT)<0.0){cout<<"-'ve determinant of J0 detected in cell "<<i<<endl;exit(1);}
+    }
+  }
 
 // start the Riemann solvers from initial flux states
 
@@ -92,42 +113,99 @@ int main(){
 
   while(time<ENDTIME+dt){
 
-// calculate a new stable time-step
+// calculate a new stable time-step that will impose the CFL limit on each quadrature point
 
-    for(int i=0;i<ng;i++){double l(x0[i+1]-x0[i]);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
-    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end())); // reduce across element and apply a saftey factor
+    for(int i=0;i<ng;i++){
+      for(int gi=0;gi<K.ngi();gi++){
+        dt_cfl.at(GPNT)=COURANT*(DX0/sqrt((c[GPNT]*c[GPNT])+2.0*q[GPNT]/d0[GPNT]));
+      }
+    }
 
-    cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
+// reduce across element and apply a saftey factor
+
+    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
+
+    cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt;
+    cout<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
 // move the nodes to their full-step position
 
-    for(int i=0;i<ng+1;i++){x1.at(i)=x0[i]+u0[i]*dt;}
+    for(long i=0;i<nkg;i++){x1.at(i)=x0[i]+u0[i]*dt;}
+
+// update mesh centroids
+
+    for(int i=0;i<ng;i++){xc.at(i)=CENTROID;}
 
 // update kinetic energy for conservation checks
 
-    ke=0.0;for(int i=1;i<ng;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];} // include level 1 halo
-//    ke+=0.25*m[0]*u0[0]*u0[0];ke+=0.25*m[ng-1]*u0[ng]*u0[ng]; // update level 2 halo
+    ke=0.0;for(int i=0;i<ng;i++){for(int j=0;j<K.nloc();j++){ke+=0.25*(m[i])*u0[KNOD]*u0[KNOD];}}
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
-    vector<double> r0x,rx;vempty(r0x); // sample point coordinates
-//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
+    vector<double> r0x,rx;vempty(r0x);vempty(rx); // sample point coordinates
     for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
     R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
-    rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
+    for(int i=0;i<nkg;i++){rx.push_back(x0[i]);}
     R1.profile(&rx,time+dt);
 
 // update cell volumes at the full-step
 
-    for(int i=0;i<ng;i++){V1.at(i)=x1[i+1]-x1[i];if(V1[i]<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}}
+    for(int i=0;i<ng;i++){V1.at(i)=DX1;if(V1[i]<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}}
+
+// update Jacobian
+
+    for(int i=0;i<ng;i++){
+      for(int gi=0;gi<T.ngi();gi++){
+        detJ.at(GPNT)=0.0;
+        for(int j=0;j<K.nloc();j++){
+          detJ.at(GPNT)+=K.dvalue(j,gi)*x1[KNOD];
+        }
+        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
+      }
+    }
 
 // update cell density at the full-step
 
-    for(int i=0;i<ng;i++){d1.at(i)=m[i]/V1[i];}
+    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1[GPNT]=dinit[i]*detJ0[GPNT]/detJ[GPNT];}}
+
+// assemble finite element energy field on discontinuous thermodynamic grid
+
+    {Matrix A(T.nloc());double b[T.nloc()],x[T.nloc()];
+    for(int i=0;i<ng;i++){
+      for(int iloc=0;iloc<T.nloc();iloc++){
+        for(int jloc=0;jloc<T.nloc();jloc++){
+          double nn(0.0); // DG mass matrix
+           for(int gi=0;gi<T.ngi();gi++){
+             nn+=d1[GPNT]*T.value(iloc,gi)*T.value(jloc,gi)*detJ[GPNT]*T.wgt(gi);
+           }
+           A.write(iloc,jloc,nn);
+        }
+      }
+
+// solve local system
+
+      A.solve(x,b);
+
+// advance the solution
+
+      for(int j=0;j<T.nloc();j++){e1.at(TNOD)=max(ECUT,e0[TNOD]-x[j]*dt);}
+
+    }}
+
+
+
+
+
+
 
 // debug
-//    for(int i=0;i<ng;i++){d1.at(i)=R1.density(3*i+1);} // 3*i+1 is cell-centre address
+  cout<<"debug stop."<<endl;
+  exit(1);
 // debug
+
+
+
+
 
 // update cell energy at the full-step
 
@@ -179,14 +257,14 @@ int main(){
 // next block codes for matrix assembly with a continuous Galerkin finite element type
 
   for(int iel=0;iel<ng;iel++){
-    for(int iloc=0;iloc<S.nloc();iloc++){
+    for(int iloc=0;iloc<K.nloc();iloc++){
       int i(iel+iloc); // column address in the global matrix
-      if((i>0&&i<ng)){for(int gi=0;gi<S.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
-      for(int jloc=0;jloc<S.nloc();jloc++){
+      if((i>0&&i<ng)){for(int gi=0;gi<K.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*K.dvalue(iloc,gi)*K.wgt(gi);}} // integrate the shape derivative for rhs
+      for(int jloc=0;jloc<K.nloc();jloc++){
         double nn(0.0); // mass matrix
         int j(iel+jloc); // row address in the global matrix
-        for(int gi=0;gi<S.ngi();gi++){
-          nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*0.5*(x1[iel+1]-x1[iel]); // DG & notes use this - double check ??
+        for(int gi=0;gi<K.ngi();gi++){
+          nn+=K.value(iloc,gi)*K.value(jloc,gi)*K.wgt(gi)*0.5*(x1[iel+1]-x1[iel]); // DG & notes use this - double check ??
         }
         if((i>0&&i<ng)&&(j>0&&j<ng)){
           A.add(i-1,j-1,d1[iel]*nn);
