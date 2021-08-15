@@ -62,7 +62,7 @@ int main(){
   vector<double> c(ng*T.ngi()),p(ng*T.ngi());           // element sound speed & pressure at each Gauss point
   vector<double> q(ng*T.ngi());                         // bulk viscosity at each Gauss point
   vector<double> u0(nkg),u1(nkg);                       // node velocity
-  vector<double> x0(nkg),x1(nkg);                       // node coordinates
+  vector<double> x0(nkg),x1(nkg),x2(ntg),x3(ntg);       // node coordinates
   vector<double> dt_cfl(ng*T.ngi());                    // element time-step at each Gauss point
   vector<double> detJ0(ng*T.ngi()),detJ(ng*T.ngi());    // determinant of the Jacobian
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
@@ -88,6 +88,15 @@ int main(){
   for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];u1.at(i)=u0[i];}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0[GPNT]);}}
+
+// set thermodynamic node positions at time-0
+
+  for(int i=0;i<ng;i++){
+    for(int t=0;t<T.nloc();t++){
+      double pos(-1.0+t*2.0/(T.nloc()-1));long tloc(i*T.nloc()+t);x2.at(tloc)=0.0;
+      for(int j=0;j<K.nloc();j++){x2.at(tloc)+=K.value(j,pos)*x0[KNOD];}
+    }
+  }
 
 // set time-0 Jacobian
 
@@ -131,6 +140,13 @@ int main(){
 // move the nodes to their full-step position
 
     for(long i=0;i<nkg;i++){x1.at(i)=x0[i]+u0[i]*dt;}
+
+    for(int i=0;i<ng;i++){
+      for(int t=0;t<T.nloc();t++){
+        double pos(-1.0+t*2.0/(T.nloc()-1));long tloc(i*T.nloc()+t);x3.at(tloc)=0.0;
+        for(int j=0;j<K.nloc();j++){x3.at(tloc)+=K.value(j,pos)*x1[KNOD];}
+      }
+    }
 
 // update mesh centroids
 
