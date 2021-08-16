@@ -54,7 +54,7 @@ int main(){
 
   ofstream f1,f2,f3,f4;                                 // files for output
   Shape K(2,3),T(1,3);                                  // p_n,p_n-1 shape functions
-  int const n(100),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -115,7 +115,7 @@ int main(){
 
 // start the Riemann solvers from initial flux states
 
-  Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),R2(Riemann::exact,l,r);
+  Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),R2(Riemann::exact,l,r),R3(Riemann::exact,l,r);
 
 // set output precision
 
@@ -163,13 +163,16 @@ int main(){
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
-    vector<double> r0x,rx,rx2;vempty(r0x);vempty(rx);vempty(rx2); // sample point coordinates
-    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
+    vector<double> r0x,rx,rx2,rx3;vempty(r0x);vempty(rx);vempty(rx2);vempty(rx3); // sample point coordinates
+//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
+    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[nkg-1]-x1[0])/double(NSAMPLES)));} // sample points
     R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
     for(int i=0;i<nkg;i++){rx.push_back(x0[i]);}
     R1.profile(&rx,time+dt);
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;rx2.push_back(xgi);}}
     R2.profile(&rx2,time+dt);
+    for(int i=0;i<ntg;i++){rx3.push_back(x3[i]);}
+    R3.profile(&rx3,time+dt);
 
 // update cell volumes at the full-step
 
@@ -192,7 +195,7 @@ int main(){
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1[GPNT]=dinit[i]*detJ0[GPNT]/detJ[GPNT];}}
 
 // debug
-//    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1.at(GPNT)=R2.velocity(GPNT);}}
+    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1.at(GPNT)=R2.density(GPNT);}}
 // debug
 
 // update Jacobian for energy solve
@@ -231,6 +234,10 @@ int main(){
 
     }}
 
+// debug
+    for(int i=0;i<ntg;i++){e1.at(i)=R3.energy(i);}
+// debug
+
 // update internal energy for conservation checks
 
     ie=0.0;for(int i=0;i<ng;i++){for(int j=0;j<T.nloc();j++){ie+=e1[TNOD]*0.5*m[i];}}
@@ -247,7 +254,7 @@ int main(){
     }
 
 // debug
-//    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=R2.velocity(GPNT);}}
+    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=R2.pressure(GPNT);}}
 // debug
 
 // update sound speed
@@ -285,6 +292,7 @@ int main(){
     {Matrix A((ng-2)*(K.nloc()-1)+1);double b[(ng-2)*(K.nloc()-1)+1],x[(ng-2)*(K.nloc()-1)+1];
     for(int i=1;i<ng-1;i++){
       for(int iloc=0;iloc<K.nloc();iloc++){
+        b[ROW]=0.0;x[ROW]=0.0;
         for(int jloc=0;jloc<K.nloc();jloc++){
           double nn(0.0); // mass matrix
           for(int gi=0;gi<K.ngi();gi++){
@@ -300,7 +308,6 @@ int main(){
 
     A.solve(x,b);
 
-
 // update acceleration field
 
     for(int i=1;i<ng-1;i++){for(int j=0;j<K.nloc();j++){int iloc(j);u1.at(KNOD)=u1[KNOD]+x[ROW]*dt;}}
@@ -312,14 +319,19 @@ int main(){
     for(int j=0;j<K.nloc()-1;j++){u1.at(j)=u1[K.nloc()];}
     for(int j=0;j<K.nloc()-1;j++){int i(ng-1);u1.at(i*(K.nloc()-1)+j+1)=u1[i*(K.nloc()-1)];}
 
+// debug
+    for(long i=0;i<nkg;i++){u1.at(i)=R1.velocity(i);}
+// debug
+
 // some output
 
-    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dpq.dat");
+    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
     for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;}
     for(long i=0;i<ntg;i++){f2<<x3[i]<<" "<<e1[i]<<endl;}
     for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
-    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1[GPNT]<<" "<<p[GPNT]<<" "<<c[GPNT]<<" "<<q[GPNT]<<endl;}}
+    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1[GPNT]<<" "<<p[GPNT]<<endl;}}
+//    cout<<"NODE POS: "<<time<<" "<<x1[(ng/2)*(K.nloc()-1)]<<" "<<x1[(ng/2)*(K.nloc()-1)+1]<<endl;
     f1.close();f2.close();f3.close();f4.close();
 
 // advance the time step
@@ -341,8 +353,8 @@ int main(){
     for(int i=0;i<ng*T.ngi();i++){d0.at(i)=d1[i];}
 
 // debug
-  cout<<"debug stop."<<endl;
-  exit(1);
+//  cout<<"debug stop."<<endl;
+//  exit(1);
 // debug
 
   }
