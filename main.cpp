@@ -18,7 +18,7 @@
 #define VTOL 1.0e-10            // threshold for volume errors
 #define COURANT 0.333           // Courant number for CFL condition
 #define DTSFACTOR 0.5           // safety factor on time-step control
-#define KNOD i*(K.nloc()-1)+j   // global node number on kinematic mesh
+#define KNOD i*(K.nloc()-1)+k   // global node number on kinematic mesh
 #define TNOD i*T.nloc()+j       // global node number on thermodynamic mesh
 #define GPNT i*T.ngi()+gi       // global address of Gauss point gi in element i
 #define DX0 x0[i*(K.nloc()-1)+K.nloc()-1]-x0[i*(K.nloc()-1)]            // cell width at start of step
@@ -68,6 +68,7 @@ int main(){
   vector<double> x0(nkg),x1(nkg),x2(ntg),x3(ntg);       // node coordinates
   vector<double> dt_cfl(ng*T.ngi());                    // element time-step at each Gauss point
   vector<double> detJ0(ng*T.ngi()),detJ(ng*T.ngi());    // determinant of the Jacobian
+  double F[nkg][ntg],FT[ntg][nkg];                      // force matrix
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -95,9 +96,9 @@ int main(){
 // set thermodynamic node positions at time-0
 
   for(int i=0;i<ng;i++){
-    for(int t=0;t<T.nloc();t++){
-      double pos(-1.0+t*2.0/(T.nloc()-1));long tloc(i*T.nloc()+t);x2.at(tloc)=0.0;
-      for(int j=0;j<K.nloc();j++){x2.at(tloc)+=K.value(j,pos)*x0[KNOD];}
+    for(int j=0;j<T.nloc();j++){
+      double pos(-1.0+j*2.0/(T.nloc()-1));x2.at(TNOD)=0.0;
+      for(int k=0;k<K.nloc();k++){x2.at(TNOD)+=K.value(k,pos)*x0[KNOD];}
     }
   }
 
@@ -106,8 +107,8 @@ int main(){
   for(int i=0;i<ng;i++){
     for(int gi=0;gi<T.ngi();gi++){
       detJ0.at(GPNT)=0.0;
-      for(int j=0;j<K.nloc();j++){
-        detJ0.at(GPNT)+=K.dvalue(j,gi)*x0[KNOD];
+      for(int k=0;k<K.nloc();k++){
+        detJ0.at(GPNT)+=K.dvalue(k,gi)*x0[KNOD];
       }
       if(detJ0.at(GPNT)<0.0){cout<<"-'ve determinant of J0 detected in cell "<<i<<endl;exit(1);}
     }
@@ -144,12 +145,12 @@ int main(){
 
     for(long i=0;i<nkg;i++){x1.at(i)=x0[i]+u0[i]*dt;}
 
-// update thermodynamic node positions using a finite element method
+// update thermodynamic node positions using a finite element method, these are a subset of kinematic node positions
 
     for(int i=0;i<ng;i++){
-      for(int t=0;t<T.nloc();t++){
-        double pos(-1.0+t*2.0/(T.nloc()-1));long tloc(i*T.nloc()+t);x3.at(tloc)=0.0;
-        for(int j=0;j<K.nloc();j++){x3.at(tloc)+=K.value(j,pos)*x1[KNOD];}
+      for(int j=0;j<T.nloc();j++){
+        double pos(-1.0+j*2.0/(T.nloc()-1));x3.at(TNOD)=0.0;
+        for(int k=0;k<K.nloc();k++){x3.at(TNOD)+=K.value(k,pos)*x1[KNOD];}
       }
     }
 
@@ -159,7 +160,7 @@ int main(){
 
 // update kinetic energy for conservation checks
 
-    ke=0.0;for(int i=0;i<ng;i++){for(int j=0;j<K.nloc();j++){ke+=0.25*(m[i])*u0[KNOD]*u0[KNOD];}}
+    ke=0.0;for(int i=0;i<ng;i++){for(int k=0;k<K.nloc();k++){ke+=0.25*(m[i])*u0[KNOD]*u0[KNOD];}}
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
@@ -183,12 +184,28 @@ int main(){
     for(int i=0;i<ng;i++){
       for(int gi=0;gi<T.ngi();gi++){
         detJ.at(GPNT)=0.0;
-        for(int j=0;j<K.nloc();j++){
-          detJ.at(GPNT)+=K.dvalue(j,gi)*x1[KNOD];
+        for(int k=0;k<K.nloc();k++){
+          detJ.at(GPNT)+=K.dvalue(k,gi)*x1[KNOD];
         }
         if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
       }
     }
+
+// assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both e/u eqns
+
+    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
+    for(int i=0;i<ng;i++){
+      for(int k=0;k<K.nloc();k++){
+        for(int j=0;j<T.nloc();j++){
+          double f(0.0);
+          for(int gi=0;gi<T.ngi();gi++){
+            f+=(p[GPNT]+q[GPNT])*K.dvalue(k,gi)*T.value(j,gi)*detJ[gi]*T.wgt(gi)/DX0;
+          }
+          F[KNOD][TNOD]=+f;
+        }
+      }
+    }
+    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){FT[j][i]=F[i][j];}} // store transpose
 
 // update cell density at the full-step
 
@@ -242,14 +259,15 @@ int main(){
 
     ie=0.0;for(int i=0;i<ng;i++){for(int j=0;j<T.nloc();j++){ie+=e1[TNOD]*0.5*m[i];}}
 
-// update cell pressure at the full-step
+// update pressure at the full-step at the integration points
 
     for(int i=0;i<ng;i++){
       for(int gi=0;gi<T.ngi();gi++){
-        p.at(GPNT)=0.0;
+        double egi(0.0);
         for(int j=0;j<T.nloc();j++){
-          p.at(GPNT)+=T.value(j,gi)*e1[TNOD];
+          egi+=T.value(j,gi)*e1[TNOD];
         }
+        p.at(GPNT)=P(d1[GPNT],egi); // this is the EOS call
       }
     }
 
@@ -280,8 +298,8 @@ int main(){
     for(int i=0;i<ng;i++){
       for(int gi=0;gi<T.ngi();gi++){
         detJ.at(GPNT)=0.0;
-        for(int j=0;j<K.nloc();j++){
-          detJ.at(GPNT)+=K.dvalue(j,gi)*x1[KNOD];
+        for(int k=0;k<K.nloc();k++){
+          detJ.at(GPNT)+=K.dvalue(k,gi)*x1[KNOD];
         }
         if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
       }
@@ -310,7 +328,7 @@ int main(){
 
 // update acceleration field
 
-    for(int i=1;i<ng-1;i++){for(int j=0;j<K.nloc();j++){int iloc(j);u1.at(KNOD)=u1[KNOD]+x[ROW]*dt;}}
+    for(int i=1;i<ng-1;i++){for(int k=0;k<K.nloc();k++){int iloc(k);u1.at(KNOD)=u1[KNOD]+x[ROW]*dt;}}
 
     }
 
