@@ -199,13 +199,14 @@ int main(){
         for(int j=0;j<T.nloc();j++){
           double f(0.0);
           for(int gi=0;gi<T.ngi();gi++){
-            f+=(p[GPNT]+q[GPNT])*K.dvalue(k,gi)*T.value(j,gi)*detJ[gi]*T.wgt(gi)/DX0;
+//            f+=(p[GPNT]+q[GPNT])*K.dvalue(k,gi)*T.value(j,gi)*detJ[gi]*T.wgt(gi)*JI;
+            f+=(p[GPNT]+q[GPNT])*K.dvalue(k,gi)*T.value(j,gi)*T.wgt(gi);
           }
           F[KNOD][TNOD]=+f;
         }
       }
     }
-    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){FT[j][i]=F[i][j];}} // store transpose
+    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){FT[j][i]=F[i][j];}} // write transpose
 
 // update cell density at the full-step
 
@@ -228,11 +229,14 @@ int main(){
     }
 
 // assemble finite element energy field on discontinuous thermodynamic grid
+// for( struct {int i; double j;} v = {0, 3.0}; v.i < 10; v.i++, v.j+=0.1)
 
     {Matrix A(T.nloc());double b[T.nloc()],x[T.nloc()];
-    for(int i=0;i<ng;i++){
-      for(int iloc=0;iloc<T.nloc();iloc++){
-        for(int jloc=0;jloc<T.nloc();jloc++){
+    for(int i=0;i<ng;i++){int k(0);
+      for(int iloc=0;iloc<T.nloc();iloc++,k++){
+        b[iloc]=0.0;int j(0);
+        for(int jloc=0;jloc<T.nloc();jloc++,j++){
+          b[iloc]+=FT[TNOD][KNOD]*u1[KNOD];
           double nn(0.0); // DG mass matrix
            for(int gi=0;gi<T.ngi();gi++){
              nn+=d1[GPNT]*T.value(iloc,gi)*T.value(jloc,gi)*detJ[GPNT]*T.wgt(gi);
@@ -308,9 +312,9 @@ int main(){
 // assemble acceleration field
 
     {Matrix A((ng-2)*(K.nloc()-1)+1);double b[(ng-2)*(K.nloc()-1)+1],x[(ng-2)*(K.nloc()-1)+1];
-    for(int i=1;i<ng-1;i++){
-      for(int iloc=0;iloc<K.nloc();iloc++){
-        b[ROW]=0.0;x[ROW]=0.0;
+    for(int i=1;i<ng-1;i++){int k(0);
+      for(int iloc=0;iloc<K.nloc();iloc++,k++){
+        b[ROW]=0.0;x[ROW]=0.0;int j(0);for(int jloc=0;jloc<T.nloc();jloc++,j++){b[ROW]+=F[KNOD][TNOD]*1.0;}
         for(int jloc=0;jloc<K.nloc();jloc++){
           double nn(0.0); // mass matrix
           for(int gi=0;gi<K.ngi();gi++){
@@ -345,7 +349,9 @@ int main(){
 
     f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
-    for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;}
+    for(int i=0;i<NSAMPLES;i++){
+      f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
+    }
     for(long i=0;i<ntg;i++){f2<<x3[i]<<" "<<e1[i]<<endl;}
     for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1[GPNT]<<" "<<p[GPNT]<<endl;}}
