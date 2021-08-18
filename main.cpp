@@ -4,7 +4,6 @@
 // using a mixed continuous finite element method (cell-centred thermodynamic variable d,rho,e with node 
 // centred kinematic variables u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
 // implementation is only first order in time
-
 // for graphics: convert -density 300 filename.png filename.pdf
 
 // Author S. R. Merton
