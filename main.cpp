@@ -27,6 +27,8 @@
 #define ROW (i-1)*(K.nloc()-1)+iloc                                     // row address in global matrix
 #define COL (i-1)*(K.nloc()-1)+jloc                                     // column address in global matrix
 #define XGI for(int j=0;j<T.nloc();j++){xgi+=T.value(j,gi)*x3[TNOD];}   // coordinates of integration point
+#define NROWS (ng-2)*(K.nloc()-1)+1                                     // number of rows in the global matrix
+#define NCOLS (ng-2)*(K.nloc()-1)+1                                     // number of columns in the global matrix (= no. rows)
 
 #include <iostream>
 #include <vector>
@@ -137,6 +139,7 @@ int main(){
 // reduce across element and apply a saftey factor
 
     double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
+//    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt;
     cout<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
@@ -311,10 +314,16 @@ int main(){
 
 // assemble acceleration field
 
-    {Matrix A((ng-2)*(K.nloc()-1)+1);double b[(ng-2)*(K.nloc()-1)+1],x[(ng-2)*(K.nloc()-1)+1];
+    {Matrix A(NROWS);double b[NROWS],x[NROWS];for(long i=0;i<NROWS;i++){b[i]=0.0;x[i]=0.0;}
+
+// insert the boundary terms into start/end addresses of the source
+
+    {int i(0),iloc(K.nloc()-1);for(int gi=0;gi<K.ngi();gi++){b[0]+=p[GPNT]*K.dvalue(iloc,gi)*K.wgt(gi);}}
+    {int i(ng-1),iloc(0);for(int gi=0;gi<K.ngi();gi++){b[(ng-2)*(K.nloc()-1)]+=p[GPNT]*K.dvalue(iloc,gi)*K.wgt(gi);}}
+
     for(int i=1;i<ng-1;i++){int k(0);
+      for(int iloc=0;iloc<K.nloc();iloc++,k++){int j(0);for(int jloc=0;jloc<T.nloc();jloc++,j++){b[ROW]+=F[KNOD][TNOD]*1.0;}}
       for(int iloc=0;iloc<K.nloc();iloc++,k++){
-        b[ROW]=0.0;x[ROW]=0.0;int j(0);for(int jloc=0;jloc<T.nloc();jloc++,j++){b[ROW]+=F[KNOD][TNOD]*1.0;}
         for(int jloc=0;jloc<K.nloc();jloc++){
           double nn(0.0); // mass matrix
           for(int gi=0;gi<K.ngi();gi++){
@@ -326,13 +335,16 @@ int main(){
 
     }
 
+    A.add(0,0,A.read(0,0));
+    A.add((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1),A.read((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1)));
+
 // solve global system
 
     A.solve(x,b);
 
 // update acceleration field
 
-    for(int i=1;i<ng-1;i++){for(int k=0;k<K.nloc();k++){int iloc(k);u1.at(KNOD)=u1[KNOD]+x[ROW]*dt;}}
+    for(int i=1;i<ng-1;i++){for(int k=0;k<K.nloc();k++){int iloc(k);u1.at(KNOD)=u0[KNOD]+x[ROW]*dt;}}
 
     }
 
