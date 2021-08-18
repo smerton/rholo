@@ -318,8 +318,8 @@ int main(){
 
 // insert the boundary terms into start/end addresses of the source
 
-    {int i(0),iloc(K.nloc()-1);for(int gi=0;gi<K.ngi();gi++){b[0]+=p[GPNT]*K.dvalue(iloc,gi)*K.wgt(gi);}}
-    {int i(ng-1),iloc(0);for(int gi=0;gi<K.ngi();gi++){b[(ng-2)*(K.nloc()-1)]+=p[GPNT]*K.dvalue(iloc,gi)*K.wgt(gi);}}
+    {int i(0),k(K.nloc()-1);for(int j=0;j<T.nloc();j++){b[0]+=F[KNOD][TNOD]*1.0;}}
+    {int i(ng-1),k(0);for(int j=0;j<T.nloc();j++){b[NROWS-1]+=F[KNOD][TNOD]*1.0;}}
 
     for(int i=1;i<ng-1;i++){int k(0);
       for(int iloc=0;iloc<K.nloc();iloc++,k++){int j(0);for(int jloc=0;jloc<T.nloc();jloc++,j++){b[ROW]+=F[KNOD][TNOD]*1.0;}}
