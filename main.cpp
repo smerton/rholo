@@ -4,6 +4,22 @@
 // using Riemann boundary coniditions on each element, initial implementation is only first order in time
 // for graphics: convert -density 300 filename.png filename.pdf
 
+// how to set up push and pull from multiple remotes (e.g. home NAS and github):
+//
+// git remote add NAS ssh://smerton@192.168.1.79/shares/git/rholo.git
+// git remote set-url --add NAS git@github.com:smerton/rholo.git
+// git remote add github git@github.com:smerton/rholo.git
+// git push -vu NAS master
+//
+// then check url's have been added with something like
+//
+// git remote -v
+//
+// and also check .git/config
+//
+// then git pull --all will pull from 1st url in location 1 (NAS)
+// and 1st url in location 2 (github)
+
 // Author S. R. Merton
 
 #define DTSTART 0.0005    // insert a macro for the first time step
