@@ -20,6 +20,7 @@
 //
 // then git pull --all will pull from 1st url in location 1 (NAS)
 // and 1st url in location 2 (github)
+
 // for graphics: convert -density 300 filename.png filename.pdf
 
 // Author S. R. Merton
