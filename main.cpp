@@ -73,13 +73,14 @@ int main(){
 
   ofstream f1,f2,f3,f4;                                 // files for output
   Shape K(2,3),T(1,3);                                  // p_n,p_n-1 shape functions
-  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(10),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> dinit(ng);                             // initial density field inside an element
   vector<double> d0(ng*T.ngi()),d1(ng*T.ngi());         // density at each Gauss point in each element
   vector<double> V0(ng),V1(ng),m(ng),xc(ng);            // volume, mass & centroid
+  vector<double> nodmass(ng*T.nloc());                  // nodal mass
   vector<double> e0(ntg),e1(ntg);                       // discontinuous FE energy field
   vector<double> c(ng*T.ngi()),p(ng*T.ngi());           // element sound speed & pressure at each Gauss point
   vector<double> q(ng*T.ngi());                         // bulk viscosity at each Gauss point
@@ -133,6 +134,17 @@ int main(){
     }
   }
 
+// set nodal masses
+
+  for(int i=0;i<ng;i++){
+    for(int j=0;j<T.nloc();j++){
+      nodmass[TNOD]=0.0;
+      for(int gi=0;gi<T.ngi();gi++){
+        nodmass[TNOD]+=dinit[i]*T.value(j,gi)*detJ0[GPNT]*T.wgt(gi);
+      }
+    }
+  }
+
 // start the Riemann solvers from initial flux states
 
   Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),R2(Riemann::exact,l,r),R3(Riemann::exact,l,r);
@@ -155,8 +167,8 @@ int main(){
 
 // reduce across element and apply a saftey factor
 
-    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
-//    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
+//    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
+    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt;
     cout<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
@@ -207,7 +219,7 @@ int main(){
         for(int k=0;k<K.nloc();k++){
           detJ.at(GPNT)+=K.dvalue(k,gi)*x1[KNOD];
         }
-        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
+//        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
       }
     }
 
@@ -233,20 +245,20 @@ int main(){
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1[GPNT]=dinit[i]*detJ0[GPNT]/detJ[GPNT];}}
 
 // debug
-    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1.at(GPNT)=R2.density(GPNT);}}
+//    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1.at(GPNT)=R2.density(GPNT);}}
 // debug
 
 // update Jacobian for energy solve
 
-    for(int i=0;i<ng;i++){
-      for(int gi=0;gi<T.ngi();gi++){
-        detJ.at(GPNT)=0.0;
-        for(int j=0;j<T.nloc();j++){
-          detJ.at(GPNT)+=T.dvalue(j,gi)*x3[TNOD];
-        }
-        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
-      }
-    }
+//    for(int i=0;i<ng;i++){
+//      for(int gi=0;gi<T.ngi();gi++){
+//        detJ.at(GPNT)=0.0;
+//        for(int j=0;j<T.nloc();j++){
+//          detJ.at(GPNT)+=T.dvalue(j,gi)*x3[TNOD];
+//        }
+////        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
+//      }
+//    }
 
 // assemble finite element energy field on discontinuous thermodynamic grid
 // for( struct {int i; double j;} v = {0, 3.0}; v.i < 10; v.i++, v.j+=0.1)
@@ -265,18 +277,34 @@ int main(){
         }
       }
 
+// debug
+      double gradu[T.ngi()];
+      for(int gi=0;gi<T.ngi();gi++){
+        gradu[gi]=0.0;
+        for(int iloc=0;iloc<K.nloc();iloc++){
+          gradu[gi]+=K.dvalue(iloc,gi)*u1[i*(K.nloc()-1)+iloc];
+        }
+      }
+      for(int iloc=0;iloc<T.nloc();iloc++){
+        b[iloc]=0.0;
+        for(int gi=0;gi<T.ngi();gi++){
+          b[iloc]+=(p[GPNT]+q[GPNT])*gradu[gi]*T.value(iloc,gi)*detJ[GPNT]*T.wgt(gi);
+        }
+      }
+// debug
+
 // solve local system
 
       A.solve(x,b);
 
 // advance the solution
 
-      for(int j=0;j<T.nloc();j++){e1.at(TNOD)=max(ECUT,e0[TNOD]-x[j]*dt);}
-
+      for(int j=0;j<T.nloc();j++){e1.at(TNOD)=max(ECUT,e0[TNOD]-x[j]*dt/nodmass[TNOD]);}
+//      for(int j=0;j<T.nloc();j++){e1.at(TNOD)=max(ECUT,e0[TNOD]-x[j]*dt);}
     }}
 
 // debug
-    for(int i=0;i<ntg;i++){e1.at(i)=R3.energy(i);}
+//    for(int i=0;i<ntg;i++){e1.at(i)=R3.energy(i);}
 // debug
 
 // update internal energy for conservation checks
@@ -296,7 +324,7 @@ int main(){
     }
 
 // debug
-    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=R2.pressure(GPNT);}}
+//    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=R2.pressure(GPNT);}}
 // debug
 
 // update sound speed
@@ -325,7 +353,7 @@ int main(){
         for(int k=0;k<K.nloc();k++){
           detJ.at(GPNT)+=K.dvalue(k,gi)*x1[KNOD];
         }
-        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
+//        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
       }
     }
 
@@ -335,11 +363,41 @@ int main(){
 
 // insert the boundary terms into start/end addresses of the source
 
-    {int i(0),k(K.nloc()-1);for(int j=0;j<T.nloc();j++){b[0]+=F[KNOD][TNOD]*1.0;}}
-    {int i(ng-1),k(0);for(int j=0;j<T.nloc();j++){b[NROWS-1]+=F[KNOD][TNOD]*1.0;}}
+//    {int i(0),k(K.nloc()-1);for(int j=0;j<T.nloc();j++){b[0]+=F[KNOD][TNOD]*1.0;}}
+//    {int i(ng-1),k(0);for(int j=0;j<T.nloc();j++){b[NROWS-1]+=F[KNOD][TNOD]*1.0;}}
+// debug
+    {int i(0);
+      for(int iloc=0;iloc<K.nloc();iloc++){
+        for(int gi=0;gi<K.ngi();gi++){
+          b[ROW]+=(p[GPNT]+q[GPNT])*K.dvalue(iloc,gi)*K.wgt(gi);
+        }
+      }
+    }
+
+    {int i(ng-1);
+      for(int iloc=0;iloc<K.nloc();iloc++){
+        for(int gi=0;gi<K.ngi();gi++){
+          b[ROW]+=(p[GPNT]+q[GPNT])*K.dvalue(iloc,gi)*K.wgt(gi);
+        }
+      }
+    }
+
+
+// debug
+
+
 
     for(int i=1;i<ng-1;i++){int k(0);
-      for(int iloc=0;iloc<K.nloc();iloc++,k++){int j(0);for(int jloc=0;jloc<T.nloc();jloc++,j++){b[ROW]+=F[KNOD][TNOD]*1.0;}}
+//      for(int iloc=0;iloc<K.nloc();iloc++,k++){int j(0);for(int jloc=0;jloc<T.nloc();jloc++,j++){b[ROW]+=F[KNOD][TNOD]*1.0;}}
+
+// debug
+      for(int iloc=0;iloc<K.nloc();iloc++){
+        for(int gi=0;gi<K.ngi();gi++){
+          b[ROW]+=(p[GPNT]+q[GPNT])*K.dvalue(iloc,gi)*K.wgt(gi);
+        }
+      }
+// debug
+
       for(int iloc=0;iloc<K.nloc();iloc++,k++){
         for(int jloc=0;jloc<K.nloc();jloc++){
           double nn(0.0); // mass matrix
@@ -371,7 +429,7 @@ int main(){
     for(int j=0;j<K.nloc()-1;j++){int i(ng-1);u1.at(i*(K.nloc()-1)+j+1)=u1[i*(K.nloc()-1)];}
 
 // debug
-    for(long i=0;i<nkg;i++){u1.at(i)=R1.velocity(i);}
+//    for(long i=0;i<nkg;i++){u1.at(i)=R1.velocity(i);}
 // debug
 
 // some output
