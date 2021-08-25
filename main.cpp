@@ -251,7 +251,8 @@ int main(){
     for(int j=0;j<T.nloc();j++){
       nodmass[TNOD]=0.0;
       for(int gi=0;gi<T.ngi();gi++){
-        nodmass[TNOD]+=d1[i]*T.value(j,gi)*detJ[GPNT]*T.wgt(gi);
+//        nodmass[TNOD]+=d1[i]*T.value(j,gi)*detJ[GPNT]*T.wgt(gi);
+        nodmass[TNOD]+=T.value(j,gi)*detJ[GPNT]*T.wgt(gi); // why isn't density in here ? Looks more like a vol.
       }
     }
   }
