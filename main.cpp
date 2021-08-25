@@ -73,7 +73,7 @@ int main(){
 
   ofstream f1,f2,f3,f4;                                 // files for output
   Shape K(2,3),T(1,3);                                  // p_n,p_n-1 shape functions
-  int const n(10),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(50),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -134,7 +134,7 @@ int main(){
     }
   }
 
-// set nodal masses
+// set nodal masses - these should not change with time
 
   for(int i=0;i<ng;i++){
     for(int j=0;j<T.nloc();j++){
@@ -197,8 +197,8 @@ int main(){
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
     vector<double> r0x,rx,rx2,rx3;vempty(r0x);vempty(rx);vempty(rx2);vempty(rx3); // sample point coordinates
-//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
-    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[nkg-1]-x1[0])/double(NSAMPLES)));} // sample points
+    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
+//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[nkg-1]-x1[0])/double(NSAMPLES)));} // sample points
     R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
     for(int i=0;i<nkg;i++){rx.push_back(x0[i]);}
     R1.profile(&rx,time+dt);
@@ -243,6 +243,17 @@ int main(){
 // update cell density at the full-step
 
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1[GPNT]=dinit[i]*detJ0[GPNT]/detJ[GPNT];}}
+
+// set nodal masses - these should not change with time
+
+  for(int i=0;i<ng;i++){
+    for(int j=0;j<T.nloc();j++){
+      nodmass[TNOD]=0.0;
+      for(int gi=0;gi<T.ngi();gi++){
+        nodmass[TNOD]+=d1[i]*T.value(j,gi)*detJ[GPNT]*T.wgt(gi);
+      }
+    }
+  }
 
 // debug
 //    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1.at(GPNT)=R2.density(GPNT);}}
