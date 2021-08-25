@@ -98,8 +98,9 @@ int main(){
 
 // initialise the problem
 
-  double dx(1.0/n);x0.at(0)=-2.0*dx;x1.at(0)=x0[0];
+  double dx(1.0/n);x0.at(0)=-2.0*dx;x1.at(0)=x0[0];x2.at(0)=-2.0*dx;x3.at(0)=x2[0];
   for(long i=0;i<nkg;i++){x0.at(i)=x0[0]+i*dx/(K.nloc()-1);x1.at(i)=x0[i];}
+  for(long i=0;i<ntg;i++){x2.at(i)=x2[0]+i*dx/(T.nloc()-1);x3.at(i)=x2[i];}
   for(int i=0;i<ng;i++){xc.at(i)=CENTROID;}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=(xc[i]<=0.5)?l[2]:r[2];}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d0.at(GPNT)=(xc[i]<=0.5)?l[0]:r[0];}}
