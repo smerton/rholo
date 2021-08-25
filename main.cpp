@@ -38,8 +38,8 @@
 #define KNOD i*(K.nloc()-1)+k   // global node number on kinematic mesh
 #define TNOD i*T.nloc()+j       // global node number on thermodynamic mesh
 #define GPNT i*T.ngi()+gi       // global address of Gauss point gi in element i
-#define DX0 x0[i*(K.nloc()-1)+K.nloc()-1]-x0[i*(K.nloc()-1)]            // cell width at start of step
-#define DX1 x1[i*(K.nloc()-1)+K.nloc()-1]-x1[i*(K.nloc()-1)]            // cell width at end of step
+#define DX0 (x0[i*(K.nloc()-1)+K.nloc()-1]-x0[i*(K.nloc()-1)])          // cell width at start of step
+#define DX1 (x1[i*(K.nloc()-1)+K.nloc()-1]-x1[i*(K.nloc()-1)])          // cell width at end of step
 #define CENTROID 0.5*(x1[i*(K.nloc()-1)+K.nloc()-1]+x1[i*(K.nloc()-1)]) // cell centroid
 #define ROW (i-1)*(K.nloc()-1)+iloc                                     // row address in global matrix
 #define COL (i-1)*(K.nloc()-1)+jloc                                     // column address in global matrix
@@ -73,7 +73,7 @@ int main(){
 
   ofstream f1,f2,f3,f4;                                 // files for output
   Shape K(2,3),T(1,3);                                  // p_n,p_n-1 shape functions
-  int const n(10),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(50),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -160,7 +160,7 @@ int main(){
 // calculate a new stable time-step that will impose the CFL limit on each quadrature point
 
     for(int i=0;i<ng;i++){
-      for(int gi=0;gi<K.ngi();gi++){
+      for(int gi=0;gi<T.ngi();gi++){
         dt_cfl.at(GPNT)=COURANT*(DX0/sqrt((c[GPNT]*c[GPNT])+2.0*q[GPNT]/d0[GPNT]));
       }
     }
