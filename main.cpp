@@ -72,8 +72,8 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  Shape K(2,3),T(1,3);                                  // p_n,p_n-1 shape functions
-  int const n(50),ng(n+4);                              // no. ncells, no. ghosts
+  Shape K(2,6),T(1,6);                                  // p_n,p_n-1 shape functions
+  int const n(40),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -162,14 +162,14 @@ int main(){
 
     for(int i=0;i<ng;i++){
       for(int gi=0;gi<T.ngi();gi++){
-        dt_cfl.at(GPNT)=COURANT*(DX0/sqrt((c[GPNT]*c[GPNT])+2.0*q[GPNT]/d0[GPNT]));
+        dt_cfl.at(GPNT)=COURANT*T.wgt(gi)*(DX0/sqrt((c[GPNT]*c[GPNT])+2.0*q[GPNT]/d0[GPNT]));
       }
     }
 
 // reduce across element and apply a saftey factor
 
-//    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
-    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
+    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
+//    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt;
     cout<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
@@ -252,7 +252,8 @@ int main(){
       nodmass[TNOD]=0.0;
       for(int gi=0;gi<T.ngi();gi++){
 //        nodmass[TNOD]+=d1[i]*T.value(j,gi)*detJ[GPNT]*T.wgt(gi);
-        nodmass[TNOD]+=T.value(j,gi)*detJ[GPNT]*T.wgt(gi); // why isn't density in here ? Looks more like a vol.
+//        nodmass[TNOD]+=T.value(j,gi)*detJ[GPNT]*T.wgt(gi); // why isn't density in here ? Looks more like a vol. P2Q1 energy correct height but noisy
+        nodmass[TNOD]+=d1[GPNT]*detJ[GPNT]*T.wgt(gi); // is this the real nodal mass ?                         P2Q1 energy too high but not noisy
       }
     }
   }
