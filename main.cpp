@@ -72,7 +72,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4;                                 // files for output
-  Shape K(2,6),T(1,6);                                  // p_n,p_n-1 shape functions
+  Shape K(4,10),T(3,10);                                  // p_n,p_n-1 shape functions
   int const n(40),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
@@ -252,8 +252,9 @@ int main(){
       nodmass[TNOD]=0.0;
       for(int gi=0;gi<T.ngi();gi++){
 //        nodmass[TNOD]+=d1[i]*T.value(j,gi)*detJ[GPNT]*T.wgt(gi);
-//        nodmass[TNOD]+=T.value(j,gi)*detJ[GPNT]*T.wgt(gi); // why isn't density in here ? Looks more like a vol. P2Q1 energy correct height but noisy
-        nodmass[TNOD]+=d1[GPNT]*detJ[GPNT]*T.wgt(gi); // is this the real nodal mass ?                         P2Q1 energy too high but not noisy
+        nodmass[TNOD]+=T.value(j,gi)*detJ[GPNT]*T.wgt(gi); // why isn't density in here ? Looks more like a vol. P2Q1 energy correct height but noisy
+//        nodmass[TNOD]+=d1[GPNT]*detJ[GPNT]*T.wgt(gi); // is this the real nodal mass ?                         P2Q1 energy too high but not noisy
+//        nodmass[TNOD]+=T.value(j,gi)*d1[GPNT]*detJ[GPNT]*T.wgt(gi); // is this the real nodal mass ?                         P2Q1 energy too high but not noisy
       }
     }
   }
@@ -264,15 +265,15 @@ int main(){
 
 // update Jacobian for energy solve
 
-//    for(int i=0;i<ng;i++){
-//      for(int gi=0;gi<T.ngi();gi++){
-//        detJ.at(GPNT)=0.0;
-//        for(int j=0;j<T.nloc();j++){
-//          detJ.at(GPNT)+=T.dvalue(j,gi)*x3[TNOD];
-//        }
-////        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
-//      }
-//    }
+    for(int i=0;i<ng;i++){
+      for(int gi=0;gi<T.ngi();gi++){
+        detJ.at(GPNT)=0.0;
+        for(int j=0;j<T.nloc();j++){
+          detJ.at(GPNT)+=T.dvalue(j,gi)*x3[TNOD];
+        }
+//        if(detJ.at(GPNT)<0.0){cout<<"-'ve determinant of J detected in cell "<<i<<endl;exit(1);}
+      }
+    }
 
 // assemble finite element energy field on discontinuous thermodynamic grid
 // for( struct {int i; double j;} v = {0, 3.0}; v.i < 10; v.i++, v.j+=0.1)
@@ -292,19 +293,58 @@ int main(){
       }
 
 // debug
+//      double gradu[T.ngi()];
+//      for(int gi=0;gi<T.ngi();gi++){
+//        gradu[gi]=0.0;
+//        for(int iloc=0;iloc<K.nloc();iloc++){
+//          gradu[gi]+=K.dvalue(iloc,gi)*u1[i*(K.nloc()-1)+iloc];
+//        }
+//      }
+
+      double P[T.nloc()][K.nloc()];
+      for(int j=0;j<T.nloc();j++){
+        for(int k=0;k<K.nloc();k++){
+          P[j][k]=0.0;
+          for(int gi=0;gi<T.ngi();gi++){
+            P[j][k]+=T.value(j,gi)*K.dvalue(k,gi)*T.wgt(gi);
+          }
+        }
+      }
+
+      double ujloc[T.nloc()];
+      for(int j=0;j<T.nloc();j++){
+        ujloc[j]=0.0;
+        for(int k=0;k<K.nloc();k++){
+          ujloc[j]+=P[j][k]*u1[KNOD];
+        }
+      }
+
       double gradu[T.ngi()];
       for(int gi=0;gi<T.ngi();gi++){
         gradu[gi]=0.0;
-        for(int iloc=0;iloc<K.nloc();iloc++){
-          gradu[gi]+=K.dvalue(iloc,gi)*u1[i*(K.nloc()-1)+iloc];
+        for(int j=0;j<T.nloc();j++){
+          gradu[gi]+=T.value(j,gi)*ujloc[j];
         }
       }
+
+
       for(int iloc=0;iloc<T.nloc();iloc++){
         b[iloc]=0.0;
         for(int gi=0;gi<T.ngi();gi++){
           b[iloc]+=(p[GPNT]+q[GPNT])*gradu[gi]*T.value(iloc,gi)*detJ[GPNT]*T.wgt(gi);
         }
       }
+
+//      for(int j=0;j<T.nloc();j++){
+//        b[j]=0.0;
+//        for(int k=0;k<K.nloc();k++){
+//          for(int gi=0;gi<T.ngi();gi++){
+//            b[j]+=(p[GPNT]+q[GPNT])*K.dvalue(k,gi)*T.value(j,gi)*detJ[GPNT]*T.wgt(gi)*u1[KNOD];
+//          }
+//        }
+//      }
+
+
 // debug
 
 // solve local system
