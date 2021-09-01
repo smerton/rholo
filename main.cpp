@@ -71,8 +71,8 @@ int main(){
 
 // global data
 
-  ofstream f1,f2,f3,f4;                                 // files for output
-  Shape K(4,10),T(3,10);                                  // p_n,p_n-1 shape functions
+  ofstream f1,f2,f3,f4,f5;                              // files for output
+  Shape K(4,10),T(3,10);                                // p_n,p_n-1 shape functions
   int const n(40),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
@@ -488,7 +488,7 @@ int main(){
 
 // some output
 
-    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");
+    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
     for(int i=0;i<NSAMPLES;i++){
       f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
@@ -497,7 +497,12 @@ int main(){
     for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1[GPNT]<<" "<<p[GPNT]<<endl;}}
 //    cout<<"NODE POS: "<<time<<" "<<x1[(ng/2)*(K.nloc()-1)]<<" "<<x1[(ng/2)*(K.nloc()-1)+1]<<endl;
-    f1.close();f2.close();f3.close();f4.close();
+    for(int i=0;i<ng;i++){
+      int k;
+      k=0;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
+      k=K.nloc()-1;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
+    }
+    f1.close();f2.close();f3.close();f4.close();f5.close();
 
 // advance the time step
 
