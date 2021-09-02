@@ -25,7 +25,7 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0001          // insert a macro for the first time step
+#define DTSTART 0.0005          // insert a macro for the first time step
 #define ENDTIME 0.25            // insert a macro for the end time
 #define GAMMA 1.4               // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8             // cut-off on the energy field
@@ -72,7 +72,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  Shape K(2,10),T(1,10);                                // p_n,p_n-1 shape functions
+  Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
   int const n(40),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
@@ -118,6 +118,7 @@ int main(){
   for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];u1.at(i)=u0[i];}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0_k[GPNT]);}}
+  for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;FT[j][i]=0.0;}}
 
 // set thermodynamic node positions at time-0
 
@@ -258,22 +259,6 @@ int main(){
       }
     }
 
-// assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both e/u eqns
-
-    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
-    for(int i=0;i<ng;i++){
-      for(int k=0;k<K.nloc();k++){
-        for(int j=0;j<T.nloc();j++){
-          double f(0.0);
-          for(int gi=0;gi<T.ngi();gi++){
-            f+=(p[GPNT]+q[GPNT])*K.dvalue(k,gi)*T.value(j,gi)*K.wgt(gi);
-          }
-          F[KNOD][TNOD]=f;
-        }
-      }
-    }
-    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){FT[j][i]=F[i][j];}} // write transpose
-
 // update cell density at the full-step
 
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1_t[GPNT]=dinit[i]*detJ0_t[GPNT]/detJ_t[GPNT];}}
@@ -368,6 +353,20 @@ int main(){
       }
     }
 
+// assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both e/u eqns
+
+    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
+    for(int i=0;i<ng;i++){
+      for(int k=0;k<K.nloc();k++){
+        for(int j=0;j<T.nloc();j++){
+          for(int gi=0;gi<T.ngi();gi++){
+            F[KNOD][TNOD]+=(p[GPNT]+q[GPNT])*K.dvalue(k,gi)*T.value(j,gi)*K.wgt(gi);
+          }
+        }
+      }
+    }
+    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){FT[j][i]=F[i][j];}} // write transpose
+
 // assemble acceleration field
 
     {Matrix A(NROWS);double b[NROWS],x[NROWS];for(long i=0;i<NROWS;i++){b[i]=0.0;x[i]=0.0;}
@@ -396,20 +395,9 @@ int main(){
 
 // debug
 
-
-
     for(int i=1;i<ng-1;i++){int k(0);
-//      for(int iloc=0;iloc<K.nloc();iloc++,k++){int j(0);for(int jloc=0;jloc<T.nloc();jloc++,j++){b[ROW]+=F[KNOD][TNOD]*1.0;}}
-
-// debug
-      for(int iloc=0;iloc<K.nloc();iloc++){
-        for(int gi=0;gi<K.ngi();gi++){
-          b[ROW]+=(p[GPNT]+q[GPNT])*K.dvalue(iloc,gi)*K.wgt(gi);
-        }
-      }
-// debug
-
       for(int iloc=0;iloc<K.nloc();iloc++,k++){
+        for(int j=0;j<T.nloc();j++){b[ROW]+=F[KNOD][TNOD]*1.0;} // load vector
         for(int jloc=0;jloc<K.nloc();jloc++){
           double nn(0.0); // mass matrix
           for(int gi=0;gi<K.ngi();gi++){
