@@ -25,7 +25,7 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0005          // insert a macro for the first time step
+#define DTSTART 0.0001          // insert a macro for the first time step
 #define ENDTIME 0.25            // insert a macro for the end time
 #define GAMMA 1.4               // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8             // cut-off on the energy field
@@ -72,7 +72,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
+  Shape K(1,10),T(1,10);                                // p_n,q_n-1 shape functions
   int const n(40),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
@@ -119,6 +119,13 @@ int main(){
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0_k[GPNT]);}}
   for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;FT[j][i]=0.0;}}
+
+// check integration rules on thermodynamic and kinematic stencils look consistent, they need to match
+
+  if(T.ngi()!=K.ngi()){
+    cout<<"No. of integration points for thermodynamics ("<<T.ngi()<<") doesn't match the no. for kinematics ("<<K.ngi()<<")"<<endl;
+    exit(1);
+  }
 
 // set thermodynamic node positions at time-0
 
@@ -295,8 +302,8 @@ int main(){
         b[j]=0.0;for(int k=0;k<K.nloc();k++){b[j]+=FT[TNOD][KNOD]*u1[KNOD];}
         for(int k=0;k<T.nloc();k++){
           double nn(0.0); // DG mass matrix
-          for(int gi=0;gi<T.ngi();gi++){
-            nn+=d1_k[GPNT]*T.value(j,gi)*T.value(k,gi)*detJ_t[GPNT]*T.wgt(gi);
+          for(int gi=0;gi<K.ngi();gi++){
+            nn+=d1_k[GPNT]*T.value(j,gi)*T.value(k,gi)*detJ_k[GPNT]*K.wgt(gi);
           }
           A.write(j,k,nn);
         }
@@ -322,7 +329,7 @@ int main(){
 // update pressure at the full-step at the integration points
 
     for(int i=0;i<ng;i++){
-      for(int gi=0;gi<T.ngi();gi++){
+      for(int gi=0;gi<K.ngi();gi++){
         double egi(0.0);
         for(int j=0;j<T.nloc();j++){
           egi+=T.value(j,gi)*e1[TNOD];
@@ -337,16 +344,17 @@ int main(){
 
 // update sound speed
 
-    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d1_k[GPNT]);}}
+    for(int i=0;i<ng;i++){for(int gi=0;gi<K.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d1_k[GPNT]);}}
 
 // bulk q
 
     for(int i=0;i<ng;i++){
       double l(DX1);
-      for(int gi=0;gi<T.ngi();gi++){
+      for(int gi=0;gi<K.ngi();gi++){
         double divu((d0_k[GPNT]-d1_k[GPNT])/(d1_k[GPNT]*dt));
         if(divu<0.0){
-          q.at(GPNT)=d0_k[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]);
+//          q.at(GPNT)=d0_k[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]);
+          q.at(GPNT)=d0_t[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]); // sometimes smoother (e.g. p1q2,40) ??
         }else{
           q.at(GPNT)=0.0; // turn off q as cell divergence indicates expansion
         }
@@ -359,7 +367,7 @@ int main(){
     for(int i=0;i<ng;i++){
       for(int k=0;k<K.nloc();k++){
         for(int j=0;j<T.nloc();j++){
-          for(int gi=0;gi<T.ngi();gi++){
+          for(int gi=0;gi<K.ngi();gi++){
             F[KNOD][TNOD]+=(p[GPNT]+q[GPNT])*K.dvalue(k,gi)*T.value(j,gi)*K.wgt(gi);
           }
         }
@@ -465,7 +473,7 @@ int main(){
     for(int i=0;i<ntg;i++){e0.at(i)=e1[i];}
     for(int i=0;i<ntg;i++){x2.at(i)=x3[i];}
     for(int i=0;i<ng;i++){V0.at(i)=V1[i];}
-    for(int i=0;i<ng*T.ngi();i++){d0_t.at(i)=d1_t[i];}
+    for(int i=0;i<ng*K.ngi();i++){d0_t.at(i)=d1_t[i];}
     for(int i=0;i<ng*K.ngi();i++){d0_k.at(i)=d1_k[i];}
 
 // debug
