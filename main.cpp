@@ -25,7 +25,7 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0001          // insert a macro for the first time step
+#define DTSTART 0.0005          // insert a macro for the first time step
 #define ENDTIME 0.25            // insert a macro for the end time
 #define GAMMA 1.4               // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8             // cut-off on the energy field
@@ -72,14 +72,14 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  Shape K(1,10),T(1,10);                                // p_n,q_n-1 shape functions
+  Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
   int const n(40),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> dinit(ng);                             // initial density field inside an element
   vector<double> d0_t(ng*T.ngi()),d1_t(ng*T.ngi());     // density at each Gauss point in each element
-  vector<double> d0_k(ng*T.ngi()),d1_k(ng*T.ngi());     // density at each Gauss point in each element
+  vector<double> d0_k(ng*K.ngi()),d1_k(ng*K.ngi());     // density at each Gauss point in each element
   vector<double> V0(ng),V1(ng),m(ng),xc(ng);            // volume, mass & centroid
   vector<double> nodmass_t(ntg),nodmass_k(nkg);         // nodal mass
   vector<double> nodvol_t(ntg),nodvol_k(nkg);           // nodal volume
@@ -473,7 +473,7 @@ int main(){
     for(int i=0;i<ntg;i++){e0.at(i)=e1[i];}
     for(int i=0;i<ntg;i++){x2.at(i)=x3[i];}
     for(int i=0;i<ng;i++){V0.at(i)=V1[i];}
-    for(int i=0;i<ng*K.ngi();i++){d0_t.at(i)=d1_t[i];}
+    for(int i=0;i<ng*T.ngi();i++){d0_t.at(i)=d1_t[i];}
     for(int i=0;i<ng*K.ngi();i++){d0_k.at(i)=d1_k[i];}
 
 // debug
