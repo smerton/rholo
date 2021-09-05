@@ -25,7 +25,7 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0005          // insert a macro for the first time step
+#define DTSTART 0.0001          // insert a macro for the first time step
 #define ENDTIME 0.25            // insert a macro for the end time
 #define GAMMA 1.4               // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8             // cut-off on the energy field
@@ -76,7 +76,7 @@ int main(){
   int const n(40),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
-  double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.5),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> dinit(ng);                             // initial density field inside an element
   vector<double> d0_t(ng*T.ngi()),d1_t(ng*T.ngi());     // density at each Gauss point in each element
   vector<double> d0_k(ng*K.ngi()),d1_k(ng*K.ngi());     // density at each Gauss point in each element
@@ -91,6 +91,7 @@ int main(){
   vector<double> dt_cfl(ng*T.ngi());                    // element time-step at each Gauss point
   vector<double> detJ0_t(ng*T.ngi()),detJ_t(ng*T.ngi());    // determinant of the Jacobian
   vector<double> detJ0_k(ng*K.ngi()),detJ_k(ng*K.ngi());    // determinant of the Jacobian
+  vector<double> l0(ng);                                // initial length scale
   double F[nkg][ntg],FT[ntg][nkg];                      // force matrix
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
@@ -119,6 +120,7 @@ int main(){
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0_k[GPNT]);}}
   for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;FT[j][i]=0.0;}}
+  for(int i=0;i<ng;i++){l0.at(i)=DX0/(T.nloc());}
 
 // check integration rules on thermodynamic and kinematic stencils look consistent, they need to match
 
@@ -349,11 +351,13 @@ int main(){
 // bulk q
 
     for(int i=0;i<ng;i++){
-      double l(DX1);
+//      double l(DX1);
       for(int gi=0;gi<K.ngi();gi++){
+        double l(l0[i]*(detJ_k[GPNT]/detJ0_k[GPNT]));
         double divu((d0_k[GPNT]-d1_k[GPNT])/(d1_k[GPNT]*dt));
         if(divu<0.0){
 //          q.at(GPNT)=d0_k[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]);
+//          q.at(GPNT)=d0_t[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]); // sometimes smoother (e.g. p1q2,40) ??
           q.at(GPNT)=d0_t[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]); // sometimes smoother (e.g. p1q2,40) ??
         }else{
           q.at(GPNT)=0.0; // turn off q as cell divergence indicates expansion
