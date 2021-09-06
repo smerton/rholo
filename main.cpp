@@ -73,10 +73,10 @@ int main(){
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
   Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
-  int const n(40),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(50),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
-  double const cl(0.5),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> dinit(ng);                             // initial density field inside an element
   vector<double> d0_t(ng*T.ngi()),d1_t(ng*T.ngi());     // density at each Gauss point in each element
   vector<double> d0_k(ng*K.ngi()),d1_k(ng*K.ngi());     // density at each Gauss point in each element
@@ -120,7 +120,8 @@ int main(){
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0_k[GPNT]);}}
   for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;FT[j][i]=0.0;}}
-  for(int i=0;i<ng;i++){l0.at(i)=DX0/(T.nloc());}
+//  for(int i=0;i<ng;i++){l0.at(i)=DX0/(T.nloc());} // shouldn't we truncate the length like this as the no. of DoF's increase ?
+  for(int i=0;i<ng;i++){l0.at(i)=DX0;}
 
 // check integration rules on thermodynamic and kinematic stencils look consistent, they need to match
 
@@ -356,9 +357,8 @@ int main(){
         double l(l0[i]*(detJ_k[GPNT]/detJ0_k[GPNT]));
         double divu((d0_k[GPNT]-d1_k[GPNT])/(d1_k[GPNT]*dt));
         if(divu<0.0){
-//          q.at(GPNT)=d0_k[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]);
+          q.at(GPNT)=d0_k[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]);
 //          q.at(GPNT)=d0_t[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]); // sometimes smoother (e.g. p1q2,40) ??
-          q.at(GPNT)=d0_t[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]); // sometimes smoother (e.g. p1q2,40) ??
         }else{
           q.at(GPNT)=0.0; // turn off q as cell divergence indicates expansion
         }
