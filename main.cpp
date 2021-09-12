@@ -98,7 +98,7 @@ int main(){
   vector<double> detJ0_t(ng*T.ngi()),detJ_t(ng*T.ngi());    // determinant of the Jacobian
   vector<double> detJ0_k(ng*K.ngi()),detJ_k(ng*K.ngi());    // determinant of the Jacobian
   vector<double> l0(ng);                                // initial length scale
-  double F[nkg][ntg],FT[ntg][nkg];                      // force matrix
+  double F[nkg][ntg];                                   // force matrix
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -127,7 +127,7 @@ int main(){
   for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];u1.at(i)=u0[i];}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0_k[GPNT]);}}
-  for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;FT[j][i]=0.0;}}
+  for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
   for(int i=0;i<ng;i++){l0.at(i)=DX0/(K.nloc()-1);} // initial nodal displacement
 
 // initialise the timers
@@ -325,7 +325,7 @@ int main(){
     {Matrix A(T.nloc());double b[T.nloc()],x[T.nloc()];
     for(int i=0;i<ng;i++){
       for(int j=0;j<T.nloc();j++){
-        b[j]=0.0;for(int k=0;k<K.nloc();k++){b[j]+=FT[TNOD][KNOD]*u1[KNOD];}
+        b[j]=0.0;for(int k=0;k<K.nloc();k++){b[j]+=F[KNOD][TNOD]*u1[KNOD];}
         for(int k=0;k<T.nloc();k++){
           double nn(0.0); // DG mass matrix
           for(int gi=0;gi<K.ngi();gi++){
@@ -412,7 +412,6 @@ int main(){
         }
       }
     }
-    for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){FT[j][i]=F[i][j];}} // write transpose
 
     stop = high_resolution_clock::now();
 
