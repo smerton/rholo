@@ -25,8 +25,8 @@
 
 // Author S. R. Merton
 
-#define DTSTART 0.0001          // insert a macro for the first time step
-#define ENDTIME 0.25            // insert a macro for the end time
+#define DTSTART 0.0005          // insert a macro for the first time step
+#define ENDTIME 0.20            // insert a macro for the end time
 #define GAMMA 1.4               // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8             // cut-off on the energy field
 #define NSAMPLES 500            // number of sample points for the exact solution
@@ -34,7 +34,7 @@
 #define VD vector<double>       // vector of doubles
 #define VTOL 1.0e-10            // threshold for volume errors
 #define COURANT 0.333           // Courant number for CFL condition
-#define DTSFACTOR 0.5           // safety factor on time-step control
+#define DTSFACTOR 0.75          // safety factor on time-step control
 #define KNOD i*(K.nloc()-1)+k   // global node number on kinematic mesh
 #define TNOD i*T.nloc()+j       // global node number on thermodynamic mesh
 #define GPNT i*T.ngi()+gi       // global address of Gauss point gi in element i
@@ -72,11 +72,11 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
+  Shape K(2,10),T(3,10);                                // p_n,q_n-1 shape functions
   int const n(50),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
-  double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.8),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> dinit(ng);                             // initial density field inside an element
   vector<double> d0_t(ng*T.ngi()),d1_t(ng*T.ngi());     // density at each Gauss point in each element
   vector<double> d0_k(ng*K.ngi()),d1_k(ng*K.ngi());     // density at each Gauss point in each element
@@ -120,8 +120,7 @@ int main(){
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0_k[GPNT]);}}
   for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;FT[j][i]=0.0;}}
-//  for(int i=0;i<ng;i++){l0.at(i)=DX0/(T.nloc());} // shouldn't we truncate the length like this as the no. of DoF's increase ?
-  for(int i=0;i<ng;i++){l0.at(i)=DX0;}
+  for(int i=0;i<ng;i++){l0.at(i)=DX0/(K.nloc()-1);} // initial nodal displacement
 
 // check integration rules on thermodynamic and kinematic stencils look consistent, they need to match
 
@@ -198,14 +197,15 @@ int main(){
 
     for(int i=0;i<ng;i++){
       for(int gi=0;gi<T.ngi();gi++){
-        dt_cfl.at(GPNT)=COURANT*T.wgt(gi)*(DX0/sqrt((c[GPNT]*c[GPNT])+2.0*q[GPNT]/d0_k[GPNT]));
+        double l(l0[i]*detJ_k[GPNT]/detJ0_k[GPNT]);
+        dt_cfl.at(GPNT)=COURANT*T.wgt(gi)*(l/sqrt((c[GPNT]*c[GPNT])+2.0*q[GPNT]/d0_k[GPNT]));
       }
     }
 
 // reduce across element and apply a saftey factor
 
-//    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
-    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
+    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
+//    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt;
     cout<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
