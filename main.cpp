@@ -98,7 +98,12 @@ int main(){
   vector<double> detJ0_t(ng*T.ngi()),detJ_t(ng*T.ngi());    // determinant of the Jacobian
   vector<double> detJ0_k(ng*K.ngi()),detJ_k(ng*K.ngi());    // determinant of the Jacobian
   vector<double> l0(ng);                                // initial length scale
-  double F[nkg][ntg];                                   // force matrix
+//  double F[nkg][ntg];                                 // force matrix (located on stack)
+  double** F=new double*[nkg];                          // force matrix (located on  heap)
+  for(long i=0;i<nkg;i++){
+    F[i]=new double[ntg];
+  }
+
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -582,6 +587,13 @@ int main(){
 
   cout<<endl<<"  Run took "<<time_span[10].count()<<" seconds."<<endl;
   cout<<"  Normal termination."<<endl;
+
+// release heap storage
+
+  for(long i=0;i<nkg;i++){
+    delete[] F[i];
+  }
+  delete[] F;
 
   return 0;
 }

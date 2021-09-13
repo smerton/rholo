@@ -61,9 +61,15 @@ void Matrix::solve(double*x,double*b){
 
 // local copy of the matrix
 
-  double A1[NRows()][NRows()];
-  for(int i=0;i<NRows();i++){
-    for(int j=0;j<NRows();j++){
+//  double A1[NRows()][NRows()]; // on stack
+
+  double** A1=new double*[NRows()]; // on heap
+  for(long i=0;i<NRows();i++){
+    A1[i]=new double[NRows()];
+  }
+
+  for(long i=0;i<NRows();i++){
+    for(long j=0;j<NRows();j++){
       A1[i][j]=mMat[i][j];
     }
     x[i]=0.0; // otherwise this is uninitialised (robustness issues)
@@ -72,12 +78,12 @@ void Matrix::solve(double*x,double*b){
 // form linear system x=A^{-1}b using LU decomposition of A=[L}{U}
 // so that Ax=b becomes L[Ux]=b in which Ux=y and Ly=b
 
-  for(int k=0;k<NRows()-1;k++){
-    for(int i=k+1;i<NRows();i++){
+  for(long k=0;k<NRows()-1;k++){
+    for(long i=k+1;i<NRows();i++){
       A1[i][k]=A1[i][k]/A1[k][k];
     }
-    for(int j=k+1;j<NRows();j++){
-      for(int i=k+1;i<NRows();i++){
+    for(long j=k+1;j<NRows();j++){
+      for(long i=k+1;i<NRows();i++){
         A1[i][j]=A1[i][j]-A1[i][k]*A1[k][j];
       }
     }
@@ -85,9 +91,9 @@ void Matrix::solve(double*x,double*b){
 
 // solve Ly=b by row elimination
 
-  for(int i=0;i<NRows();i++){
+  for(long i=0;i<NRows();i++){
     double r(0.0);
-    for(int j=0;j<NRows()-1;j++){
+    for(long j=0;j<NRows()-1;j++){
       r+=A1[i][j]*x[j];
     }
     x[i]=b[i]-r;
@@ -95,13 +101,20 @@ void Matrix::solve(double*x,double*b){
 
 // Ux=y by row elimination
 
-  for(int i=NRows()-1;i>=0;i--){
+  for(long i=NRows()-1;i>=0;i--){
     double r(0.0);
-    for(int j=i+1;j<NRows();j++){
+    for(long j=i+1;j<NRows();j++){
       r+=A1[i][j]*x[j];
     }
     x[i]=(x[i]-r)/A1[i][i];
   }
+
+// release heap storage
+
+  for(long i=0;i<NRows();i++){
+    delete[] A1[i];
+  }
+  delete[] A1;
 
   return;
 
