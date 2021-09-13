@@ -81,7 +81,7 @@ int main(){
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
   Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
-  int const n(50),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(10),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -100,12 +100,6 @@ int main(){
   vector<double> detJ0_t(ng*T.ngi()),detJ_t(ng*T.ngi());    // determinant of the Jacobian
   vector<double> detJ0_k(ng*K.ngi()),detJ_k(ng*K.ngi());    // determinant of the Jacobian
   vector<double> l0(ng);                                // initial length scale
-//  double F[nkg][ntg];                                 // force matrix (located on stack)
-  double** F=new double*[nkg];                          // force matrix (located on  heap)
-  for(long i=0;i<nkg;i++){
-    F[i]=new double[ntg];
-  }
-
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -114,6 +108,13 @@ int main(){
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for the problem: Sod
 //  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};      // left/right flux states for the problem: 123 (R2R)
 //  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};   // left/right flux states for the problem: blast wave
+
+//  heap storage
+
+  double** F=new double*[nkg];                          // force matrix (located on  heap)
+  for(long i=0;i<nkg;i++){
+    F[i]=new double[ntg];
+  }
 
 // initialise the problem
 
@@ -594,8 +595,10 @@ int main(){
 
   for(long i=0;i<nkg;i++){
     delete[] F[i];
+    F[i]=NULL;
   }
   delete[] F;
+  F=NULL;
 
   return 0;
 }

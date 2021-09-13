@@ -113,8 +113,10 @@ void Matrix::solve(double*x,double*b){
 
   for(long i=0;i<NRows();i++){
     delete[] A1[i];
+    A1[i]=NULL;
   }
   delete[] A1;
+  A1=NULL;
 
   return;
 
