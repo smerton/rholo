@@ -98,5 +98,8 @@ double Timer::Span(int i){return mSpan[i];}
 Timer::~Timer(){
 
   delete[] mSpan;
+  delete[] mTime;
+  delete[] mLastTime;
+  delete[] mduration;
 
 }
