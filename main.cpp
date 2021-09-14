@@ -59,6 +59,7 @@
 #include "shape.h"
 #include <bits/stdc++.h>
 #include <chrono>
+#include "timer.h"
 
 // sigantures for eos lookups
 
@@ -67,13 +68,9 @@ double E(double d,double p); // invert the eos to get energy if we only have pre
 void vempty(vector<double>&v); // signature for emptying a vector
 
 using namespace std;
-using namespace std::chrono;
+using namespace chrono;
 
 int main(){
-
-// get a timepoint
-
-  auto start_main = high_resolution_clock::now();
 
   cout<<"main(): Starting up main loop..."<<endl;
 
@@ -81,7 +78,7 @@ int main(){
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
   Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
-  int const n(10),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(50),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -103,8 +100,7 @@ int main(){
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
-  high_resolution_clock::time_point start,stop;         // high resolution timers
-  duration<double> time_span[10];                       // time accumulated in different parts of the code
+  Timer timers(20);                                     // time acccumulated in different parts of code
   double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for the problem: Sod
 //  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4};      // left/right flux states for the problem: 123 (R2R)
 //  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};   // left/right flux states for the problem: blast wave
@@ -115,6 +111,8 @@ int main(){
   for(long i=0;i<nkg;i++){
     F[i]=new double[ntg];
   }
+
+  Matrix KMASS(NROWS);                                  // mass matrix for kinematics
 
 // initialise the problem
 
@@ -138,12 +136,13 @@ int main(){
   for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
   for(int i=0;i<ng;i++){l0.at(i)=DX0/(K.nloc()-1);} // initial nodal displacement
 
-// initialise the timers
+// initialise the high res timers
 
-  for(int i=0;i<10;i++){
-    start=high_resolution_clock::now();
-    time_span[i]=duration_cast<duration<double>>(start-start);
-  }
+  timers.Init();
+
+// start a timer for main
+
+  timers.Start(0);
 
 // check integration rules on thermodynamic and kinematic stencils look consistent, they need to match
 
@@ -182,6 +181,23 @@ int main(){
     }
 
   }
+
+// assemble the mass matrices
+
+  for(int i=1;i<ng-1;i++){int k(0);
+    for(int iloc=0;iloc<K.nloc();iloc++,k++){
+      for(int jloc=0;jloc<K.nloc();jloc++){
+        double nn(0.0); // mass matrix
+        for(int gi=0;gi<K.ngi();gi++){
+          nn+=d0_k[GPNT]*K.value(iloc,gi)*K.value(jloc,gi)*detJ0_k[GPNT]*K.wgt(gi);
+        }
+        KMASS.add(ROW,COL,nn);
+      }
+    }
+  }
+
+  KMASS.add(0,0,KMASS.read(0,0));
+  KMASS.add((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1),KMASS.read((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1)));
 
 // set nodal masses - these should not change with time
 
@@ -256,7 +272,7 @@ int main(){
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
-    start = high_resolution_clock::now();
+    timers.Start(6);
 
     vector<double> r0x,rx,rx2,rx3;vempty(r0x);vempty(rx);vempty(rx2);vempty(rx3); // sample point coordinates
     for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
@@ -269,9 +285,7 @@ int main(){
     for(int i=0;i<ntg;i++){rx3.push_back(x3[i]);}
     R3.profile(&rx3,time+dt);
 
-    stop = high_resolution_clock::now();
-
-    time_span[5]+=duration_cast<duration<double>>(stop-start);
+    timers.Stop(6);
 
 // update cell volumes at the full-step
 
@@ -325,13 +339,12 @@ int main(){
 //    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1_t.at(GPNT)=R2.density(GPNT);d1_k.at(GPNT)=R2.density(GPNT);}}
 // debug
 
-// assemble finite element energy field on discontinuous thermodynamic grid
+// assemble finite element energy field on the discontinuous thermodynamic grid
 // for( struct {int i; double j;} v = {0, 3.0}; v.i < 10; v.i++, v.j+=0.1)
-
-    start = high_resolution_clock::now();
 
     {Matrix A(T.nloc());double b[T.nloc()],x[T.nloc()];
     for(int i=0;i<ng;i++){
+      timers.Start(2);
       for(int j=0;j<T.nloc();j++){
         b[j]=0.0;for(int k=0;k<K.nloc();k++){b[j]+=F[KNOD][TNOD]*u1[KNOD];}
         for(int k=0;k<T.nloc();k++){
@@ -342,20 +355,15 @@ int main(){
           A.write(j,k,nn);
         }
       }
-
-    stop = high_resolution_clock::now();
-
-    time_span[1]+=duration_cast<duration<double>>(stop-start);
+      timers.Stop(2);
 
 // solve local system
 
-      start = high_resolution_clock::now();
+      timers.Start(4);
 
       A.solve(x,b);
 
-      stop = high_resolution_clock::now();
-
-      time_span[3]+=duration_cast<duration<double>>(stop-start);
+      timers.Stop(4);
 
 // advance the solution
 
@@ -408,7 +416,7 @@ int main(){
 
 // assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both e/u eqns
 
-    start = high_resolution_clock::now();
+    timers.Start(1);
 
     for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
     for(int i=0;i<ng;i++){
@@ -421,13 +429,9 @@ int main(){
       }
     }
 
-    stop = high_resolution_clock::now();
-
-    time_span[0]+=duration_cast<duration<double>>(stop-start);
+    timers.Stop(1);
 
 // assemble acceleration field
-
-    start = high_resolution_clock::now();
 
     {Matrix A(NROWS);double b[NROWS],x[NROWS];for(long i=0;i<NROWS;i++){b[i]=0.0;x[i]=0.0;}
 
@@ -435,7 +439,11 @@ int main(){
 
 //    {int i(0),k(K.nloc()-1);for(int j=0;j<T.nloc();j++){b[0]+=F[KNOD][TNOD]*1.0;}}
 //    {int i(ng-1),k(0);for(int j=0;j<T.nloc();j++){b[NROWS-1]+=F[KNOD][TNOD]*1.0;}}
+
 // debug
+
+    timers.Start(3);
+
     {int i(0);
       for(int iloc=0;iloc<K.nloc();iloc++){
         for(int gi=0;gi<K.ngi();gi++){
@@ -472,19 +480,16 @@ int main(){
     A.add(0,0,A.read(0,0));
     A.add((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1),A.read((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1)));
 
-    stop = high_resolution_clock::now();
-
-    time_span[2]+=duration_cast<duration<double>>(stop-start);
+    timers.Stop(3);
 
 // solve global system
 
-    start = high_resolution_clock::now();
+      timers.Start(5);
 
-    A.solve(x,b);
+//    A.solve(x,b);
+    KMASS.solve(x,b);
 
-    stop = high_resolution_clock::now();
-
-    time_span[4]+=duration_cast<duration<double>>(stop-start);
+      timers.Stop(5);
 
 // update acceleration field
 
@@ -503,7 +508,7 @@ int main(){
 
 // some output
 
-    start = high_resolution_clock::now();
+    timers.Start(7);
 
     f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
@@ -521,9 +526,7 @@ int main(){
     }
     f1.close();f2.close();f3.close();f4.close();f5.close();
 
-    stop = high_resolution_clock::now();
-
-    time_span[6]+=duration_cast<duration<double>>(stop-start);
+    timers.Stop(7);
 
 // advance the time step
 
@@ -551,44 +554,33 @@ int main(){
 
   }
 
-// get a timepoint
-
-  auto stop_main = high_resolution_clock::now();
-
-// subtract timepoints to get a measure of runtime
-
-  time_span[10]=duration_cast<duration<double>>(stop_main-start_main);
+  timers.Stop(0);
 
   cout<<endl<<"  Breakdown of time accumulated in each part of the calculation:"<<endl<<endl;
 
-  cout<<"    Force Calculation                   "<<time_span[0].count()<<"s "<<time_span[0]*100.0/time_span[10]<<"%"<<endl;
-  cout<<"    Energy Field Assembly               "<<time_span[1].count()<<"s "<<time_span[1]*100.0/time_span[10]<<"%"<<endl;
-  cout<<"    Acceleration Field Assembly         "<<time_span[2].count()<<"s "<<time_span[2]*100.0/time_span[10]<<"%"<<endl;
-  cout<<"    Matrix Inversion for Thermodynamics "<<time_span[3].count()<<"s "<<time_span[3]*100.0/time_span[10]<<"%"<<endl;
-  cout<<"    Matrix Inversion for Kinematics     "<<time_span[4].count()<<"s "<<time_span[4]*100.0/time_span[10]<<"%"<<endl;
-  cout<<"    Riemann Solvers                     "<<time_span[5].count()<<"s "<<time_span[5]*100.0/time_span[10]<<"%"<<endl;
-  cout<<"    Output                              "<<time_span[6].count()<<"s "<<time_span[6]*100.0/time_span[10]<<"%"<<endl;
-  cout<<"    Main                                "<<time_span[10].count()<<"s "<<time_span[10]*100.0/time_span[10]<<"%"<<endl;
+  cout<<"    Force Calculation                   "<<timers.Span(1)<<"s "<<timers.Span(1)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Energy Field Assembly               "<<timers.Span(2)<<"s "<<timers.Span(2)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Acceleration Field Assembly         "<<timers.Span(3)<<"s "<<timers.Span(3)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Matrix Inversion for Thermodynamics "<<timers.Span(4)<<"s "<<timers.Span(4)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Matrix Inversion for Kinematics     "<<timers.Span(5)<<"s "<<timers.Span(5)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Riemann Solvers                     "<<timers.Span(6)<<"s "<<timers.Span(6)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Output                              "<<timers.Span(7)<<"s "<<timers.Span(7)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Main                                "<<timers.Span(0)<<"s "<<timers.Span(0)*100.0/timers.Span(0)<<"%"<<endl;
 
-// total that has been timed
+// total timed excluding main
 
-  duration<double> total_time;
-  start=high_resolution_clock::now();
-  total_time=duration_cast<duration<double>>(start-start); // initialise for the summation
+  double total(timers.Total()-timers.Span(0));
 
-  for(int i=0;i<10;i++){total_time+=time_span[i];}
+// subtracting total timed from main gives us an estimate of what has not been timed, this is unknown
 
-// subtracting from main gives us an estimate of what has not been timed, this is unknown
-
-  duration<double> unknown;
-  unknown=time_span[10]-total_time;
+  double unknown(timers.Span(0)-total);
 
   cout<<endl;
 
-  cout<<"    total timed                         "<<total_time.count()<<"s "<<total_time*100.0/time_span[10]<<"%"<<endl;
-  cout<<"    unknown                             "<<unknown.count()<<"s "<<unknown*100.0/time_span[10]<<"%"<<endl;
+  cout<<"    total timed                         "<<total<<"s "<<total*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    unknown                             "<<unknown<<"s "<<unknown*100.0/timers.Span(0)<<"%"<<endl;
 
-  cout<<endl<<"  Run took "<<time_span[10].count()<<" seconds."<<endl;
+  cout<<endl<<"  Run took "<<timers.Span(0)<<" seconds."<<endl;
   cout<<"  Normal termination."<<endl;
 
 // release heap storage

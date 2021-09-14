@@ -14,7 +14,7 @@ Matrix::Matrix(int n){
   mN=n;
 
   mMat=new double*[NRows()];
-  for(int i=0;i<NRows();i++){
+  for(long i=0;i<NRows();i++){
     mMat[i]=new double[NCols()];
   }
 
@@ -226,7 +226,7 @@ void Matrix::add(int i,int j,double dat){mMat[i][j]+=dat;}
 
 Matrix::~Matrix(){
 
-  for(int i=0;i<NCols();i++){
+  for(long i=0;i<NRows();i++){
     delete[] mMat[i];
     mMat[i]=NULL;
   }
