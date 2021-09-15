@@ -5,7 +5,73 @@
 #include <iostream>
 #include "matrix.h"
 
+// interface to LAPACK
+
+extern "C"{
+
+// LU decomposition of a general matrix
+
+void dgetrf_(int* M,int* N,double* A,int* lda,int* IPIV,int *INFO);
+
+// generate inverse of a matrix given its LU decomposition
+
+void dgetri_(int* N,double* A,int* lda,int* IPIV,double* WORK,int* lwork,int* INFO);
+}
+
 using namespace std;
+
+//void Matrix::inverse2(double* A, int N){
+//
+//// emit the inverse via lapack
+//
+//  int *IPIV=new int[N];
+//  int LWORK=N*N;
+//  double *WORK=new double[LWORK];
+//  int INFO;
+//
+//  dgetrf_(&N,&N,A,&N,IPIV,&INFO);
+//  dgetri_(&N,A,&N,IPIV,WORK,&LWORK,&INFO);
+//
+//  delete[] IPIV;
+//  delete[] WORK;
+//
+//}
+
+void Matrix::inverse2(Matrix *A){
+
+// emit the inverse via lapack
+
+  int N(A->NRows());
+  int *IPIV=new int[N];
+  int LWORK=N*N;
+  double *WORK=new double[LWORK];
+  int INFO;
+  double *B=new double[N*N];
+
+// flatten
+
+  for(int i=0,k=0;i<N;i++){
+    for(int j=0;j<N;j++,k++){
+      B[k]=A->read(i,j);
+    }
+  }
+
+  dgetrf_(&N,&N,B,&N,IPIV,&INFO);
+  dgetri_(&N,B,&N,IPIV,WORK,&LWORK,&INFO);
+
+// unflatten
+
+  for(int i=0,k=0;i<N;i++){
+    for(int j=0;j<N;j++,k++){
+      mMat[i][j]=B[k];
+    }
+  }
+
+  delete[] IPIV;
+  delete[] WORK;
+  delete[] B;
+
+}
 
 Matrix::Matrix(int n){
 
