@@ -122,20 +122,11 @@ void Matrix::solve(double*x,double*b){
 
 }
 
-// Member function to return the inverse
+// Member function to form the inverse
 
-Matrix Matrix::inverse(){
+void Matrix::inverse(Matrix *A){
 
   double x[NRows()],row[NRows()];
-  Matrix B(NRows()),BI(NRows());
-
-// local copy of the matrix to avoid overwriting it
-
-  for(int i=0;i<NRows();i++){
-    for(int j=0;j<NRows();j++){
-      B.write(i,j,mMat[i][j]);
-    }
-  }
 
 // collect the inverse by row using LU decomposition with row elimination
 
@@ -148,19 +139,19 @@ Matrix Matrix::inverse(){
 
 // pass to the solver
 
-    B.solve(x,row);
+    A->solve(x,row);
 
 // unpack the column which is row i of the inverse
 
-    for(int j=0;j<NRows();j++){BI.write(j,i,x[j]);}
+    for(int j=0;j<NRows();j++){mMat[j][i]=x[j];}
 
   }
 
-  return BI;
+  return;
 
 }
 
-// Member function to return the product of 2 matrices
+// Member function to form the product of 2 matrices
 
 void Matrix::product(Matrix *A,Matrix *B){
 

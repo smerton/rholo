@@ -16,7 +16,7 @@ class Matrix{
   double det();                            // returns determinant
   void solve(double*x,double*b);           // solves linear system Ax=b given pointers to x and b
 
-  Matrix inverse();                        // returns a Matrix object containing the inverse
+  void inverse(Matrix *A);                 // generates the inverse for the matrix A
   void copy(double**A);                    // copy to a matrix class object
   double read(int i,int j);                // reads element i,j of the member object
   void write(int i,int j,double dat);      // writes data dat to element i,j of the member object
