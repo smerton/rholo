@@ -21,7 +21,7 @@
 // then git pull --all will pull from 1st url in location 1 (NAS)
 // and 1st url in location 2 (github)
 //
-// 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
+// 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
 //
 // for graphics: convert -density 300 filename.png filename.pdf
 
@@ -196,8 +196,25 @@ int main(){
     }
   }
 
+// insert boundaries
+
   KMASS.add(0,0,KMASS.read(0,0));
   KMASS.add((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1),KMASS.read((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1)));
+
+// invert the mass matrices
+
+  Matrix KMASSI(NROWS),IMASS(NROWS);
+
+  cout<<"Inverting a mass matrix for the acceleration field..."<<endl;
+  timers.Start(15);
+//  KMASSI.inverse(&KMASS); // original
+  KMASSI.inverse2(&KMASS); // lapack
+  timers.Stop(15);
+  cout<<"Done."<<endl;
+
+
+
+
 
 // set nodal masses - these should not change with time
 
@@ -487,7 +504,26 @@ int main(){
       timers.Start(5);
 
 //    A.solve(x,b);
-    KMASS.solve(x,b);
+//    KMASS.solve(x,b);
+
+
+//      for(long i=0;i<NROWS;i++){
+//        x[i]=0.0;
+//        for(long j=0;j<NCOLS;j++){
+//          x[i]+=KMASSI.read(i,j)*b[j];
+//        }
+//      }
+
+      for(int i=1;i<ng-1;i++){
+        for(int iloc=0;iloc<K.nloc();iloc++){
+          x[ROW]=0.0;
+          for(int jloc=0;jloc<K.nloc();jloc++){
+            x[ROW]+=KMASSI.read(ROW,COL)*b[COL];
+          }
+        }
+      }
+
+
 
       timers.Stop(5);
 
@@ -508,25 +544,25 @@ int main(){
 
 // some output
 
-    timers.Start(7);
-
-    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
-    f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
-    for(int i=0;i<NSAMPLES;i++){
-      f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
-    }
-    for(long i=0;i<ntg;i++){f2<<x3[i]<<" "<<e1[i]<<endl;}
-    for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
-    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1_k[GPNT]<<" "<<p[GPNT]<<endl;}}
-//    cout<<"NODE POS: "<<time<<" "<<x1[(ng/2)*(K.nloc()-1)]<<" "<<x1[(ng/2)*(K.nloc()-1)+1]<<endl;
-    for(int i=0;i<ng;i++){
-      int k;
-      k=0;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
-      k=K.nloc()-1;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
-    }
-    f1.close();f2.close();f3.close();f4.close();f5.close();
-
-    timers.Stop(7);
+//    timers.Start(7);
+//
+//    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
+//    f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
+//    for(int i=0;i<NSAMPLES;i++){
+//      f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
+//    }
+//    for(long i=0;i<ntg;i++){f2<<x3[i]<<" "<<e1[i]<<endl;}
+//    for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
+//    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1_k[GPNT]<<" "<<p[GPNT]<<endl;}}
+////    cout<<"NODE POS: "<<time<<" "<<x1[(ng/2)*(K.nloc()-1)]<<" "<<x1[(ng/2)*(K.nloc()-1)+1]<<endl;
+//    for(int i=0;i<ng;i++){
+//      int k;
+//      k=0;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
+//      k=K.nloc()-1;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
+//    }
+//    f1.close();f2.close();f3.close();f4.close();f5.close();
+//
+//    timers.Stop(7);
 
 // advance the time step
 
@@ -549,10 +585,35 @@ int main(){
 
 // debug
 //  cout<<"debug stop."<<endl;
+//  output(); // might want this ??
 //  exit(1);
 // debug
 
   }
+
+// some output
+
+    timers.Start(7);
+
+    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
+    f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
+//    for(int i=0;i<NSAMPLES;i++){
+//      f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
+//    }
+    for(long i=0;i<ntg;i++){f2<<x3[i]<<" "<<e1[i]<<endl;}
+    for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
+    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1_k[GPNT]<<" "<<p[GPNT]<<endl;}}
+//    cout<<"NODE POS: "<<time<<" "<<x1[(ng/2)*(K.nloc()-1)]<<" "<<x1[(ng/2)*(K.nloc()-1)+1]<<endl;
+    for(int i=0;i<ng;i++){
+      int k;
+      k=0;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
+      k=K.nloc()-1;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
+    }
+    f1.close();f2.close();f3.close();f4.close();f5.close();
+
+    timers.Stop(7);
+
+// stop timer for main
 
   timers.Stop(0);
 
