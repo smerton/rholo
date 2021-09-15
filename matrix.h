@@ -11,7 +11,8 @@ class Matrix{
 
   Matrix transpose();                      // returns transpose
   Matrix adjoint();                        // returns adjoint
-  Matrix product(Matrix*B);                // returns the product with B
+  Matrix adjugate();                       // returns adjugate
+  void product(Matrix *A,Matrix *B);       // stores the matrix product AB
   double det();                            // returns determinant
   void solve(double*x,double*b);           // solves linear system Ax=b given pointers to x and b
 

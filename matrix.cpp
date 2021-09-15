@@ -162,23 +162,18 @@ Matrix Matrix::inverse(){
 
 // Member function to return the product of 2 matrices
 
-Matrix Matrix::product(Matrix*B){
-
-  Matrix C(NRows());
-
-//C=mMat*B
+void Matrix::product(Matrix *A,Matrix *B){
 
   for(int i=0;i<NRows();i++){
     for(int j=0;j<NRows();j++){
-      double r(0.0);
+      mMat[i][j]=0.0;
       for(int k=0;k<NRows();k++){
-        r+=mMat[i][k]*B->read(k,j);
+        mMat[i][j]+=A->read(i,k)*B->read(k,j);
       }
-      C.write(i,j,r);
     }
   }
 
-  return C;
+  return;
 
 }
 
