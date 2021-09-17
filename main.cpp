@@ -87,8 +87,6 @@ int main(){
   vector<double> d0_t(ng*T.ngi()),d1_t(ng*T.ngi());     // density at each Gauss point in each element
   vector<double> d0_k(ng*K.ngi()),d1_k(ng*K.ngi());     // density at each Gauss point in each element
   vector<double> V0(ng),V1(ng),m(ng),xc(ng);            // volume, mass & centroid
-  vector<double> nodmass_t(ntg),nodmass_k(nkg);         // nodal mass
-  vector<double> nodvol_t(ntg),nodvol_k(nkg);           // nodal volume
   vector<double> e0(ntg),e1(ntg);                       // discontinuous FE energy field
   vector<double> c(ng*T.ngi()),p(ng*T.ngi());           // element sound speed & pressure at each Gauss point
   vector<double> q(ng*T.ngi());                         // bulk viscosity at each Gauss point
@@ -213,27 +211,6 @@ int main(){
 
   cout<<"Done."<<endl;
 
-// set nodal masses - these should not change with time
-
-  for(long i=0;i<ntg;i++){nodmass_t[i]=0.0;}
-  for(long i=0;i<nkg;i++){nodmass_k[i]=0.0;}
-
-  for(int i=0;i<ng;i++){
-
-    for(int j=0;j<T.nloc();j++){
-      for(int gi=0;gi<T.ngi();gi++){
-        nodmass_t[TNOD]+=dinit[i]*T.value(j,gi)*detJ0_t[GPNT]*T.wgt(gi);
-      }
-    }
-
-    for(int k=0;k<K.nloc();k++){
-      for(int gi=0;gi<K.ngi();gi++){
-        nodmass_k[KNOD]+=dinit[i]*K.value(k,gi)*detJ0_k[GPNT]*K.wgt(gi);
-      }
-    }
-
-  }
-
 // start the Riemann solvers from initial flux states
 
   Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r),R2(Riemann::exact,l,r),R3(Riemann::exact,l,r);
@@ -330,24 +307,6 @@ int main(){
 
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1_t[GPNT]=dinit[i]*detJ0_t[GPNT]/detJ_t[GPNT];}}
     for(int i=0;i<ng;i++){for(int gi=0;gi<K.ngi();gi++){d1_k[GPNT]=dinit[i]*detJ0_k[GPNT]/detJ_k[GPNT];}}
-
-// set nodal volumes
-
-    for(long i=0;i<ntg;i++){nodvol_t[i]=0.0;}
-    for(long i=0;i<nkg;i++){nodvol_k[i]=0.0;}
-
-    for(int i=0;i<ng;i++){
-      for(int j=0;j<T.nloc();j++){
-        for(int gi=0;gi<T.ngi();gi++){
-          nodvol_t[TNOD]+=T.value(j,gi)*detJ_t[GPNT]*T.wgt(gi);
-        }
-      }
-      for(int k=0;k<K.nloc();k++){
-        for(int gi=0;gi<K.ngi();gi++){
-          nodvol_k[KNOD]+=K.value(k,gi)*detJ_k[GPNT]*K.wgt(gi);
-        }
-      }
-    }
 
 // debug
 //    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1_t.at(GPNT)=R2.density(GPNT);d1_k.at(GPNT)=R2.density(GPNT);}}
@@ -619,6 +578,55 @@ int iaddr(int iel,int iel1,int iel2){
   return i;
 
 }
+
+// debug - nodal masses, insert this above time step loop
+
+// set nodal masses - these should not change with time
+
+//  vector<double> nodmass_t(ntg),nodmass_k(nkg);         // nodal mass
+//
+//  for(long i=0;i<ntg;i++){nodmass_t[i]=0.0;}
+//  for(long i=0;i<nkg;i++){nodmass_k[i]=0.0;}
+//
+//
+//    for(int j=0;j<T.nloc();j++){
+//      for(int gi=0;gi<T.ngi();gi++){
+//        nodmass_t[TNOD]+=dinit[i]*T.value(j,gi)*detJ0_t[GPNT]*T.wgt(gi);
+//      }
+//    }
+//
+//    for(int k=0;k<K.nloc();k++){
+//      for(int gi=0;gi<K.ngi();gi++){
+//        nodmass_k[KNOD]+=dinit[i]*K.value(k,gi)*detJ0_k[GPNT]*K.wgt(gi);
+//      }
+//    }
+//
+//  }
+//
+
+
+
+// debug - nodal volumes, insert this INSIDE time step loop
+
+// set nodal volumes
+
+//  vector<double> nodvol_t(ntg),nodvol_k(nkg);           // nodal volume
+
+//    for(long i=0;i<ntg;i++){nodvol_t[i]=0.0;}
+//    for(long i=0;i<nkg;i++){nodvol_k[i]=0.0;}
+//
+//    for(int i=0;i<ng;i++){
+//      for(int j=0;j<T.nloc();j++){
+//        for(int gi=0;gi<T.ngi();gi++){
+//          nodvol_t[TNOD]+=T.value(j,gi)*detJ_t[GPNT]*T.wgt(gi);
+//        }
+//      }
+//      for(int k=0;k<K.nloc();k++){
+//        for(int gi=0;gi<K.ngi();gi++){
+//          nodvol_k[KNOD]+=K.value(k,gi)*detJ_k[GPNT]*K.wgt(gi);
+//        }
+//      }
+//    }
 
 // debug - check nodal quantities, insert this soon after nodmass_k, nodvol_k etc
 //
