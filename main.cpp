@@ -66,6 +66,7 @@
 double P(double d,double e); // eos returns pressure as a function of energy
 double E(double d,double p); // invert the eos to get energy if we only have pressure
 void vempty(vector<double>&v); // signature for emptying a vector
+int iaddr(int iel,int iel1,int iel2); // signature for element address function
 
 using namespace std;
 using namespace chrono;
@@ -97,6 +98,7 @@ int main(){
   vector<double> detJ0_t(ng*T.ngi()),detJ_t(ng*T.ngi());    // determinant of the Jacobian
   vector<double> detJ0_k(ng*K.ngi()),detJ_k(ng*K.ngi());    // determinant of the Jacobian
   vector<double> l0(ng);                                // initial length scale
+  vector<double> r0x,rx,rx2,rx3;                        // sample point coordinates
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -112,7 +114,9 @@ int main(){
     F[i]=new double[ntg];
   }
 
-  Matrix KMASS(NROWS);                                  // mass matrix for kinematics
+  Matrix KMASS(NROWS);                                  // mass matrices for kinematic/thermodynamic fields
+  Matrix KMASSI(NROWS);                                 // inverse mass matrix for kinematics
+//  Matrix TMASSI(NROWS);                               // inverse mass matrix for thermodynamics
 
 // initialise the problem
 
@@ -182,10 +186,11 @@ int main(){
 
   }
 
-// assemble the mass matrices
+// assemble mass matrix for acceleration field
 
-  for(int i=1;i<ng-1;i++){int k(0);
-    for(int iloc=0;iloc<K.nloc();iloc++,k++){
+  for(int iel=0;iel<ng;iel++){
+    int i(iaddr(iel,1,ng-2)); // get element address
+    for(int iloc=0;iloc<K.nloc();iloc++){
       for(int jloc=0;jloc<K.nloc();jloc++){
         double nn(0.0); // mass matrix
         for(int gi=0;gi<K.ngi();gi++){
@@ -196,25 +201,17 @@ int main(){
     }
   }
 
-// insert boundaries
-
-  KMASS.add(0,0,KMASS.read(0,0));
-  KMASS.add((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1),KMASS.read((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1)));
-
 // invert the mass matrices
 
-  Matrix KMASSI(NROWS),IMASS(NROWS);
+  cout<<"Inverting mass matrix for the acceleration field..."<<endl;
 
-  cout<<"Inverting a mass matrix for the acceleration field..."<<endl;
-  timers.Start(15);
-//  KMASSI.inverse(&KMASS); // original
+  timers.Start(1);
+
   KMASSI.inverse2(&KMASS); // lapack
-  timers.Stop(15);
+
+  timers.Stop(1);
+
   cout<<"Done."<<endl;
-
-
-
-
 
 // set nodal masses - these should not change with time
 
@@ -289,9 +286,9 @@ int main(){
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
-    timers.Start(6);
+    timers.Start(2);
 
-    vector<double> r0x,rx,rx2,rx3;vempty(r0x);vempty(rx);vempty(rx2);vempty(rx3); // sample point coordinates
+    vempty(r0x);vempty(rx);vempty(rx2);vempty(rx3); // sample point coordinates
     for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
 //    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[nkg-1]-x1[0])/double(NSAMPLES)));} // sample points
     R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
@@ -302,7 +299,7 @@ int main(){
     for(int i=0;i<ntg;i++){rx3.push_back(x3[i]);}
     R3.profile(&rx3,time+dt);
 
-    timers.Stop(6);
+    timers.Stop(2);
 
 // update cell volumes at the full-step
 
@@ -359,9 +356,10 @@ int main(){
 // assemble finite element energy field on the discontinuous thermodynamic grid
 // for( struct {int i; double j;} v = {0, 3.0}; v.i < 10; v.i++, v.j+=0.1)
 
+    timers.Start(3);
+
     {Matrix A(T.nloc());double b[T.nloc()],x[T.nloc()];
     for(int i=0;i<ng;i++){
-      timers.Start(2);
       for(int j=0;j<T.nloc();j++){
         b[j]=0.0;for(int k=0;k<K.nloc();k++){b[j]+=F[KNOD][TNOD]*u1[KNOD];}
         for(int k=0;k<T.nloc();k++){
@@ -372,20 +370,17 @@ int main(){
           A.write(j,k,nn);
         }
       }
-      timers.Stop(2);
 
 // solve local system
 
-      timers.Start(4);
-
       A.solve(x,b);
-
-      timers.Stop(4);
 
 // advance the solution
 
       for(int j=0;j<T.nloc();j++){e1.at(TNOD)=max(ECUT,e0[TNOD]-x[j]*dt);}
     }}
+
+    timers.Stop(3);
 
 // debug
 //    for(int i=0;i<ntg;i++){e1.at(i)=R3.energy(i);}
@@ -433,7 +428,7 @@ int main(){
 
 // assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both e/u eqns
 
-    timers.Start(1);
+    timers.Start(4);
 
     for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
     for(int i=0;i<ng;i++){
@@ -446,20 +441,13 @@ int main(){
       }
     }
 
-    timers.Stop(1);
+    timers.Stop(4);
 
 // assemble acceleration field
 
-    {Matrix A(NROWS);double b[NROWS],x[NROWS];for(long i=0;i<NROWS;i++){b[i]=0.0;x[i]=0.0;}
+    timers.Start(5);
 
-// insert the boundary terms into start/end addresses of the source
-
-//    {int i(0),k(K.nloc()-1);for(int j=0;j<T.nloc();j++){b[0]+=F[KNOD][TNOD]*1.0;}}
-//    {int i(ng-1),k(0);for(int j=0;j<T.nloc();j++){b[NROWS-1]+=F[KNOD][TNOD]*1.0;}}
-
-// debug
-
-    timers.Start(3);
+    {double b[NROWS],x[NROWS];for(long i=0;i<NROWS;i++){b[i]=0.0;x[i]=0.0;}
 
     {int i(0);
       for(int iloc=0;iloc<K.nloc();iloc++){
@@ -477,57 +465,22 @@ int main(){
       }
     }
 
-
-// debug
-
     for(int i=1;i<ng-1;i++){int k(0);
       for(int iloc=0;iloc<K.nloc();iloc++,k++){
         for(int j=0;j<T.nloc();j++){b[ROW]+=F[KNOD][TNOD]*1.0;} // load vector
-        for(int jloc=0;jloc<K.nloc();jloc++){
-          double nn(0.0); // mass matrix
-          for(int gi=0;gi<K.ngi();gi++){
-            nn+=d1_k[GPNT]*K.value(iloc,gi)*K.value(jloc,gi)*detJ_k[GPNT]*K.wgt(gi);
-          }
-          A.add(ROW,COL,nn);
-        }
       }
-
     }
-
-    A.add(0,0,A.read(0,0));
-    A.add((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1),A.read((ng-2)*(K.nloc()-1),(ng-2)*(K.nloc()-1)));
-
-    timers.Stop(3);
 
 // solve global system
 
-      timers.Start(5);
-
-//    A.solve(x,b);
-//    KMASS.solve(x,b);
-
-
-//      for(long i=0;i<NROWS;i++){
-//        x[i]=0.0;
-//        for(long j=0;j<NCOLS;j++){
-//          x[i]+=KMASSI.read(i,j)*b[j];
-//        }
-//      }
-
-      for(int i=1;i<ng-1;i++){
-        for(int iloc=0;iloc<K.nloc();iloc++){
-          x[ROW]=0.0;
-          for(int jloc=0;jloc<K.nloc();jloc++){
-            x[ROW]+=KMASSI.read(ROW,COL)*b[COL];
-          }
-        }
+    for(long i=0;i<NROWS;i++){
+      x[i]=0.0;
+      for(long j=0;j<NCOLS;j++){
+        x[i]+=KMASSI.read(i,j)*b[j];
       }
+    }
 
-
-
-      timers.Stop(5);
-
-// update acceleration field
+// advance solution
 
     for(int i=1;i<ng-1;i++){for(int k=0;k<K.nloc();k++){int iloc(k);u1.at(KNOD)=u0[KNOD]+x[ROW]*dt;}}
 
@@ -538,31 +491,11 @@ int main(){
     for(int j=0;j<K.nloc()-1;j++){u1.at(j)=u1[K.nloc()];}
     for(int j=0;j<K.nloc()-1;j++){int i(ng-1);u1.at(i*(K.nloc()-1)+j+1)=u1[i*(K.nloc()-1)];}
 
+    timers.Stop(5);
+
 // debug
 //    for(long i=0;i<nkg;i++){u1.at(i)=R1.velocity(i);}
 // debug
-
-// some output
-
-//    timers.Start(7);
-//
-//    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
-//    f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
-//    for(int i=0;i<NSAMPLES;i++){
-//      f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
-//    }
-//    for(long i=0;i<ntg;i++){f2<<x3[i]<<" "<<e1[i]<<endl;}
-//    for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
-//    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1_k[GPNT]<<" "<<p[GPNT]<<endl;}}
-////    cout<<"NODE POS: "<<time<<" "<<x1[(ng/2)*(K.nloc()-1)]<<" "<<x1[(ng/2)*(K.nloc()-1)+1]<<endl;
-//    for(int i=0;i<ng;i++){
-//      int k;
-//      k=0;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
-//      k=K.nloc()-1;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
-//    }
-//    f1.close();f2.close();f3.close();f4.close();f5.close();
-//
-//    timers.Stop(7);
 
 // advance the time step
 
@@ -593,13 +526,13 @@ int main(){
 
 // some output
 
-    timers.Start(7);
+    timers.Start(6);
 
     f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
-//    for(int i=0;i<NSAMPLES;i++){
-//      f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
-//    }
+    for(int i=0;i<NSAMPLES;i++){
+      f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
+    }
     for(long i=0;i<ntg;i++){f2<<x3[i]<<" "<<e1[i]<<endl;}
     for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1_k[GPNT]<<" "<<p[GPNT]<<endl;}}
@@ -611,7 +544,7 @@ int main(){
     }
     f1.close();f2.close();f3.close();f4.close();f5.close();
 
-    timers.Stop(7);
+    timers.Stop(6);
 
 // stop timer for main
 
@@ -619,13 +552,12 @@ int main(){
 
   cout<<endl<<"  Breakdown of time accumulated in each part of the calculation:"<<endl<<endl;
 
-  cout<<"    Force Calculation                   "<<timers.Span(1)<<"s "<<timers.Span(1)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Energy Field Assembly               "<<timers.Span(2)<<"s "<<timers.Span(2)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Acceleration Field Assembly         "<<timers.Span(3)<<"s "<<timers.Span(3)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Matrix Inversion for Thermodynamics "<<timers.Span(4)<<"s "<<timers.Span(4)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Matrix Inversion for Kinematics     "<<timers.Span(5)<<"s "<<timers.Span(5)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Riemann Solvers                     "<<timers.Span(6)<<"s "<<timers.Span(6)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Output                              "<<timers.Span(7)<<"s "<<timers.Span(7)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Matrix Inverter                     "<<timers.Span(1)<<"s "<<timers.Span(3)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Riemann Solvers                     "<<timers.Span(2)<<"s "<<timers.Span(6)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Energy Field Assembly               "<<timers.Span(3)<<"s "<<timers.Span(4)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Force Calculation                   "<<timers.Span(4)<<"s "<<timers.Span(1)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Acceleration Field Assembly         "<<timers.Span(5)<<"s "<<timers.Span(5)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Output                              "<<timers.Span(6)<<"s "<<timers.Span(7)*100.0/timers.Span(0)<<"%"<<endl;
   cout<<"    Main                                "<<timers.Span(0)<<"s "<<timers.Span(0)*100.0/timers.Span(0)<<"%"<<endl;
 
 // total timed excluding main
@@ -667,6 +599,26 @@ double E(double d,double p){return p/((GAMMA-1.0)*d);}
 // empty a vector
 
 void vempty(vector<double>&v){vector<double> e;v.swap(e);return;}
+
+// element address
+
+int iaddr(int iel,int iel1,int iel2){
+
+  int i(iel);
+
+  if(iel<iel1){
+
+    i=iel1;
+
+  }else if(iel>iel2){
+
+    i=iel2;
+
+  }
+
+  return i;
+
+}
 
 // debug - check nodal quantities, insert this soon after nodmass_k, nodvol_k etc
 //
