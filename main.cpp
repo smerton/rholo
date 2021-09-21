@@ -63,10 +63,12 @@
 
 // sigantures for eos lookups
 
-double P(double d,double e); // eos returns pressure as a function of energy
-double E(double d,double p); // invert the eos to get energy if we only have pressure
-void vempty(vector<double>&v); // signature for emptying a vector
+double P(double d,double e);          // eos returns pressure as a function of energy
+double E(double d,double p);          // invert the eos to get energy if we only have pressure
+void vempty(vector<double>&v);        // signature for emptying a vector
 int iaddr(int iel,int iel1,int iel2); // signature for element address function
+void get_exact(double t);             // exact solutions at time t
+vector<double> r0x,rx,rx2,rx3;        // sample point coordinates for Riemann solver
 
 using namespace std;
 using namespace chrono;
@@ -78,8 +80,8 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
-  int const n(50),ng(n+4);                              // no. ncells, no. ghosts
+  Shape K(4,10),T(3,10);                                // p_n,q_n-1 shape functions
+  int const n(20),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -93,10 +95,8 @@ int main(){
   vector<double> u0(nkg),u1(nkg);                       // node velocity
   vector<double> x0(nkg),x1(nkg),x2(ntg),x3(ntg);       // node coordinates
   vector<double> dt_cfl(ng*T.ngi());                    // element time-step at each Gauss point
-  vector<double> detJ0_t(ng*T.ngi()),detJ_t(ng*T.ngi());    // determinant of the Jacobian
   vector<double> detJ0_k(ng*K.ngi()),detJ_k(ng*K.ngi());    // determinant of the Jacobian
   vector<double> l0(ng);                                // initial length scale
-  vector<double> r0x,rx,rx2,rx3;                        // sample point coordinates
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -112,9 +112,11 @@ int main(){
     F[i]=new double[ntg];
   }
 
-  Matrix KMASS(NROWS);                                  // mass matrices for kinematic/thermodynamic fields
+//  Matrix* KMASS=new Matrix(NROWS);                      // mass matrix for kinematic/thermodynamic fields
+//  Matrix* KMASSI=new Matrix(NROWS);                     // inverse mass matrix for kinematics
+
+  Matrix KMASS(NROWS);                                  // mass matrix for kinematic/thermodynamic fields
   Matrix KMASSI(NROWS);                                 // inverse mass matrix for kinematics
-//  Matrix TMASSI(NROWS);                               // inverse mass matrix for thermodynamics
 
 // initialise the problem
 
@@ -172,14 +174,6 @@ int main(){
         detJ0_k.at(GPNT)+=K.dvalue(k,gi)*x0[KNOD];
       }
       if(detJ0_k.at(GPNT)<0.0){cout<<"-'ve determinant of J0_k detected in cell "<<i<<endl;exit(1);}
-    }
-
-    for(int gi=0;gi<T.ngi();gi++){
-      detJ0_t.at(GPNT)=0.0;
-      for(int j=0;j<T.nloc();j++){
-        detJ0_t.at(GPNT)+=T.dvalue(j,gi)*x2[TNOD];
-      }
-      if(detJ0_t.at(GPNT)<0.0){cout<<"-'ve determinant of J0_t detected in cell "<<i<<endl;exit(1);}
     }
 
   }
@@ -242,16 +236,9 @@ int main(){
 
 // move nodes to their full-step position
 
+//    timers.Start(12);
+
     for(long i=0;i<nkg;i++){x1.at(i)=x0[i]+u0[i]*dt;}
-
-// update thermodynamic node positions using a finite element method, these are a subset of kinematic node positions
-
-    for(int i=0;i<ng;i++){
-      for(int j=0;j<T.nloc();j++){
-        double pos(-1.0+j*2.0/(T.nloc()-1));x3.at(TNOD)=0.0;
-        for(int k=0;k<K.nloc();k++){x3.at(TNOD)+=K.value(k,pos)*x1[KNOD];}
-      }
-    }
 
 // update mesh centroids
 
@@ -261,20 +248,13 @@ int main(){
 
     ke=0.0;for(int i=0;i<ng;i++){for(int k=0;k<K.nloc();k++){ke+=0.25*(m[i])*u0[KNOD]*u0[KNOD];}}
 
-// evolve the Riemann problems to the end of the time-step on the end of time-step meshes
+//    timers.Stop(12);
+
+// exact solutions at end of current time-step
 
     timers.Start(2);
 
-    vempty(r0x);vempty(rx);vempty(rx2);vempty(rx3); // sample point coordinates
-    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
-//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[nkg-1]-x1[0])/double(NSAMPLES)));} // sample points
-    R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
-    for(int i=0;i<nkg;i++){rx.push_back(x0[i]);}
-    R1.profile(&rx,time+dt);
-    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;rx2.push_back(xgi);}}
-    R2.profile(&rx2,time+dt);
-    for(int i=0;i<ntg;i++){rx3.push_back(x3[i]);}
-    R3.profile(&rx3,time+dt);
+//    get_exact(time+dt);
 
     timers.Stop(2);
 
@@ -294,22 +274,14 @@ int main(){
 //        if(detJ_k.at(GPNT)<0.0){cout<<"-'ve determinant of Jk detected in cell "<<i<<endl;exit(1);}
       }
 
-      for(int gi=0;gi<T.ngi();gi++){
-        detJ_t.at(GPNT)=0.0;
-        for(int j=0;j<T.nloc();j++){
-          detJ_t.at(GPNT)+=T.dvalue(j,gi)*x3[TNOD];
-        }
-//        if(detJ_t.at(GPNT)<0.0){cout<<"-'ve determinant of Jt detected in cell "<<i<<endl;exit(1);}
-      }
     }
 
 // update cell density at the full-step
 
-    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1_t[GPNT]=dinit[i]*detJ0_t[GPNT]/detJ_t[GPNT];}}
     for(int i=0;i<ng;i++){for(int gi=0;gi<K.ngi();gi++){d1_k[GPNT]=dinit[i]*detJ0_k[GPNT]/detJ_k[GPNT];}}
 
 // debug
-//    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){d1_t.at(GPNT)=R2.density(GPNT);d1_k.at(GPNT)=R2.density(GPNT);}}
+//    for(int i=0;i<ng;i++){for(int gi=0;gi<K.ngi();gi++){d1_k.at(GPNT)=R2.density(GPNT);}}
 // debug
 
 // assemble finite element energy field on the discontinuous thermodynamic grid
@@ -489,9 +461,21 @@ int main(){
 
     f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
+    vempty(r0x);
+    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
+//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[nkg-1]-x1[0])/double(NSAMPLES)));} // sample points
+    R0.profile(&r0x,time); // Riemann solution at the sample points along the mesh
     for(int i=0;i<NSAMPLES;i++){
       f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
     }
+
+    for(int i=0;i<ng;i++){
+      for(int j=0;j<T.nloc();j++){
+        double pos(-1.0+j*2.0/(T.nloc()-1));x3.at(TNOD)=0.0;
+        for(int k=0;k<K.nloc();k++){x3.at(TNOD)+=K.value(k,pos)*x1[KNOD];}
+      }
+    }
+
     for(long i=0;i<ntg;i++){f2<<x3[i]<<" "<<e1[i]<<endl;}
     for(long i=0;i<nkg;i++){f3<<x1[i]<<" "<<u1[i]<<endl;}
     for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;f4<<xgi<<" "<<d1_k[GPNT]<<" "<<p[GPNT]<<endl;}}
@@ -511,12 +495,12 @@ int main(){
 
   cout<<endl<<"  Breakdown of time accumulated in each part of the calculation:"<<endl<<endl;
 
-  cout<<"    Matrix Inverter                     "<<timers.Span(1)<<"s "<<timers.Span(3)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Riemann Solvers                     "<<timers.Span(2)<<"s "<<timers.Span(6)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Energy Field Assembly               "<<timers.Span(3)<<"s "<<timers.Span(4)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Force Calculation                   "<<timers.Span(4)<<"s "<<timers.Span(1)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Matrix Inverter                     "<<timers.Span(1)<<"s "<<timers.Span(1)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Riemann Solvers                     "<<timers.Span(2)<<"s "<<timers.Span(2)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Energy Field Assembly               "<<timers.Span(3)<<"s "<<timers.Span(3)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Force Calculation                   "<<timers.Span(4)<<"s "<<timers.Span(4)*100.0/timers.Span(0)<<"%"<<endl;
   cout<<"    Acceleration Field Assembly         "<<timers.Span(5)<<"s "<<timers.Span(5)*100.0/timers.Span(0)<<"%"<<endl;
-  cout<<"    Output                              "<<timers.Span(6)<<"s "<<timers.Span(7)*100.0/timers.Span(0)<<"%"<<endl;
+  cout<<"    Output                              "<<timers.Span(6)<<"s "<<timers.Span(6)*100.0/timers.Span(0)<<"%"<<endl;
   cout<<"    Main                                "<<timers.Span(0)<<"s "<<timers.Span(0)*100.0/timers.Span(0)<<"%"<<endl;
 
 // total timed excluding main
@@ -578,6 +562,47 @@ int iaddr(int iel,int iel1,int iel2){
   return i;
 
 }
+
+// evolve the Riemann problems to the given time to find the exact solutions
+
+  void get_exact(double t){
+
+// evolve the Riemann problems to the given time to find the exact solutions at that time
+
+// this was set up as a debugging tool:
+// R0 is the exact solution at NSAMPLES sample points for comparing against solutions from the code
+// R1.velocity used as exact solution to overide finite element velocity field
+// R2.pressure used as exact solution to overide Gauss point pressures
+// R2.density used as exact solution to overide Gauss point densities
+// R3.energy used as exact solution to overide finite element energy field
+
+// reset sample point coordinates for various meshes
+
+//    vempty(r0x);vempty(rx);vempty(rx2);vempty(rx3);
+
+//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));}
+////    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[nkg-1]-x1[0])/double(NSAMPLES)));}
+//    R0.profile(&r0x,t); // Riemann solution at the sample points along the mesh
+//    for(int i=0;i<nkg;i++){rx.push_back(x0[i]);}
+//    R1.profile(&rx,t);
+//    for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){double xgi(0.0);XGI;rx2.push_back(xgi);}}
+//    R2.profile(&rx2,t);
+
+// thermodynamic node coordinates using a finite element interpolation of kinematic node coordinates
+//
+//    for(int i=0;i<ng;i++){
+//      for(int j=0;j<T.nloc();j++){
+//        double pos(-1.0+j*2.0/(T.nloc()-1));x3.at(TNOD)=0.0;
+//        for(int k=0;k<K.nloc();k++){x3.at(TNOD)+=K.value(k,pos)*x1[KNOD];}
+//      }
+//    }
+//
+//    for(int i=0;i<ntg;i++){rx3.push_back(x3[i]);}
+//    R3.profile(&rx3,t);
+//
+    return;
+
+  }
 
 // debug - nodal masses, insert this above time step loop
 
