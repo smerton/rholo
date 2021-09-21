@@ -422,7 +422,7 @@ int main(){
       }
     }
 
-// new CSR version - avoids non-zeroes in the inverse mass matrix
+// new CSR version - avoids zeroes in the inverse mass matrix
 
 //    for(long irow=0;irow<NROWS;irow++){
 //      x[irow]=0.0;
