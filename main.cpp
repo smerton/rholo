@@ -80,8 +80,8 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  Shape K(4,10),T(3,10);                                // p_n,q_n-1 shape functions
-  int const n(20),ng(n+4);                              // no. ncells, no. ghosts
+  Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
+  int const n(40),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -97,6 +97,7 @@ int main(){
   vector<double> dt_cfl(ng*T.ngi());                    // element time-step at each Gauss point
   vector<double> detJ0_k(ng*K.ngi()),detJ_k(ng*K.ngi());    // determinant of the Jacobian
   vector<double> l0(ng);                                // initial length scale
+  vector<vector<long> > nzloc;                          // locations of non-zeroes in the inverse mass matrix
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -204,6 +205,18 @@ int main(){
   timers.Stop(1);
 
   cout<<"Done."<<endl;
+
+// non-zeroes in the inverse mass matrix
+
+  for(long i=0;i<NROWS;i++){
+    vector<long> nzrow;
+    for(long j=0;j<NCOLS;j++){
+      if(abs(KMASSI.read(i,j))>1.0e-12){
+        nzrow.push_back(j); // append location of the non-zero
+      }
+    }
+    nzloc.push_back(nzrow); // append all the non-zeroes on this row
+  }
 
 // start the Riemann solvers from initial flux states
 
@@ -380,25 +393,23 @@ int main(){
 
     {double b[NROWS],x[NROWS];for(long i=0;i<NROWS;i++){b[i]=0.0;x[i]=0.0;}
 
-    {int i(0);
-      for(int iloc=0;iloc<K.nloc();iloc++){
-        for(int gi=0;gi<K.ngi();gi++){
-          b[ROW]+=(p[GPNT]+q[GPNT])*K.dvalue(iloc,gi)*K.wgt(gi);
-        }
-      }
-    }
-
-    {int i(ng-1);
-      for(int iloc=0;iloc<K.nloc();iloc++){
-        for(int gi=0;gi<K.ngi();gi++){
-          b[ROW]+=(p[GPNT]+q[GPNT])*K.dvalue(iloc,gi)*K.wgt(gi);
-        }
+    {long i(0),iloc(K.nloc()-1);int k(K.nloc()-1);
+      for(int j=0;j<T.nloc();j++){
+        b[0]+=F[KNOD][TNOD]*1.0; // left mesh boundary condition
       }
     }
 
     for(int i=1;i<ng-1;i++){int k(0);
       for(int iloc=0;iloc<K.nloc();iloc++,k++){
-        for(int j=0;j<T.nloc();j++){b[ROW]+=F[KNOD][TNOD]*1.0;} // load vector
+        for(int j=0;j<T.nloc();j++){
+          b[ROW]+=F[KNOD][TNOD]*1.0;
+        }
+      }
+    }
+
+    {long i(ng-1),iloc(0);int k(0);
+      for(int j=0;j<T.nloc();j++){
+        b[NROWS-1]+=F[KNOD][TNOD]*1.0; // right mesh boundary condition
       }
     }
 
@@ -410,6 +421,15 @@ int main(){
         x[i]+=KMASSI.read(i,j)*b[j];
       }
     }
+
+// new CSR version - avoids non-zeroes in the inverse mass matrix
+
+//    for(long irow=0;irow<NROWS;irow++){
+//      x[irow]=0.0;
+//      for(int j=0;j<nzloc[irow].size();j++){
+//        x[irow]+=KMASSI.read(irow,nzloc[irow][j])*b[nzloc[irow][j]];
+//      }
+//    }
 
 // advance solution
 
