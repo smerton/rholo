@@ -16,6 +16,7 @@ void dgetrf_(int* M,int* N,double* A,int* lda,int* IPIV,int *INFO);
 // generate inverse of a matrix given its LU decomposition
 
 void dgetri_(int* N,double* A,int* lda,int* IPIV,double* WORK,int* lwork,int* INFO);
+
 }
 
 using namespace std;
@@ -73,6 +74,8 @@ void Matrix::inverse2(Matrix *A){
 
 }
 
+// constructor for a new matrix object
+
 Matrix::Matrix(int n){
 
 // set the number of rows and columns
@@ -91,6 +94,11 @@ Matrix::Matrix(int n){
       this->write(i,j,0.0);
     }
   }
+
+// mark object as active
+
+  active=1;
+
 }
 
 // Member function to return the number of rows
@@ -277,6 +285,13 @@ void Matrix::add(int i,int j,double dat){mMat[i][j]+=dat;}
 // Destructor for the matrix class
 
 Matrix::~Matrix(){
+
+
+// mark object as inactive
+
+  active=0;
+
+// release storage
 
   for(long i=0;i<NRows();i++){
     delete[] mMat[i];
