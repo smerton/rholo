@@ -36,7 +36,7 @@
 #define VD vector<double>       // vector of doubles
 #define VTOL 1.0e-10            // threshold for volume errors
 #define COURANT 0.333           // Courant number for CFL condition
-#define DTSFACTOR 0.75          // safety factor on time-step control
+#define DTSFACTOR 0.75          // safety factor on time step control
 #define KNOD i*(K.nloc()-1)+k   // global node number on kinematic mesh
 #define TNOD i*T.nloc()+j       // global node number on thermodynamic mesh
 #define GPNT i*T.ngi()+gi       // global address of Gauss point gi in element i
@@ -112,9 +112,6 @@ int main(){
   for(long i=0;i<nkg;i++){
     F[i]=new double[ntg];
   }
-
-//  Matrix* KMASS=new Matrix(NROWS);                      // mass matrix for kinematic/thermodynamic fields
-//  Matrix* KMASSI=new Matrix(NROWS);                     // inverse mass matrix for kinematics
 
   Matrix KMASS(NROWS);                                  // mass matrix for kinematic/thermodynamic fields
   Matrix KMASSI(NROWS);                                 // inverse mass matrix for kinematics
@@ -230,7 +227,7 @@ int main(){
 
   while(time<ENDTIME+dt){
 
-// calculate a new stable time-step that will impose the CFL limit on each quadrature point
+// calculate a new stable time step that will impose the CFL limit on each quadrature point
 
     for(int i=0;i<ng;i++){
       for(int gi=0;gi<T.ngi();gi++){
@@ -249,8 +246,6 @@ int main(){
 
 // move nodes to their full-step position
 
-//    timers.Start(12);
-
     for(long i=0;i<nkg;i++){x1.at(i)=x0[i]+u0[i]*dt;}
 
 // update mesh centroids
@@ -261,9 +256,7 @@ int main(){
 
     ke=0.0;for(int i=0;i<ng;i++){for(int k=0;k<K.nloc();k++){ke+=0.25*(m[i])*u0[KNOD]*u0[KNOD];}}
 
-//    timers.Stop(12);
-
-// exact solutions at end of current time-step
+// exact solutions at end of current time step
 
     timers.Start(2);
 
@@ -357,13 +350,11 @@ int main(){
 // bulk q
 
     for(int i=0;i<ng;i++){
-//      double l(DX1);
       for(int gi=0;gi<K.ngi();gi++){
         double l(l0[i]*(detJ_k[GPNT]/detJ0_k[GPNT]));
         double divu((d0_k[GPNT]-d1_k[GPNT])/(d1_k[GPNT]*dt));
         if(divu<0.0){
           q.at(GPNT)=d0_k[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]);
-//          q.at(GPNT)=d0_t[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]); // sometimes smoother (e.g. p1q2,40) ??
         }else{
           q.at(GPNT)=0.0; // turn off q as cell divergence indicates expansion
         }
@@ -422,7 +413,7 @@ int main(){
       }
     }
 
-// new CSR version - avoids zeroes in the inverse mass matrix
+// new CSR version - avoids zeroes in the inverse mass matrix for a faster matvec
 
 //    for(long irow=0;irow<NROWS;irow++){
 //      x[irow]=0.0;
