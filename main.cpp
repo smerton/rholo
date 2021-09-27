@@ -60,7 +60,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(320),ng(n+4);                             // no. ncells, no. ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
@@ -223,7 +223,7 @@ int main(){
 
   vector<double> rx;vempty(rx);  // sample points
   double xstart(0.0),xstop(1.0); // sample range - should be whole mesh though bc.s may artificially reduce convergence
-  for(long i=0;i<ng+1;i++){double xc(0.5*(x1[i]+x0[i]));if(xc>=xstart&&xc<=xstop){rx.push_back(xc);}}
+  for(long i=0;i<ng+1;i++){if(x1[i]>=xstart&&x1[i]<=xstop){rx.push_back(x1[i]);}}
   R0.profile(&rx,ENDTIME); // evolve a Riemann problem on the sample range to final time level
 
   double l1(0.0),l2(0.0),l1r(0.0),l2r(0.0),l1d(0.0),l2d(0.0),l1n(0.0),l2n(0.0);
@@ -231,9 +231,8 @@ int main(){
 
 // numerator and denominator for each norm
 
-  for(int i=0;i<ng;i++){
-    double xc(0.5*(x1[i]+x0[i]));
-    if(xc>=xstart&&xc<=xstop){
+  for(int i=0;i<ng+1;i++){
+    if(x1[i]>=xstart&&x1[i]<=xstop){
       double err(abs(R0.velocity(ii)-u1[i])); // absolute error
       l1d+=abs(R0.velocity(ii)); // l1 denominator
       l2d+=R0.velocity(ii)*R0.velocity(ii); // l2 denominator
@@ -254,7 +253,7 @@ int main(){
 
   cout<<"  L1 norm= "<<l1<<" (relative error= "<<l1r<<")"<<endl;
   cout<<"  L2 norm= "<<l2<<" (relative error= "<<l2r<<")"<<endl;
-  cout<<"  No. cells sampled= "<<ii<<endl;
+  cout<<"  No. points sampled= "<<ii<<endl;
   cout<<"  Range sampled= "<<xstart<<","<<xstop<<endl;
 
   cout<<endl<<"Normal termination."<<endl;
