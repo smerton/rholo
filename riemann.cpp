@@ -225,6 +225,7 @@ void Riemann::profile(vector<double>*x,double time){
   empty(mpressure);
   empty(menergy);
   empty(mvelocity);
+  empty(mregion);
 
 // load coordinates
 
@@ -239,12 +240,13 @@ void Riemann::profile(vector<double>*x,double time){
 // obtain the profiles
 
   for(long i=0;i<mSCoords.size();i++){
-    double s((mSCoords.at(i)-0.5*(xr-xl))/time),ds(0.0),us(0.0),ps(0.0),es(0.0);
-    sample(s,ps,us,ds,es); // solution at point (s,t)
+    double s((mSCoords.at(i)-0.5*(xr-xl))/time),ds(0.0),us(0.0),ps(0.0),es(0.0),rs(0.0);
+    sample(s,ps,us,ds,es,rs); // solution at point (s,t)
     mdensity.push_back(ds);
     mpressure.push_back(ps);
     menergy.push_back(es);
     mvelocity.push_back(us);
+    mregion.push_back(rs);
   }
 
   return;
@@ -267,10 +269,14 @@ double Riemann::energy(long i){return menergy[i];}
 
 double Riemann::velocity(long i){return mvelocity[i];}
 
+// codes for region field at position i
+
+double Riemann::region(long i){return mregion[i];}
+
 // sample the solution at position s according to wave patterns
 // p,u,d,e are pressure, velocity, density and energy solutions
 
-void Riemann::sample(double s,double &p,double &u,double &d,double &e){
+void Riemann::sample(double s,double &p,double &u,double &d,double &e,double &r){
 
   if(s<=ustar){
 
@@ -289,6 +295,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
         d=mDl;
         u=mul;
         p=mPl;
+        r=1.0;
 
       }else{
 
@@ -302,6 +309,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
           d=mDl*pow((pstar/mPl),g8);
           u=ustar;
           p=pstar;
+          r=3.0;
 
         }else{
 
@@ -311,6 +319,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
           double c(g5*(cl+g7*(mul-s)));
           d=mDl*pow((c/cl),g4);
           p=mPl*pow((c/cl),g3);
+          r=2.0;
 
         }
 
@@ -330,6 +339,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
         d=mDl;
         u=mul;
         p=mPl;
+        r=1.0;
 
       }else{
 
@@ -338,6 +348,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
         d=mDl*(pml+g6)/(pml*g6+1.0);
         u=ustar;
         p=pstar;
+        r=3.0;
 
       }
 
@@ -361,6 +372,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
         d=mDr;
         u=mur;
         p=mPr;
+        r=5.0;
 
       }else{
 
@@ -369,6 +381,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
         d=mDr*(pmr+g6)/(pmr*g6+1.0);
         u=ustar;
         p=pstar;
+        r=4.0;
 
       }
 
@@ -385,6 +398,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
         d=mDr;
         u=mur;
         p=mPr;
+        r=5.0;
 
       }else{
 
@@ -398,6 +412,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
           d=mDr*pow((pstar/mPr),g8);
           u=ustar;
           p=pstar;
+          r=4.0;
 
         }else{
 
@@ -407,6 +422,7 @@ void Riemann::sample(double s,double &p,double &u,double &d,double &e){
           double c(g5*(cr-g7*(mur-s)));
           d=mDr*pow((c/cr),g4);
           p=mPr*pow((c/cr),g3);
+          r=3.0;
 
         }
 
