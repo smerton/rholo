@@ -31,7 +31,7 @@
 #define ENDTIME 0.20            // insert a macro for the end time
 #define GAMMA 1.4               // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8             // cut-off on the energy field
-#define NSAMPLES 500            // number of sample points for the exact solution
+#define NSAMPLES 1000           // number of sample points for the exact solution
 #define VISFREQ 10000           // frequency of the graphics dumps
 #define VD vector<double>       // vector of doubles
 #define VTOL 1.0e-10            // threshold for volume errors
@@ -79,9 +79,10 @@ int main(){
 
 // global data
 
-  ofstream f1,f2,f3,f4,f5;                              // files for output
-  Shape K(2,10),T(1,10);                                // p_n,q_n-1 shape functions
-  int const n(40),ng(n+4);                              // no. ncells, no. ghosts
+  ofstream f1,f2,f3,f4,f5,f6;                           // files for output
+  ifstream f7;                                          // files for input
+  Shape K(2,5),T(1,5);                                  // p_n,q_n-1 shape functions
+  int const n(100),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -225,7 +226,7 @@ int main(){
 
 // time integration
 
-  while(time<ENDTIME+dt){
+  while(time<=ENDTIME){
 
 // calculate a new stable time step that will impose the CFL limit on each quadrature point
 
@@ -470,7 +471,7 @@ int main(){
 
     timers.Start(6);
 
-    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");
+    f1.open("exact.dat");f2.open("e.dat");f3.open("u.dat");f4.open("dp.dat");f5.open("mesh.dat");f6.open("r.dat");
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
     vempty(r0x);
     for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
@@ -479,7 +480,7 @@ int main(){
     for(int i=0;i<NSAMPLES;i++){
       f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
     }
-
+    for(int i=1;i<NSAMPLES;i++){if(R0.region(i)!=R0.region(i-1)){f5<<r0x[i]<<" -20000.0"<<endl<<r0x[i]<<" 20000.0"<<endl<<r0x[i]<<" -20000.0"<<endl;}} // sample region
     for(int i=0;i<ng;i++){
       for(int j=0;j<T.nloc();j++){
         double pos(-1.0+j*2.0/(T.nloc()-1));x3.at(TNOD)=0.0;
@@ -496,13 +497,70 @@ int main(){
       k=0;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
       k=K.nloc()-1;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
     }
-    f1.close();f2.close();f3.close();f4.close();f5.close();
+    f1.close();f2.close();f3.close();f4.close();f5.close();f6.close();
 
     timers.Stop(6);
 
 // stop timer for main
 
   timers.Stop(0);
+
+// estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
+
+  vector<double> rx;vempty(rx);  // sample points
+  double xstart(0.0),xstop(1.0); // sample range - should be whole mesh though bc.s may artificially reduce convergence
+  for(long i=0;i<ng;i++){for(int k=0;k<K.nloc();k++){if(x1[KNOD]>=xstart&&x1[KNOD]<=xstop){rx.push_back(x1[KNOD]);}}}
+  R0.profile(&rx,ENDTIME); // evolve a Riemann problem on the sample range to final time level
+
+// this is just to get the exact solution from file (a high res calculation):
+//  vempty(rx);for(long i=0;i<nkg;i++){rx.push_back(x1[i]);};R0.profile(&rx,ENDTIME);
+//  f6.open("runs/p1q1h2000/u.dat");
+//  vector<double> xf,uf;
+//  while(!f6.eof()){double a,b;f6>>a>>b;xf.push_back(a);uf.push_back(b);}
+//  f7.close();
+
+  double l1(0.0),l2(0.0),l1r(0.0),l2r(0.0),l1d(0.0),l2d(0.0),l1n(0.0),l2n(0.0);
+  int ii(0);
+
+// numerator and denominator for each norm
+
+  for(int i=0;i<ng;i++){
+    hmax=max(hmax,DX1);
+    for(int k=0;k<K.nloc();k++){
+      if(x1[KNOD]>=xstart&&x1[KNOD]<=xstop){
+        double err(abs(R0.velocity(ii)-u1[KNOD])); // absolute error
+
+        double kvol(0.0); // volume of node k
+        for(int gi=0;gi<K.ngi();gi++){
+          kvol+=K.value(k,gi)*detJ_k[GPNT]*K.wgt(gi);
+        }
+
+        l1d+=abs(R0.velocity(ii)); // l1 denominator
+        l2d+=R0.velocity(ii)*R0.velocity(ii); // l2 denominator
+        l1n+=err*kvol; // l1 numerator
+        l2n+=err*err*kvol; // l2 numerator
+        ii++;
+      }
+    }
+  }
+
+// construct norms and relative errors
+
+  l1=l1n/rx.size(); // L1 error norm
+  l1r=l1n/l1d; // L1 relative error norm
+  l2=sqrt(l2n/rx.size()); // L2 error norm
+  l2r=sqrt(l2n/l2d); // L2 relative error norm
+
+//  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<(xstop-xstart)/ii<<"):"<<endl;
+//  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<hmax<<"):"<<endl;
+  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<1.0/n<<"):"<<endl;
+
+  cout<<"  L1 norm= "<<l1<<" (relative error= "<<l1r<<")"<<endl;
+  cout<<"  L2 norm= "<<l2<<" (relative error= "<<l2r<<")"<<endl;
+  cout<<"  No. points sampled= "<<rx.size()<<endl;
+  cout<<"  Range sampled= "<<xstart<<","<<xstop<<endl;
+
+// output high resolution timings
 
   cout<<endl<<"  Breakdown of time accumulated in each part of the calculation:"<<endl<<endl;
 
