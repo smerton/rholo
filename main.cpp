@@ -81,8 +81,8 @@ int main(){
 
   ofstream f1,f2,f3,f4,f5,f6;                           // files for output
   ifstream f7;                                          // files for input
-  Shape K(2,5),T(1,5);                                  // p_n,q_n-1 shape functions
-  int const n(100),ng(n+4);                              // no. ncells, no. ghosts
+  Shape K(2,9),T(1,9);                                  // p_n,q_n-1 shape functions
+  int const n(200),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -525,7 +525,6 @@ int main(){
 // numerator and denominator for each norm
 
   for(int i=0;i<ng;i++){
-    hmax=max(hmax,DX1);
     for(int k=0;k<K.nloc();k++){
       if(x1[KNOD]>=xstart&&x1[KNOD]<=xstop){
         double err(abs(R0.velocity(ii)-u1[KNOD])); // absolute error
@@ -551,8 +550,6 @@ int main(){
   l2=sqrt(l2n/rx.size()); // L2 error norm
   l2r=sqrt(l2n/l2d); // L2 relative error norm
 
-//  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<(xstop-xstart)/ii<<"):"<<endl;
-//  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<hmax<<"):"<<endl;
   cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<1.0/n<<"):"<<endl;
 
   cout<<"  L1 norm= "<<l1<<" (relative error= "<<l1r<<")"<<endl;
