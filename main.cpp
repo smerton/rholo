@@ -60,7 +60,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  int const n(320),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
@@ -244,16 +244,16 @@ int main(){
 
 // construct norms and relative errors
 
-  l1=l1n/ii; // L1 error norm
+  l1=l1n/rx.size(); // L1 error norm
   l1r=l1n/l1d; // L1 relative error norm
-  l2=sqrt(l2n/ii); // L2 error norm
+  l2=sqrt(l2n/rx.size()); // L2 error norm
   l2r=sqrt(l2n/l2d); // L2 relative error norm
 
-  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<(xstop-xstart)/ii<<"):"<<endl;
+  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<(xstop-xstart)/rx.size()<<"):"<<endl;
 
   cout<<"  L1 norm= "<<l1<<" (relative error= "<<l1r<<")"<<endl;
   cout<<"  L2 norm= "<<l2<<" (relative error= "<<l2r<<")"<<endl;
-  cout<<"  No. points sampled= "<<ii<<endl;
+  cout<<"  No. points sampled= "<<rx.size()<<endl;
   cout<<"  Range sampled= "<<xstart<<","<<xstop<<endl;
 
   cout<<endl<<"Normal termination."<<endl;
