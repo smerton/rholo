@@ -26,9 +26,9 @@
 // Author S. R. Merton
 
 #define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 0.25      // insert a macro for the end time
+#define ENDTIME 0.20      // insert a macro for the end time
 #define GAMMA 1.4         // ratio of specific heats for ideal gases
-#define ECUT 1.0e-8        // cut-off on the energy field
+#define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 500      // number of sample points for the exact solution
 #define VISFREQ 10000     // frequency of the graphics dumps
 #define VD vector<double> // vector of doubles
@@ -60,8 +60,8 @@ int main(){
 
 // global data
 
-  ofstream f1,f2,f3,f4;                                 // files for output
-  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
+  ofstream f1,f2,f3,f4,f5;                              // files for output
+  int const n(320),ng(n+4);                             // no. ncells, no. ghosts
   Shape S(1);                                           // p1 shape function
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
@@ -107,7 +107,7 @@ int main(){
 
 // time integration
 
-  while(time<ENDTIME+dt){
+  while(time<=ENDTIME){
 
 // calculate a new stable time-step
 
@@ -229,15 +229,15 @@ int main(){
 
 // some output
 
-    f1.open("exact.dat");f2.open("dpe.dat");f3.open("q.dat");f4.open("u.dat");
+    f1.open("exact.dat");f2.open("dpe.dat");f3.open("q.dat");f4.open("u.dat");f5.open("r.dat");
     f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
-
     for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;}
+    for(int i=1;i<NSAMPLES;i++){if(R0.region(i)!=R0.region(i-1)){f5<<r0x[i]<<" -20000.0"<<endl<<r0x[i]<<" 20000.0"<<endl<<r0x[i]<<" -20000.0"<<endl;}} // sample region
     for(int i=2;i<n+2;i++){f2<<0.5*(x1[i]+x1[i+1])<<" "<<d1[i]<<" "<<p[i]<<" "<<e1[i]<<" "<<endl;}
     for(int i=2;i<n+2;i++){f3<<0.5*(x1[i]+x1[i+1])<<" "<<q[i]<<endl;}
     for(int i=2;i<n+3;i++){f4<<x1[i]<<" "<<u1[i]<<endl;}
 
-    f1.close();f2.close();f3.close();f4.close();
+    f1.close();f2.close();f3.close();f4.close();f5.close();
 
 // advance the time step
 
@@ -258,6 +258,43 @@ int main(){
 //    for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
 
   }
+
+// estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
+
+  vector<double> rx;vempty(rx);  // sample points
+  double xstart(0.0),xstop(1.0); // sample range - should be whole mesh though bc.s may artificially reduce convergence
+  for(long i=0;i<ng+1;i++){if(x1[i]>=xstart&&x1[i]<=xstop){rx.push_back(x1[i]);}}
+  R0.profile(&rx,ENDTIME); // evolve a Riemann problem on the sample range to final time level
+
+  double l1(0.0),l2(0.0),l1r(0.0),l2r(0.0),l1d(0.0),l2d(0.0),l1n(0.0),l2n(0.0);
+  int ii(0);
+
+// numerator and denominator for each norm
+
+  for(int i=0;i<ng+1;i++){
+    if(x1[i]>=xstart&&x1[i]<=xstop){
+      double err(abs(R0.velocity(ii)-u1[i])); // absolute error
+      l1d+=abs(R0.velocity(ii)); // l1 denominator
+      l2d+=R0.velocity(ii)*R0.velocity(ii); // l2 denominator
+      l1n+=err*V1[i]; // l1 numerator
+      l2n+=err*err*V1[i]; // l2 numerator
+      ii++;
+    }
+  }
+
+// construct norms and relative errors
+
+  l1=l1n/ii; // L1 error norm
+  l1r=l1n/l1d; // L1 relative error norm
+  l2=sqrt(l2n/ii); // L2 error norm
+  l2r=sqrt(l2n/l2d); // L2 relative error norm
+
+  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<(xstop-xstart)/ii<<"):"<<endl;
+
+  cout<<"  L1 norm= "<<l1<<" (relative error= "<<l1r<<")"<<endl;
+  cout<<"  L2 norm= "<<l2<<" (relative error= "<<l2r<<")"<<endl;
+  cout<<"  No. points sampled= "<<ii<<endl;
+  cout<<"  Range sampled= "<<xstart<<","<<xstop<<endl;
 
   cout<<"Normal termination."<<endl;
 

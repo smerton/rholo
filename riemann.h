@@ -28,8 +28,9 @@ class Riemann{
   double pressure(long i); // pressure field at position i
   double energy(long i); // energy field at position i
   double velocity(long i); // energy field at position i
+  double region(long i); // region field at position i
 
-  void sample(double s,double &p,double &u,double &d,double &e); // sample function to construct profile
+  void sample(double s,double &p,double &u,double &d,double &e,double &r); // sample function to construct profile
 
   private:
 
@@ -46,9 +47,10 @@ class Riemann{
   vector<double> mSCoords; // sample coordinates
 
   vector<double> mdensity; // density field
-  vector<double> mpressure; // density field
-  vector<double> menergy; // density field
-  vector<double> mvelocity; // density field
+  vector<double> mpressure; // pressure field
+  vector<double> menergy; // energy field
+  vector<double> mvelocity; // velocity field
+  vector<double> mregion; // region field 
 
 // solvers
 
