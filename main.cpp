@@ -82,7 +82,7 @@ int main(){
   ofstream f1,f2,f3,f4,f5,f6;                           // files for output
   ifstream f7;                                          // files for input
   Shape K(2,9),T(1,9);                                  // p_n,q_n-1 shape functions
-  int const n(200),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(100),ng(n+4);                              // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -133,7 +133,8 @@ int main(){
   for(int i=0;i<ng;i++){V0.at(i)=DX0;V1.at(i)=DX1;}
   for(int i=0;i<ng;i++){dinit.at(i)=(xc[i]<=0.5)?l[0]:r[0];}
   for(int i=0;i<ng;i++){m.at(i)=(xc[i]<=0.5)?l[0]*V0[i]:r[0]*V0[i];}
-  for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];u1.at(i)=u0[i];}
+//  for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];u1.at(i)=u0[i];} // wrong velocity in centre for 123 problem
+  for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<0.5)?l[1]:(x0[i]==0.5)?0.0:r[1];u1.at(i)=u0[i];} // fix for 123 initial velocity
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0_k[GPNT]);}}
   for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
@@ -480,7 +481,7 @@ int main(){
     for(int i=0;i<NSAMPLES;i++){
       f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;
     }
-    for(int i=1;i<NSAMPLES;i++){if(R0.region(i)!=R0.region(i-1)){f5<<r0x[i]<<" -20000.0"<<endl<<r0x[i]<<" 20000.0"<<endl<<r0x[i]<<" -20000.0"<<endl;}} // sample region
+    for(int i=1;i<NSAMPLES;i++){if(R0.region(i)!=R0.region(i-1)){f6<<r0x[i]<<" -20000.0"<<endl<<r0x[i]<<" 20000.0"<<endl<<r0x[i]<<" -20000.0"<<endl;}} // sample region
     for(int i=0;i<ng;i++){
       for(int j=0;j<T.nloc();j++){
         double pos(-1.0+j*2.0/(T.nloc()-1));x3.at(TNOD)=0.0;
@@ -494,8 +495,8 @@ int main(){
 //    cout<<"NODE POS: "<<time<<" "<<x1[(ng/2)*(K.nloc()-1)]<<" "<<x1[(ng/2)*(K.nloc()-1)+1]<<endl;
     for(int i=0;i<ng;i++){
       int k;
-      k=0;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
-      k=K.nloc()-1;f5<<x1[KNOD]<<" 0.0"<<endl;f5<<x1[KNOD]<<" 9.0"<<endl;f5<<x1[KNOD]<<" 0.0"<<endl;
+      k=0;f5<<x1[KNOD]<<" -10.0"<<endl;f5<<x1[KNOD]<<" 10.0"<<endl;f5<<x1[KNOD]<<" -10.0"<<endl;
+      k=K.nloc()-1;f5<<x1[KNOD]<<" -10.0"<<endl;f5<<x1[KNOD]<<" 10.0"<<endl;f5<<x1[KNOD]<<" -10.0"<<endl;
     }
     f1.close();f2.close();f3.close();f4.close();f5.close();f6.close();
 
