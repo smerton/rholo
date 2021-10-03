@@ -1,9 +1,13 @@
-// Finite element variant of RhoLo (Riemann-based Hydro in One-dimension at Low Order - RhoLo)
-// RhoLo is an ultra simple 1-D discontinuous finite element (DG) hydrodynamics test code
-// This finite element variant solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
-// using a mixed continuous finite element method (cell-centred thermodynamic variable d,rho,e with node 
-// centred kinematic variables u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
-// implementation is only first order in time
+// High order finite element variant of RhoLo (Really High Order Lagrangian Operator - RhoLo)
+// RhoLo is an ultra simple 1-D high order finite element hydrodynamics test code.
+// This variant solves the Euler equations in their non-conservative form in the
+// fluid frame (the Lagrangian frame) using a high order finite element method (discontinuous
+// thermodynamic variables d,rho,e with node centred kinematic variables u,a) and bulk
+// viscosity q to increase entropy across element boundaries, initial implementation is only
+// first order in time
+//
+// Author S. R. Merton
+//
 
 // how to set up push and pull from multiple remotes (e.g. home NAS and github):
 //
@@ -22,8 +26,6 @@
 // and 1st url in location 2 (github)
 //
 // for graphics: convert -density 300 filename.png filename.pdf
-
-// Author S. R. Merton
 
 #define DTSTART 0.0005          // insert a macro for the first time step
 #define ENDTIME 0.20            // insert a macro for the end time
