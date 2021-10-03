@@ -134,7 +134,7 @@ int main(){
 //  for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];u1.at(i)=u0[i];} // wrong velocity in centre for 123 problem
   for(long i=0;i<nkg;i++){u0.at(i)=(x0[i]<0.5)?l[1]:(x0[i]==0.5)?0.0:r[1];u1.at(i)=u0[i];} // fix for 123 initial velocity
   for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
-  for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d0_k[GPNT]);}}
+  for(int i=0;i<ng;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=C(p[GPNT],d0_k[GPNT]);}}
   for(long i=0;i<nkg;i++){for(long j=0;j<ntg;j++){F[i][j]=0.0;}}
   for(int i=0;i<ng;i++){l0.at(i)=DX0/(K.nloc()-1);} // initial nodal displacement
 
@@ -345,7 +345,7 @@ int main(){
 
 // update sound speed
 
-    for(int i=0;i<ng;i++){for(int gi=0;gi<K.ngi();gi++){c.at(GPNT)=sqrt(GAMMA*p[GPNT]/d1_k[GPNT]);}}
+    for(int i=0;i<ng;i++){for(int gi=0;gi<K.ngi();gi++){c.at(GPNT)=C(p[GPNT],d1_k[GPNT]);}}
 
 // bulk q
 

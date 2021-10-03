@@ -8,3 +8,4 @@ using namespace std;
 
 double P(double d,double e); // pressure as a function of energy
 double E(double d,double p); // invert the eos to get energy as a function of pressure
+double C(double p,double d); // sound speed
