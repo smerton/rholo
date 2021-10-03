@@ -61,7 +61,7 @@
 #include "timer.h"
 #include "eos.h"
 
-// function sigantures
+// function signatures
 
 void vempty(vector<double>&v);        // signature for emptying a vector
 int iaddr(int iel,int iel1,int iel2); // signature for element address function
