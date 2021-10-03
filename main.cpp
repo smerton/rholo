@@ -21,15 +21,12 @@
 // then git pull --all will pull from 1st url in location 1 (NAS)
 // and 1st url in location 2 (github)
 //
-// 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
-//
 // for graphics: convert -density 300 filename.png filename.pdf
 
 // Author S. R. Merton
 
 #define DTSTART 0.0005          // insert a macro for the first time step
 #define ENDTIME 0.20            // insert a macro for the end time
-#define GAMMA 1.4               // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8             // cut-off on the energy field
 #define NSAMPLES 1000           // number of sample points for the exact solution
 #define VISFREQ 10000           // frequency of the graphics dumps
@@ -60,11 +57,10 @@
 #include <bits/stdc++.h>
 #include <chrono>
 #include "timer.h"
+#include "eos.h"
 
-// sigantures for eos lookups
+// function sigantures
 
-double P(double d,double e);          // eos returns pressure as a function of energy
-double E(double d,double p);          // invert the eos to get energy if we only have pressure
 void vempty(vector<double>&v);        // signature for emptying a vector
 int iaddr(int iel,int iel1,int iel2); // signature for element address function
 void get_exact(double t);             // exact solutions at time t
@@ -82,7 +78,7 @@ int main(){
   ofstream f1,f2,f3,f4,f5,f6;                           // files for output
   ifstream f7;                                          // files for input
   Shape K(2,9),T(1,9);                                  // p_n,q_n-1 shape functions
-  int const n(100),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
   int long nk(n*(K.nloc()-1)+1),nkg(ng*(K.nloc()-1)+1); // no. kinematic nodes, no. kinematic ghosts
   int long nt(n*T.nloc()),ntg(ng*T.nloc());             // no. thermodynamic nodes, no. thermodynamic ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -597,14 +593,6 @@ int main(){
 
   return 0;
 }
-
-// return pressure given the energy
-
-double P(double d,double e){return (GAMMA-1.0)*d*e;}
-
-// invert the eos to return energy given the pressure
-
-double E(double d,double p){return p/((GAMMA-1.0)*d);}
 
 // empty a vector
 

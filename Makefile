@@ -1,6 +1,6 @@
 SHELL=/bin/sh
 #OBJECTS=main.o riemann.o matrix.o silo.o mesh.o shape.o timer.o quadrature.o polynomial.o
-OBJECTS=main.o riemann.o matrix.o mesh.o shape.o timer.o quadrature.o polynomial.o
+OBJECTS=main.o eos.o riemann.o matrix.o mesh.o shape.o timer.o quadrature.o polynomial.o
 MYFLAGS=-g -O2 -Wall -v -std=c++11 -pthread
 MYCMP=g++
 MYINCS=-I/usr/include/hdf5/serial

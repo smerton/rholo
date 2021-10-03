@@ -3,7 +3,7 @@
 // Author S. R. Merton
 
 #include <iostream>
-#include"riemann.h"
+#include "riemann.h"
 #include <cmath>
 #include <iomanip>
 #include <algorithm>

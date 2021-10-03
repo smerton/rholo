@@ -4,8 +4,7 @@
 // Author S. R. Merton
 
 #include <vector>
-
-#define GAMMA 1.4 // ratio of specific heats
+#include "eos.h"
 
 using namespace std;
 
