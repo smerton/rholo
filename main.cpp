@@ -8,7 +8,6 @@
 //
 // Author S. R. Merton
 //
-//
 // how to set up push and pull from multiple remotes (e.g. home NAS and github):
 //
 // git remote add NAS ssh://smerton@192.168.1.79/shares/git/rholo.git
