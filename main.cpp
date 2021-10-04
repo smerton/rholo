@@ -26,6 +26,7 @@
 //
 // for graphics: convert -density 300 filename.png filename.pdf
 //
+//
 
 #define DTSTART 0.0005          // insert a macro for the first time step
 #define ENDTIME 0.20            // insert a macro for the end time
