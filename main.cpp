@@ -34,6 +34,7 @@
 #define NSAMPLES 1000           // number of sample points for the exact solution
 #define VISFREQ 100             // frequency of the graphics dumps
 #define VD vector<double>       // vector of doubles
+#define VI vector<int>          // vector of ints
 #define VTOL 1.0e-10            // threshold for volume errors
 #define COURANT 0.333           // Courant number for CFL condition
 #define DTSFACTOR 0.75          // safety factor on time step control
@@ -69,7 +70,7 @@ int iaddr(int iel,int iel1,int iel2);                         // signature for e
 void get_exact(double t);                                     // exact solutions at time t
 vector<double> r0x,rx,rx2,rx3;                                // sample point coordinates for Riemann solver
 void tio(VD*x0,VD*d0,VD*p,VD*e0,VD*u0,int step,double time);  // typhonio graphics output
-void silo(VD*x0,VD*d0,VD*p,VD*e0,VD*u0,int step,double time, Shape*K); // silo graphics output
+void silo(VD*x0,VD*d0,VD*p,VD*e0,VD*u0,VI*mat,int step,double time, Shape*K); // silo graphics output
 
 using namespace std;
 using namespace chrono;
@@ -100,6 +101,7 @@ int main(){
   vector<double> detJ0_k(n*K.ngi()),detJ_k(n*K.ngi());  // determinant of the Jacobian
   vector<double> l0(n);                                 // initial length scale
   vector<vector<long> > nzloc;                          // locations of non-zeroes in the inverse mass matrix
+  vector<int> mat(n);                                   // material number in each element
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -138,6 +140,7 @@ int main(){
   for(int i=0;i<n;i++){for(int gi=0;gi<T.ngi();gi++){q.at(GPNT)=0.0;}}
   for(int i=0;i<n;i++){for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=C(p[GPNT],d0_k[GPNT]);}}
   for(long i=0;i<nk;i++){for(long j=0;j<nt;j++){F[i][j]=0.0;}}
+  for(int i=0;i<n;i++){mat.at(i)=(xc[i]<=0.5)?1:2;}
   for(int i=0;i<n;i++){l0.at(i)=DX0/(K.nloc()-1);} // initial nodal displacement
 
 // initialise the high res timers
@@ -246,7 +249,7 @@ int main(){
 
 // graphics output
 
-    if(step%VISFREQ==0){silo(&x0,&d0_k,&p,&e0,&u0,step,time,&K);}
+    if(step%VISFREQ==0){silo(&x0,&d0_k,&p,&e0,&u0,&mat,step,time,&K);}
 
 // move nodes to their full-step position
 

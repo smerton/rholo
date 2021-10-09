@@ -9,11 +9,13 @@
 #define FILEINFO "This is a silo file created by rholo and it contains polyhedral meshes." // define info for reader app
 #define MESHNAME "MyFirstMesh" // name of a test mesh
 #define VD vector<double>      // vector of doubles
+#define VI vector<int>         // vector of ints
 
 #include <iostream>
 #include <vector>
 #include <ctime>
 #include <filesystem>
+#include <algorithm>
 #include "silo.h"
 #include "shape.h"
 
@@ -23,7 +25,7 @@ std::string date();
 
 using namespace std;
 
-void silo(VD*x,VD*d,VD*p,VD*e,VD*u,int step,double time,Shape*K){
+void silo(VD*x,VD*d,VD*p,VD*e,VD*u,VI*m,int step,double time,Shape*K){
 
   DBfile*dbfile;
   DBoptlist *optlist=NULL;
@@ -48,6 +50,17 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*u,int step,double time,Shape*K){
   int nshapetypes(1);                 // number of different shape types on the mesh
   int shapesize[nshapetypes];         // number of nodes defining each shape
   int shapecounts[nshapetypes];       // number of zones of each shape type
+
+// set up material data structure
+
+  int nmat(*max_element(m->begin(),m->end())); // number of materials
+  int matdims[]={nx,ny};                       // material dimensions
+  int matnos[nmat];                            // materials numbers present
+  int matlist[nzones];                         // material number in each zone
+  int mixlen(0);                               // number of mixed cells
+  int mix_next[mixlen];                        // indices into mixed data arrays
+  int mix_mat[mixlen];                         // material numbers for mixed zones
+  int mix_vf[mixlen];                          // volunme fractions
 
   cout<<"Writing a silo graphics dump to file "<<filename<<endl;
 
@@ -76,6 +89,11 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*u,int step,double time,Shape*K){
   for(int i=0;i<nshapetypes;i++){shapesize[i]=2*K->nloc();}
   for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
 
+// material numbers
+
+  for(int i=0;i<nmat;i++){matnos[i]=i+1;}
+  for(int i=0;i<nzones;i++){matlist[i]=m->at(i);}
+
 // create the silo database - this opens it also
 
   dbfile=DBCreate(filename,DB_CLOBBER,DB_LOCAL,fileinfo,DB_HDF5);
@@ -90,6 +108,10 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*u,int step,double time,Shape*K){
 //  dberr=DBPutUcdmesh(dbfile, "Thermodynamics", ndims, NULL, coords, nnodes, nzones,"zonelist", NULL, DB_DOUBLE, NULL);
 //  dberr=DBPutPointmesh(dbfile, "Nodes", ndims, coords, nnodes,DB_DOUBLE, NULL);
 //  dberr=DBPutPointmesh(dbfile, "Gauss", ndims, coords, nnodes,DB_DOUBLE, NULL);
+
+// write out the material
+
+  dberr=DBPutMaterial(dbfile,"Materials","Kinematics",nmat,matnos,matlist,matdims,ndims,NULL,NULL,NULL,NULL,mixlen,DB_INT,NULL);
 
 // close the database
 
