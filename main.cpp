@@ -32,7 +32,7 @@
 #define ENDTIME 0.20            // insert a macro for the end time
 #define ECUT 1.0e-8             // cut-off on the energy field
 #define NSAMPLES 1000           // number of sample points for the exact solution
-#define VISFREQ 10000           // frequency of the graphics dumps
+#define VISFREQ 100             // frequency of the graphics dumps
 #define VD vector<double>       // vector of doubles
 #define VTOL 1.0e-10            // threshold for volume errors
 #define COURANT 0.333           // Courant number for CFL condition
@@ -64,10 +64,12 @@
 
 // function signatures
 
-void vempty(vector<double>&v);        // signature for emptying a vector
-int iaddr(int iel,int iel1,int iel2); // signature for element address function
-void get_exact(double t);             // exact solutions at time t
-vector<double> r0x,rx,rx2,rx3;        // sample point coordinates for Riemann solver
+void vempty(vector<double>&v);                                // signature for emptying a vector
+int iaddr(int iel,int iel1,int iel2);                         // signature for element address function
+void get_exact(double t);                                     // exact solutions at time t
+vector<double> r0x,rx,rx2,rx3;                                // sample point coordinates for Riemann solver
+void tio(VD*x0,VD*d0,VD*p,VD*e0,VD*u0,int step,double time);  // typhonio graphics output
+void silo(VD*x0,VD*d0,VD*p,VD*e0,VD*u0,int step,double time, Shape*K); // silo graphics output
 
 using namespace std;
 using namespace chrono;
@@ -81,7 +83,7 @@ int main(){
   ofstream f1,f2,f3,f4,f5,f6;                           // files for output
   ifstream f7;                                          // files for input
   Shape K(2,9),T(1,9);                                  // p_n,q_n-1 shape functions
-  int const n(100);                                     // no. ncells
+  int const n(40);                                      // no. ncells
   int long nk(n*(K.nloc()-1)+1);                        // no. kinematic nodes
   int long nt(n*T.nloc());                              // no. thermodynamic nodes
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -241,6 +243,10 @@ int main(){
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt;
     cout<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
+
+// graphics output
+
+    if(step%VISFREQ==0){silo(&x0,&d0_k,&p,&e0,&u0,step,time,&K);}
 
 // move nodes to their full-step position
 
