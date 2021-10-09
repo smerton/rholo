@@ -55,6 +55,8 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*u,VI*m,int step,double time,Shape*K){
 
   int nmat(*max_element(m->begin(),m->end())); // number of materials
   int matdims[]={nx,ny};                       // material dimensions
+  char*matname[nmat];                          // material names
+//  char*matname[]={"Air","Water"};                          // material names
   int matnos[nmat];                            // materials numbers present
   int matlist[nzones];                         // material number in each zone
   int mixlen(0);                               // number of mixed cells
@@ -93,6 +95,8 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*u,VI*m,int step,double time,Shape*K){
 
   for(int i=0;i<nmat;i++){matnos[i]=i+1;}
   for(int i=0;i<nzones;i++){matlist[i]=m->at(i);}
+  for(int i=0;i<nmat;i++){matname[i]="Air";}
+
 
 // create the silo database - this opens it also
 
@@ -104,14 +108,21 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*u,VI*m,int step,double time,Shape*K){
 
 // write out the meshes //
 
-  dberr=DBPutUcdmesh(dbfile, "Kinematics", ndims, NULL, coords, nnodes, nzones,"zonelist", NULL, DB_DOUBLE, NULL);
+  optlist=DBMakeOptlist(2);
+  dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
+  dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
+  dberr=DBPutUcdmesh(dbfile,"Kinematics",ndims,NULL,coords,nnodes,nzones,"zonelist",NULL,DB_DOUBLE,optlist);
 //  dberr=DBPutUcdmesh(dbfile, "Thermodynamics", ndims, NULL, coords, nnodes, nzones,"zonelist", NULL, DB_DOUBLE, NULL);
 //  dberr=DBPutPointmesh(dbfile, "Nodes", ndims, coords, nnodes,DB_DOUBLE, NULL);
 //  dberr=DBPutPointmesh(dbfile, "Gauss", ndims, coords, nnodes,DB_DOUBLE, NULL);
+  dberr=DBFreeOptlist(optlist);
 
 // write out the material
 
-  dberr=DBPutMaterial(dbfile,"Materials","Kinematics",nmat,matnos,matlist,matdims,ndims,NULL,NULL,NULL,NULL,mixlen,DB_INT,NULL);
+  optlist=DBMakeOptlist(1);
+  dberr=DBAddOption(optlist,DBOPT_MATNAMES,matname);
+  dberr=DBPutMaterial(dbfile,"Materials","Kinematics",nmat,matnos,matlist,matdims,ndims,NULL,NULL,NULL,NULL,mixlen,DB_INT,optlist);
+  dberr=DBFreeOptlist(optlist);
 
 // close the database
 
