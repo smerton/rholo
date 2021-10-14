@@ -170,6 +170,10 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*q,VD*c,VD*u,VI*m,int step,double time,Shape*K,S
   for(int i=0;i<nzones;i++){matlist[i]=m->at(i);}
   for(int i=0;i<nmat;i++){matname[i]="Air";}
 
+// disengage deprecation signalling
+
+  dberr=DBSetDeprecateWarnings(0);
+
 // create the silo database - this opens it also
 
   dbfile=DBCreate(filename,DB_CLOBBER,DB_LOCAL,fileinfo,DB_HDF5);
