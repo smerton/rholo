@@ -29,10 +29,11 @@
 //
 
 #define DTSTART 0.0005          // insert a macro for the first time step
-#define ENDTIME 0.20            // insert a macro for the end time
+#define ENDTIME 0.2             // insert a macro for the end time
 #define ECUT 1.0e-8             // cut-off on the energy field
 #define NSAMPLES 1000           // number of sample points for the exact solution
-#define VISFREQ 200             // frequency of the graphics dumps
+//#define VISFREQ 200           // frequency of the graphics dump steps
+#define VISFREQ 1000.0          // frequency of the graphics dump times
 #define VD vector<double>       // vector of doubles
 #define VI vector<int>          // vector of ints
 #define VTOL 1.0e-10            // threshold for volume errors
@@ -54,6 +55,7 @@
 #include <vector>
 #include <iomanip>
 #include <cmath>
+#include <math.h>
 #include <fstream>
 #include "riemann.h"
 #include "matrix.h"
@@ -84,7 +86,7 @@ int main(){
   ofstream f1,f2,f3,f4,f5,f6;                           // files for output
   ifstream f7;                                          // files for input
   Shape K(2,3),T(1,3);                                  // p_n,q_n-1 shape functions
-  int const n(40);                                      // no. ncells
+  int const n(100);                                      // no. ncells
   int long nk(n*(K.nloc()-1)+1);                        // no. kinematic nodes
   int long nt(n*T.nloc());                              // no. thermodynamic nodes
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -98,6 +100,7 @@ int main(){
   vector<double> u0(nk),u1(nk);                         // node velocity
   vector<double> x0(nk),x1(nk),x2(nt),x3(nt);           // node coordinates
   vector<double> dt_cfl(n*T.ngi());                     // element time-step at each Gauss point
+  vector<double> dts(2);                                // time-step for each condition (0=CFL, 1=graphics hits)
   vector<double> detJ0_k(n*K.ngi()),detJ_k(n*K.ngi());  // determinant of the Jacobian
   vector<double> l0(n);                                 // initial length scale
   vector<vector<long> > nzloc;                          // locations of non-zeroes in the inverse mass matrix
@@ -239,9 +242,28 @@ int main(){
       }
     }
 
-// reduce across element and apply a saftey factor
+// reduce across element and apply a safety factor
 
-    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
+    dts.at(0)=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
+
+// calculate a time step so we hit I/O event times smoothly and accurately
+
+    double dt_g(-1.0*remainder(time,VISFREQ)); //  time until next graphics event
+    dts.at(1)=1.0e6; // next I/O event too far away to care
+
+    if( dt_g/(4.0*dt)<1.0 && dt_g>1.0e-12){
+      if(dt_g/dt<4.000000001) {dts.at(1)=dt_g/4.0;}
+      if(dt_g/dt<3.000000001) {dts.at(1)=dt_g/3.0;}
+      if(dt_g/dt<2.000000001) {dts.at(1)=dt_g/2.0;}
+      if(dt_g/dt<1.000000001) {dts.at(1)=dt_g;}
+      if(abs(1.0-(dts[1]/dt))>1.0e-5){
+        cout<<"       time-step cut on I/O event approach, dt lowered by "<<(1.0-dts[1]/dt)*100.00<<"% to "<<dts[1]<<endl;
+      }
+    }
+
+// choose the smallest time step
+
+    dt=(*min_element(dts.begin(), dts.end()));
 //    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt;
@@ -249,7 +271,11 @@ int main(){
 
 // graphics output
 
-    if(step%VISFREQ==0){silo(&x0,&d0_k,&p,&e0,&q,&c,&u0,&mat,step,time,&K,&T);}
+      if(abs(remainder(time,VISFREQ))<1.0e-12){
+        silo(&x0,&d0_k,&p,&e0,&q,&c,&u0,&mat,step,time,&K,&T);
+      }else{
+        if(abs(remainder(step,VISFREQ))==0){silo(&x0,&d0_k,&p,&e0,&q,&c,&u0,&mat,step,time,&K,&T);}
+      }
 
 // move nodes to their full-step position
 
@@ -454,9 +480,11 @@ int main(){
     for(int i=0;i<n*K.ngi();i++){d0_k.at(i)=d1_k[i];}
 
 // debug
-//  cout<<"debug stop."<<endl;
-//  output(); // might want this ??
-//  exit(1);
+//  if(step==230){
+//    cout<<"debug stop."<<endl;
+//    output(); // might want this ??
+//    exit(1);
+//  }
 // debug
 
   }

@@ -80,7 +80,7 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*q,VD*c,VD*u,VI*m,int step,double time,Shape*K,S
   double var1[nnodesk];                        // zone centred scalars
   double varg[nzonesg];                        // gauss centred scalars
 
-  cout<<"Writing a silo graphics dump to file "<<filename<<endl;
+  cout<<"       silo(): Writing a silo graphics dump to file "<<filename<<endl;
 
 // store coordinates in correct format for silo and repeat for each mesh
 
