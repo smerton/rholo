@@ -86,7 +86,7 @@ int main(){
   ofstream f1,f2,f3,f4,f5,f6;                           // files for output
   ifstream f7;                                          // files for input
   Shape K(2,3),T(1,3);                                  // p_n,q_n-1 shape functions
-  int const n(100);                                      // no. ncells
+  int const n(40);                                      // no. ncells
   int long nk(n*(K.nloc()-1)+1);                        // no. kinematic nodes
   int long nt(n*T.nloc());                              // no. thermodynamic nodes
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
@@ -385,14 +385,29 @@ int main(){
     for(int i=0;i<n;i++){
       for(int gi=0;gi<K.ngi();gi++){
         double l(l0[i]*(detJ_k[GPNT]/detJ0_k[GPNT]));
-        double divu((d0_k[GPNT]-d1_k[GPNT])/(d1_k[GPNT]*dt));
+        double divu(0.0);for(int k=0;k<K.nloc();k++){divu+=K.dvalue(k,gi)*u1[KNOD]/detJ_k[GPNT];}
         if(divu<0.0){
-          q.at(GPNT)=d0_k[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]);
+          q.at(GPNT)=d1_k[GPNT]*l*divu*((cq*l*divu)-cl*c[GPNT]);
         }else{
-          q.at(GPNT)=0.0; // compression switch to turn off q as cell divergence indicates expansion
+          q.at(GPNT)=0.0; // compression switch to turn off q where cell divergence indicates expansion
         }
       }
     }
+
+// Rieben's q
+//
+//    for(int i=0;i<n;i++){
+//      for(int gi=0;gi<K.ngi();gi++){
+//        double l(l0[i]*(detJ_k[GPNT]/detJ0_k[GPNT]));
+//        double divu(0.0);for(int k=0;k<K.nloc();k++){divu+=K.dvalue(k,gi)*u1[KNOD]/detJ_k[GPNT];}
+//        if(divu<0.0){
+//          q.at(GPNT)=d1_k[GPNT]*(cq*l*l*abs(divu)+cl*l*c[GPNT]);
+//        }else{
+//          q.at(GPNT)=d1_k[GPNT]*cq*l*l*abs(divu); // compression switch: forces linear term to vanish at points where expansion presents
+//        }
+//        q.at(GPNT)=q[GPNT]*0.5*(abs(divu)-divu); // with symmetrised grad u: this is mu_s * epsilon in section 6.1
+//      }
+//    }
 
 // assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both e/u eqns
 
