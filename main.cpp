@@ -30,12 +30,14 @@
 #define GAMMA 1.4          // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8        // cut-off on the energy field
 #define NSAMPLES 1000      // number of sample points for the exact solution
-#define VISFREQ 0.05       // frequency of the graphics dumps
+#define VISFREQ 0.01       // frequency of the graphics dumps
 #define VD vector<double>  // vector of doubles
 #define VI vector<int>     // vector of ints
 #define VTOL 1.0e-10       // threshold for volume errors
 #define COURANT 0.333      // Courant number for CFL condition
 #define DTSFACTOR 0.5      // safety factor on time-step control
+#define REFLECTIVE 0       // flag for forced-reflective boundary
+#define TRANSMISSIVE 1     // flag for free-surface boundary
 
 #include <iostream>
 #include <vector>
@@ -50,6 +52,7 @@
 
 double P(double d,double e);   // eos returns pressure as a function of energy
 double E(double d,double p);   // invert the eos to get energy if we only have pressure
+vector<double> r0x,rx;         // sample point coordinates for Riemann solver
 void vempty(vector<double>&v); // signature for emptying a vector
 void silo(VD*x,VD*d,VD*p,VD*e,VD*q,VD*c,VD*u,VI*mat,int step,double time); // silo graphics output
 
@@ -62,7 +65,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(100),ng(n+4);                              // no. ncells, no. ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field
@@ -81,18 +84,20 @@ int main(){
 
 // initialise the problem
 
-  double dx(1.0/n);x0.at(0)=-2.0*dx;x1.at(0)=x0[0];
+  int xmin_bc(TRANSMISSIVE),xmax_bc(TRANSMISSIVE);      // boundary type at xmin and xmax
+  double xl(0.0),xr(1.0),xm(0.5); // left, right, mid domain
+  double dx((xr-xl)/n);x0.at(0)=xl-2.0*dx;x1.at(0)=x0[0];
   for(int i=1;i<ng+1;i++){x0.at(i)=x0[i-1]+dx;x1.at(i)=x0[i];}
-  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[2]:r[2];}
-  for(int i=0;i<ng;i++){d0.at(i)=(0.5*(x0[i]+x0[i+1])<=0.5)?l[0]:r[0];}
-  for(int i=0;i<ng;i++){d1.at(i)=(0.5*(x1[i]+x1[i+1])<=0.5)?l[0]:r[0];}
-  for(int i=0;i<ng;i++){mat.at(i)=(0.5*(x1[i]+x1[i+1])<=0.5)?1:2;}
+  for(int i=0;i<ng;i++){p.at(i)=(0.5*(x0[i]+x0[i+1])<=xm)?l[2]:r[2];}
+  for(int i=0;i<ng;i++){d0.at(i)=(0.5*(x0[i]+x0[i+1])<=xm)?l[0]:r[0];}
+  for(int i=0;i<ng;i++){d1.at(i)=(0.5*(x1[i]+x1[i+1])<=xm)?l[0]:r[0];}
+  for(int i=0;i<ng;i++){mat.at(i)=(0.5*(x1[i]+x1[i+1])<=xm)?1:2;}
   for(int i=0;i<ng;i++){e0.at(i)=E(d0[i],p[i]);}
   for(int i=0;i<ng;i++){e1.at(i)=E(d1[i],p[i]);}
   for(int i=0;i<ng;i++){V0.at(i)=x0[i+1]-x0[i];}
   for(int i=0;i<ng;i++){V1.at(i)=x1[i+1]-x1[i];}
   for(int i=0;i<ng;i++){m.at(i)=d0[i]*V0[i];}
-  for(int i=0;i<ng+1;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];}
+  for(int i=0;i<ng+1;i++){u0.at(i)=(x0[i]<=xm)?l[1]:r[1];}
   for(int i=0;i<ng+1;i++){u1.at(i)=u0[i];}
   for(int i=0;i<ng+1;i++){utmp.at(i)=u0[i];}
   for(int i=0;i<ng;i++){q.at(i)=0.0;}
@@ -161,12 +166,12 @@ int main(){
 
 // evolve the Riemann problems to the end of the time-step on the end of time-step meshes
 
-    vector<double> r0x,rx;vempty(r0x); // sample point coordinates
-//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
-    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
-    R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
-    rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
-    R1.profile(&rx,time+dt);
+//    vector<double> r0x,rx;vempty(r0x); // sample point coordinates
+////    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
+//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(xl+(i*(xr-xl)/double(NSAMPLES)));} // sample points
+//    R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
+//    rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
+//    R1.profile(&rx,time+dt);
 
 // update cell volumes at the full-step
 
@@ -199,10 +204,11 @@ int main(){
 // bulk q
 
     for(int i=0;i<ng;i++){
+//    for(int i=2;i<ng-2;i++){
       c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
       double l(x1[i+1]-x1[i]),divu((d0[i]-d1[i])/(d1[i]*dt));
       if(divu<0.0){
-        q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
+        q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
       }else{
         q.at(i)=0.0; // turn off q as cell divergence indicates expansion
       }
@@ -210,7 +216,7 @@ int main(){
 
 // update acceleration field
 
-    for(int i=1;i<ng;i++){
+    for(int i=2;i<ng-1;i++){
 
       double dxl(x1[i]-x1[i-1]),dxr(x1[i+1]-x1[i]),dl(d1[i-1]),dr(d1[i]),pl(p[i-1]+q[i-1]),pr(p[i]+q[i]);
       double udot((pl-pr)/(0.5*((dl*dxl)+(dr*dxr))));
@@ -221,20 +227,25 @@ int main(){
 
     }
 
-// impose a constraint on the acceleration field at domain boundaries to stop the mesh taking off
+// impose boundary constraints on the acceleration field
 
-    u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
+  if(xmin_bc==REFLECTIVE){
+    u1.at(2)=0.0;
+    u1.at(1)=-u1[3];
+    u1.at(0)=-u1[4];
+  }else{ // assume xmin is a free-surface
+    u1.at(1)=u1[2];
+    u1.at(0)=u1[1];
+  }
 
-// some output
-
-    f1.open("exact.dat");f2.open("dpe.dat");f3.open("q.dat");f4.open("u.dat");f5.open("r.dat");
-    f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
-    for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<" "<<endl;}
-    for(int i=1;i<NSAMPLES;i++){if(R0.region(i)!=R0.region(i-1)){f5<<r0x[i]<<" -20000.0"<<endl<<r0x[i]<<" 20000.0"<<endl<<r0x[i]<<" -20000.0"<<endl;}} // sample region
-    for(int i=2;i<n+2;i++){f2<<0.5*(x1[i]+x1[i+1])<<" "<<d1[i]<<" "<<p[i]<<" "<<e1[i]<<" "<<endl;}
-    for(int i=2;i<n+2;i++){f3<<0.5*(x1[i]+x1[i+1])<<" "<<q[i]<<endl;}
-    for(int i=2;i<n+3;i++){f4<<x1[i]<<" "<<u1[i]<<endl;}
-    f1.close();f2.close();f3.close();f4.close();f5.close();
+  if(xmax_bc==REFLECTIVE){
+    u1.at(ng-2)=0.0;
+    u1.at(ng-1)=-u1[ng-3];
+    u1.at(ng)=-u1[ng-4];
+  }else{ // assume xmax is a free-surface
+    u1.at(ng-1)=u1[ng-2];
+    u1.at(ng)=u1[ng-1];
+  }
 
 // advance the time step
 
@@ -256,11 +267,28 @@ int main(){
 
   }
 
+// some output
+
+  f1.open("exact.dat");f2.open("dpe.dat");f3.open("q.dat");f4.open("u.dat");f5.open("r.dat");
+  f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
+  vempty(r0x); // sample point coordinates
+//  for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
+  for(long i=0;i<NSAMPLES;i++){r0x.push_back(xl+(i*(xr-xl)/double(NSAMPLES)));} // sample points
+  R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
+  rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
+  R1.profile(&rx,time+dt);
+
+  for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<" "<<endl;}
+  for(int i=1;i<NSAMPLES;i++){if(R0.region(i)!=R0.region(i-1)){f5<<r0x[i]<<" -20000.0"<<endl<<r0x[i]<<" 20000.0"<<endl<<r0x[i]<<" -20000.0"<<endl;}} // sample region
+  for(int i=2;i<n+2;i++){f2<<0.5*(x1[i]+x1[i+1])<<" "<<d1[i]<<" "<<p[i]<<" "<<e1[i]<<" "<<endl;}
+  for(int i=2;i<n+2;i++){f3<<0.5*(x1[i]+x1[i+1])<<" "<<q[i]<<endl;}
+  for(int i=2;i<n+3;i++){f4<<x1[i]<<" "<<u1[i]<<endl;}
+  f1.close();f2.close();f3.close();f4.close();f5.close();
+
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
 
   vector<double> rx;vempty(rx);  // sample points
-  double xstart(0.0),xstop(1.0); // sample range - should be whole mesh though bc.s may artificially reduce convergence
-  for(long i=0;i<ng+1;i++){if(x1[i]>=xstart&&x1[i]<=xstop){rx.push_back(x1[i]);}}
+  for(long i=0;i<ng+1;i++){if(x1[i]>=xl&&x1[i]<=xr){rx.push_back(x1[i]);}}
   R0.profile(&rx,ENDTIME); // evolve a Riemann problem on the sample range to final time level
 
   double l1(0.0),l2(0.0),l1r(0.0),l2r(0.0),l1d(0.0),l2d(0.0),l1n(0.0),l2n(0.0);
@@ -269,7 +297,7 @@ int main(){
 // numerator and denominator for each norm
 
   for(int i=0;i<ng+1;i++){
-    if(x1[i]>=xstart&&x1[i]<=xstop){
+    if(x1[i]>=xl&&x1[i]<=xr){
       double err(abs(R0.velocity(ii)-u1[i])); // absolute error
       l1d+=abs(R0.velocity(ii)); // l1 denominator
       l2d+=R0.velocity(ii)*R0.velocity(ii); // l2 denominator
@@ -286,12 +314,12 @@ int main(){
   l2=sqrt(l2n/rx.size()); // L2 error norm
   l2r=sqrt(l2n/l2d); // L2 relative error norm
 
-  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<(xstop-xstart)/rx.size()<<"):"<<endl;
+  cout<<endl<<fixed<<setprecision(10)<<"  Error Estimates (grid spacing h= "<<(xr-xl)/rx.size()<<"):"<<endl;
 
   cout<<"  L1 norm= "<<l1<<" (relative error= "<<l1r<<")"<<endl;
   cout<<"  L2 norm= "<<l2<<" (relative error= "<<l2r<<")"<<endl;
   cout<<"  No. points sampled= "<<rx.size()<<endl;
-  cout<<"  Range sampled= "<<xstart<<","<<xstop<<endl;
+  cout<<"  Range sampled= "<<xl<<","<<xr<<endl;
 
   cout<<endl<<"Normal termination."<<endl;
 
