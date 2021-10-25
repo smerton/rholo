@@ -144,6 +144,10 @@ Mesh::Mesh(char* meshfile){
 
         for(int j=0;j<ncolumns;j++){mCoord.push_back(vectmp[j]);}
 
+// set element volumes
+
+        for(int i=0;i<NCells();i++){mVolume.push_back(1.0);}
+
         break;
       }
 
@@ -309,6 +313,14 @@ int Mesh::SideNode(int i, int j){return mSideNode[i][j];}
 // member function to return coordinate idim of node i
 
 double Mesh::Coord(int idim, int i){return mCoord[idim][i];}
+
+// member function to replace a vector with the coordinates
+
+void Mesh::CopyCoords(vector<vector<double> > &v){v.resize(NDims());for(int i=0;i<NDims();i++){v.at(i).swap(mCoord.at(i));}return;}
+
+// member function to return the element volume
+
+double Mesh::Volume(int i){return mVolume.at(i);}
 
 // Destructor function to release storage associated with a mesh class object
 
