@@ -46,6 +46,7 @@
 #include <fstream>
 #include "riemann.h"
 #include "matrix.h"
+#include "mesh.h"
 #include <bits/stdc++.h>
 
 // function signatures
@@ -64,8 +65,9 @@ int main(){
 
 // global data
 
+  Mesh M("mesh/input.mesh");                            // load a new mesh from file
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  int const n(100),ng(n+4);                              // no. ncells, no. ghosts
+  int const n(100),ng(n+4);                             // no. ncells, no. ghosts
   double const cl(1.0),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
   vector<double> e0(ng),e1(ng);                         // cell-centred energy field

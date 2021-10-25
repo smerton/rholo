@@ -1,0 +1,117 @@
+MFEM mesh v1.0
+
+# Input file for RhoLo based on MFEM mesh file format
+# This file was create on Sun 24 Oct 11:15:59 BST 2021 and can be visualised using GLVis
+# See https://mfem.org/mesh-format-v1.x for description of this format
+#
+# RhoLo uses the following which may be inconsistent with MFEM:
+#   element attribute for material number (column 1 in elements block)
+#   boundary attribute set=1 for free surface, or =2 for forced-reflective (column 1 in boundary block)
+#   FiniteElementCollection not used - but MFEM may use this to set polyhedral order (in nodes block)
+#    
+
+# MFEM Geometry Types (see mesh/geom.hpp):
+#
+# POINT       = 0
+# SEGMENT     = 1
+# TRIANGLE    = 2
+# SQUARE      = 3
+# TETRAHEDRON = 4
+# CUBE        = 5
+# PRISM       = 6
+#
+
+dimension
+2
+
+elements
+10
+1 3 0 1 12 11
+1 3 1 2 13 12
+1 3 2 3 14 13
+1 3 3 4 15 14
+1 3 4 5 16 15
+2 3 5 6 17 16
+2 3 6 7 18 17
+2 3 7 8 19 18
+2 3 8 9 20 19
+2 3 9 10 21 20
+
+boundary
+22
+1 1 0 1
+1 1 1 2
+1 1 2 3
+1 1 3 4
+1 1 4 5
+1 1 5 6
+1 1 6 7
+1 1 7 8
+1 1 8 9
+1 1 9 10
+1 1 10 21
+1 1 21 20
+1 1 20 19
+1 1 19 18
+1 1 18 17
+1 1 17 16
+1 1 16 15
+1 1 15 14
+1 1 14 13
+1 1 13 12
+1 1 12 11
+1 1 11 0
+
+vertices
+22
+
+nodes
+FiniteElementSpace
+FiniteElementCollection: Linear
+VDim: 2
+Ordering: 0
+
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+0.0
+0.1
+0.2
+0.3
+0.4
+0.5
+0.6
+0.7
+0.8
+0.9
+1.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.0
+0.5
+0.5
+0.5
+0.5
+0.5
+0.5
+0.5
+0.5
+0.5
+0.5
+0.5
