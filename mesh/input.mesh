@@ -6,9 +6,26 @@ MFEM mesh v1.0
 #
 # RhoLo uses the following which may be inconsistent with MFEM:
 #   element attribute for material number (column 1 in elements block)
-#   boundary attribute set=1 for free surface, or =2 for forced-reflective (column 1 in boundary block)
+#   boundary attribute for element side, =0 for bottom, 1 for right, =2 for top, =3 for left (column 1 in boundary block)
+#   boundary type =1 for free surface, or =2 for forced-reflective (column 2 in boundary block)
 #   FiniteElementCollection not used - but MFEM may use this to set polyhedral order (in nodes block)
-#    
+#
+# The following format is interpreted by RhoLo
+# dimension
+# <number of spatial dimensions of the mesh>
+#
+# elements
+# <number of elements>
+# <material number> <element type from MFEM geometry type list, see below> <node number of vertices>
+#
+# boundary
+# <number of element sides on the mesh boundary>
+# <element side coincident with mesh edge> <boundary condition, 1=free surface, 2= forced-reflective> <node number of vertices on this side>
+#
+# vertices
+# <number of mesh vertices>
+# <serialisation, =2 for x,y pairs>
+# <coordinate of vertex in each dimension>
 
 # MFEM Geometry Types (see mesh/geom.hpp):
 #
@@ -39,79 +56,52 @@ elements
 
 boundary
 22
-1 1 0 1
-1 1 1 2
-1 1 2 3
-1 1 3 4
-1 1 4 5
-1 1 5 6
-1 1 6 7
-1 1 7 8
-1 1 8 9
-1 1 9 10
+0 1 0 1
+0 1 1 2
+0 1 2 3
+0 1 3 4
+0 1 4 5
+0 1 5 6
+0 1 6 7
+0 1 7 8
+0 1 8 9
+0 1 9 10
 1 1 10 21
-1 1 21 20
-1 1 20 19
-1 1 19 18
-1 1 18 17
-1 1 17 16
-1 1 16 15
-1 1 15 14
-1 1 14 13
-1 1 13 12
-1 1 12 11
-1 1 11 0
+2 1 21 20
+2 1 20 19
+2 1 19 18
+2 1 18 17
+2 1 17 16
+2 1 16 15
+2 1 15 14
+2 1 14 13
+2 1 13 12
+2 1 12 11
+3 1 11 0
 
 vertices
 22
+2
+0.0 0.0
+0.1 0.0
+0.2 0.0
+0.3 0.0
+0.4 0.0
+0.5 0.0
+0.6 0.0
+0.7 0.0
+0.8 0.0
+0.9 0.0
+1.0 0.0
+0.0 0.5
+0.1 0.5
+0.2 0.5
+0.3 0.5
+0.4 0.5
+0.5 0.5
+0.6 0.5
+0.7 0.5
+0.8 0.5
+0.9 0.5
+1.0 0.5
 
-nodes
-FiniteElementSpace
-FiniteElementCollection: Linear
-VDim: 2
-Ordering: 0
-
-0.0
-0.1
-0.2
-0.3
-0.4
-0.5
-0.6
-0.7
-0.8
-0.9
-1.0
-0.0
-0.1
-0.2
-0.3
-0.4
-0.5
-0.6
-0.7
-0.8
-0.9
-1.0
-0.0
-0.0
-0.0
-0.0
-0.0
-0.0
-0.0
-0.0
-0.0
-0.0
-0.0
-0.5
-0.5
-0.5
-0.5
-0.5
-0.5
-0.5
-0.5
-0.5
-0.5
-0.5
