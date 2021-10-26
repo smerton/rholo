@@ -3,6 +3,7 @@
 // Author S. R. Merton
 
 #include "mesh.h"
+#include "shape.h"
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -144,10 +145,6 @@ Mesh::Mesh(char* meshfile){
 
         for(int j=0;j<ncolumns;j++){mCoord.push_back(vectmp[j]);}
 
-// set element volumes
-
-        for(int i=0;i<NCells();i++){mVolume.push_back(1.0);}
-
         break;
       }
 
@@ -193,6 +190,46 @@ Mesh::Mesh(char* meshfile){
 
   cout<<"  Mesh::Mesh(): Done. Mesh loaded, "<<lines<<" lines read."<<endl;
   cout<<endl;
+
+// compute element volume
+
+  Shape S(1); // load a shape function
+
+// calculate a jacobian
+
+  for(int i=0;i<NCells();i++){
+
+    double ivol(0.0);
+
+    for(int gi=0;gi<S.ngi();gi++){
+
+      double j11(0.0),j12(0.0),j21(0.0),j22(0.0);
+
+// derivatives of the physical coordinates
+
+      for(int j=0;j<S.nloc();j++){
+        j11+=Coord(0,Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
+        j21+=Coord(0,Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
+        j12+=Coord(1,Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
+        j22+=Coord(1,Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
+      }
+
+// calculate the determinant
+
+      double detJ(j11*j22-j12*j21);
+
+// integrate the jacobian to obtain the cell volume
+
+      ivol+=detJ*S.wgt(gi);
+
+    }
+
+// commit to volume address space in the mesh class
+
+  mVolume.push_back(ivol);
+
+  }
+
 
 // print out what we have found
 
