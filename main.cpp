@@ -48,6 +48,7 @@
 #include "shape.h"
 #include <bits/stdc++.h>
 #include "eos.h"
+#include "mesh.h"
 
 // function signatures
 
@@ -62,6 +63,7 @@ int main(){
 
 // global data
 
+  Mesh M("mesh/input.mesh");                            // load a new mesh from file
   ofstream f1,f2,f3,f4,f5;                              // files for output
   int const n(50),ng(n+4);                              // no. ncells, no. ghosts
   Shape S(1);                                           // p1 shape function
