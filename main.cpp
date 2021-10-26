@@ -1,10 +1,12 @@
-// Finite element variant of RhoLo (Riemann-based Hydro in One-dimension at Low Order - RhoLo)
-// RhoLo is an ultra simple 1-D discontinuous finite element (DG) hydrodynamics test code
+// Finite element variant of RhoLo (Really High Order Lagrangian Operator - RhoLo)
+// RhoLo is an ultra simple finite element (DG) hydrodynamics test code
 // This finite element variant solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
 // using a mixed continuous finite element method (cell-centred thermodynamic variable d,rho,e with node 
 // centred kinematic variables u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
 // implementation is only first order in time
-
+//
+// Author S. R. Merton
+//
 // how to set up push and pull from multiple remotes (e.g. home NAS and github):
 //
 // git remote add NAS ssh://smerton@192.168.1.79/shares/git/rholo.git
@@ -20,18 +22,18 @@
 //
 // then git pull --all will pull from 1st url in location 1 (NAS)
 // and 1st url in location 2 (github)
-
+//
 // for graphics: convert -density 300 filename.png filename.pdf
-
-// Author S. R. Merton
+//
 
 #define DTSTART 0.0005    // insert a macro for the first time step
 #define ENDTIME 0.20      // insert a macro for the end time
-#define GAMMA 1.4         // ratio of specific heats for ideal gases
 #define ECUT 1.0e-8       // cut-off on the energy field
-#define NSAMPLES 500      // number of sample points for the exact solution
-#define VISFREQ 10000     // frequency of the graphics dumps
+#define NSAMPLES 1000     // number of sample points for the exact solution
+//#define VISFREQ 200     // frequency of the graphics dump steps
+#define VISFREQ 0.05      // frequency of the graphics dump times
 #define VD vector<double> // vector of doubles
+#define VI vector<int>          // vector of ints
 #define VTOL 1.0e-10      // threshold for volume errors
 #define COURANT 0.333     // Courant number for CFL condition
 #define DTSFACTOR 0.5     // safety factor on time-step control
@@ -45,12 +47,12 @@
 #include "matrix.h"
 #include "shape.h"
 #include <bits/stdc++.h>
+#include "eos.h"
 
-// sigantures for eos lookups
+// function signatures
 
-double P(double d,double e); // eos returns pressure as a function of energy
-double E(double d,double p); // invert the eos to get energy if we only have pressure
 void vempty(vector<double>&v); // signature for emptying a vector
+void silo(VD*x0,VD*d0,VD*p,VD*e0,VD*q,VD*c,VD*u0,VI*mat,int step,double time,Shape*S); // silo graphics output
 
 using namespace std;
 
@@ -61,7 +63,7 @@ int main(){
 // global data
 
   ofstream f1,f2,f3,f4,f5;                              // files for output
-  int const n(320),ng(n+4);                             // no. ncells, no. ghosts
+  int const n(50),ng(n+4);                              // no. ncells, no. ghosts
   Shape S(1);                                           // p1 shape function
   double const cl(0.3),cq(1.0);                         // linear & quadratic coefficients for bulk viscosity
   vector<double> d0(ng),d1(ng),V0(ng),V1(ng),m(ng);     // density, volume & mass
@@ -70,6 +72,8 @@ int main(){
   vector<double> u0(ng+1),u1(ng+1),utmp(ng+1),u2(ng+1); // node velocity
   vector<double> x0(ng+1),x1(ng+1);                     // node coordinates
   vector<double> dt_cfl(ng);                            // element time-step
+  vector<double> dts(2);                                // time-step for each condition (0=CFL, 1=graphics hits)
+  vector<int> mat(ng);                                  // element material numbers
   double ke(0.0),ie(0.0);                               // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                         // start time and time step
   int step(0);                                          // step number
@@ -112,9 +116,40 @@ int main(){
 // calculate a new stable time-step
 
     for(int i=0;i<ng;i++){double l(x0[i+1]-x0[i]);dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
-    double dt=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end())); // reduce across element and apply a saftey factor
+
+// reduce across element and apply a saftey factor
+
+    dts.at(0)=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
+
+// calculate a time step so we hit I/O event times smoothly and accurately
+
+    double dt_g(-1.0*remainder(time,VISFREQ)); //  time until next graphics event
+    dts.at(1)=1.0e6; // next I/O event too far away to care
+
+    if( dt_g/(4.0*dt)<1.0 && dt_g>1.0e-12){
+      if(dt_g/dt<4.000000001) {dts.at(1)=dt_g/4.0;}
+      if(dt_g/dt<3.000000001) {dts.at(1)=dt_g/3.0;}
+      if(dt_g/dt<2.000000001) {dts.at(1)=dt_g/2.0;}
+      if(dt_g/dt<1.000000001) {dts.at(1)=dt_g;}
+      if(abs(1.0-(dts[1]/dt))>1.0e-5){
+        cout<<"       time-step cut on I/O event approach, dt lowered by "<<(1.0-dts[1]/dt)*100.00<<"% to "<<dts[1]<<endl;
+      }
+    }
+
+// choose the smallest time step
+
+    dt=(*min_element(dts.begin(), dts.end()));
+//    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
+
+// graphics output
+
+      if(abs(remainder(time,VISFREQ))<1.0e-12){
+        silo(&x0,&d0,&p,&e0,&q,&c,&u0,&mat,step,time,&S);
+      }else{
+        if(abs(remainder(step,VISFREQ))==0){silo(&x0,&d0,&p,&e0,&q,&c,&u0,&mat,step,time,&S);}
+      }
 
 // move the nodes to their full-step position
 
@@ -300,14 +335,6 @@ int main(){
 
   return 0;
 }
-
-// return pressure given the energy
-
-double P(double d,double e){return (GAMMA-1.0)*d*e;}
-
-// invert the eos to return energy given the pressure
-
-double E(double d,double p){return p/((GAMMA-1.0)*d);}
 
 // empty a vector
 

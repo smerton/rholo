@@ -1,340 +1,231 @@
 // silo graphics IO function
 
+// Author S. R. Merton
+
+#define FILENAME "silo/graphics.silo"
+#define CODENAME "rholo"
+#define VERSION "1.0"
+#define TITLE "MyFirstTitle"
+#define FILEINFO "This is a silo file created by rholo and it contains polyhedral meshes." // define info for reader app
+#define MESHNAME "MyFirstMesh"   // name of a test mesh
+#define KNOD i*(S->nloc()-1)+k   // global node number on kinematic mesh
+#define TNOD i*S->nloc()+j       // global node number on thermodynamic mesh
+#define VD vector<double>        // vector of doubles
+#define VI vector<int>           // vector of ints
+
 #include <iostream>
 #include <vector>
-#include "mesh.h"
-#include "shape.h"
-#ifdef USE_SILO
+#include <ctime>
+#include <filesystem>
+#include <algorithm>
 #include "silo.h"
-#endif
-#include <fstream>
-#include <cmath>
-#include <iomanip>
-#include "riemann.h"
+#include "shape.h"
 
-#define VD vector<double> // vector of doubles
-#define FILENAME "graphics.silo" // define the output filename
-#define FILEINFO "This is a silo file created by silo.cpp and it contains polyhedral meshes." // define info for reader app
-#define MESHNAME "MyFirstMesh" // name of a test mesh
-#define NSAMPLES 2000 // number of sample points
+// function signatures
+
+std::string date();
 
 using namespace std;
 
-void silo(Mesh*M,VD*x0,VD*d,VD*p,VD*m,VD*ec0,VD*V0,VD*u0,VD*e0,Shape*S[],int cycle,double time){
-#ifdef USE_SILO
+void silo(VD*x,VD*d,VD*p,VD*e,VD*q,VD*c,VD*u,VI*m,int step,double time,Shape*S){
+
   DBfile*dbfile;
-  int dberr;
   DBoptlist *optlist=NULL;
+  int dberr;
+  string str1("silo/step_"+to_string(step)+".silo");
 
-// number of dummy elements in each direction
-
-  long ni( (M->Dim(0)-1)*(S[1]->order()+1)-1);
-  long nj( (M->Dim(1)-1)*(S[1]->order()+1)-1);
-
-//  const char*filename(FILENAME);
+  const char*filename(str1.c_str());
+  const char*codename(CODENAME);
+  const char*version(VERSION);
+  const char*title(TITLE);
   const char*fileinfo(FILEINFO);
   const char*meshname(MESHNAME);
 
-// vector<char> filename(str.c_str(), str.c_str() + str.size() + 1);
-  string str1("step_"+to_string(cycle)),str2("profile_"+to_string(cycle));
-  const char*filename(str1.append(".silo").c_str());
+  int nx((x->size()-1)/S->order());    // number of cells in x direction
+  int ny(1);                           // number of cells in y direction
+  int nzones = nx*ny;                  // number of zones
+  int ndims = 2;                       // number of dimensions
+  int nnodesk = 2*x->size();           // number of nodes on kinematic grid
+  int nnodest = 2*nzones*S->nloc();    // number of nodes on thermodynamic grid
+  int origin = 0;                      // first address in nodelist arrays
+  int lnodelist=(2*S->nloc()*nzones);  // length of the node list
+  int nodelist[lnodelist];             // the node list
+  int nshapetypes(1);                  // number of different shape types on the mesh
+  int shapesize[nshapetypes];          // number of nodes defining each shape
+  int shapecounts[nshapetypes];        // number of zones of each shape type
 
-// only one polyhedral order on the mesh is coded for here
+// set up material data structure
 
-  if(M->NOrders()>1){
-    cout<<"silo(): only handling 1 polyhedral order, but there are "<<M->NOrders()<<" present."<<endl;
-    return;
+  int nmat(*max_element(m->begin(),m->end())); // number of materials
+  int matdims[]={nx,ny};                       // material dimensions
+  char*matname[nmat];                          // material names
+  int matnos[nmat];                            // materials numbers present
+  int matlist[nzones];                         // material number in each zone
+  int mixlen(0);                               // number of mixed cells
+  int mix_next[mixlen];                        // indices into mixed data arrays
+  int mix_mat[mixlen];                         // material numbers for mixed zones
+  int mix_vf[mixlen];                          // volunme fractions
+
+// output arrays
+
+  int elnos[nzones];                           // element numbers
+  long nknos[nnodesk];                         // node numbers
+  double var1[nnodesk];                        // zone centred scalars
+  double var2[nzones];                         // zone centred scalars
+
+  cout<<"       silo(): Writing a silo graphics dump to file "<<filename<<endl;
+
+// store coordinates in correct format for silo and repeat for each mesh
+
+  double xcoordsk[nnodesk];for(int i=0;i<x->size();i++){xcoordsk[i]=x->at(i);};for(int i=0;i<x->size();i++){xcoordsk[x->size()+i]=x->at(i);}
+  double ycoordsk[nnodesk];for(int i=0;i<x->size();i++){ycoordsk[i]=0.0;};for(int i=0;i<x->size();i++){ycoordsk[x->size()+i]=0.25;}
+  double *coordsk[]={xcoordsk,ycoordsk};
+
+// thermodynamic coordinates
+
+  double xcoordst[nnodest],ycoordst[nnodest];
+  for(int i=0;i<nzones;i++){
+      for(int j=0;j<S->nloc();j++){
+        double pos(-1.0+j*2.0/(S->nloc()-1));xcoordst[i*S->nloc()+j]=0.0;
+        for(int k=0;k<S->nloc();k++){
+          xcoordst[i*S->nloc()+j]+=S->value(k,pos)*xcoordsk[i*(S->nloc()-1)+k];
+        }
+        xcoordst[(nzones*S->nloc())+i*S->nloc()+j]=xcoordst[i*S->nloc()+j];
+      }
   }
+  for(int i=0;i<nzones*S->nloc();i++){ycoordst[i]=0.0;};for(int i=0;i<nzones*S->nloc();i++){ycoordst[nzones*S->nloc()+i]=0.25;}
+  double *coordst[]={xcoordst,ycoordst};
 
-//  only 2D meshes have been set up here
+// connectivities
 
-  if(M->Dim(M->NDims()-1)>1){
-    cout<<"silo(): 3D meshes are not coded for, "<<M->Dim(M->NDims()-1)<<" nodes detected in 3rd dimension."<<endl;
-    return;
-  }
-
-// load mesh vertices on kinematic grid
-
-  double xcoords_k[M->KNodes()],ycoords_k[M->KNodes()],zcoords_k[M->KNodes()],xcoords_s[NSAMPLES],ycoords_s[NSAMPLES],zcoords_s[NSAMPLES];VD rx;
-
-  for(long i=0;i<M->KNodes();i++){
-//    xcoords_k[i]=M->KCoord0(0,i);
-    ycoords_k[i]=M->KCoord0(1,i);
-    zcoords_k[i]=M->KCoord0(2,i);
-  }
-
-// overide x-cordinate
-
-  long ki(0);
-  for(int j=0;j<(M->Dim(1)-1);j++){
-    for(int i=1;i<M->Dim(0);i++){
-      for(int jloc=0;jloc<S[1]->order()+1;jloc++){
-        for(int iloc=0;iloc<S[1]->order()+1;iloc++){
-          long ix(i*S[1]->nloc()+iloc);
-          xcoords_k[ki]=(*x0)[ix];
-          ki++;
+  for(int i=0;i<nx;i++){
+    for(int j=0;j<2;j++){
+      for(int k=0;k<S->nloc();k++){
+        if(j==0){
+          nodelist[2*i*S->nloc()+(j*S->nloc())+k]=i*(S->nloc()-1)+k;
+        }else{
+          nodelist[2*i*S->nloc()+(j*S->nloc())+k]=(i+nx+1)*(S->nloc()-1)-k+1;
         }
       }
     }
   }
 
-// load mesh vertices on thermodynamic grid
+// zone shapes
 
-  double xcoords_t[M->TNodes()];double ycoords_t[M->TNodes()];double zcoords_t[M->TNodes()];
-  for(long i=0;i<M->TNodes();i++){
-//    xcoords_t[i]=M->TCoord0(0,i);
-    ycoords_t[i]=M->TCoord0(1,i);
-    zcoords_t[i]=M->TCoord0(2,i);
-  }
+  for(int i=0;i<nshapetypes;i++){shapesize[i]=2*S->nloc();}
+  for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
 
-// overide x-cordinate
+// material numbers
 
-  long ti(0);
-  for(int j=0;j<(M->Dim(1)-1);j++){
-    for(int i=1;i<M->Dim(0);i++){
-      for(int jloc=0;jloc<S[0]->order()+1;jloc++){
-        for(int iloc=0;iloc<S[0]->order()+1;iloc++){
-          long ix(i*S[0]->nloc()+iloc);
-          xcoords_t[ti]=(*x0)[ix];
-          ti++;
-        }
-      }
-    }
-  }
+  for(int i=0;i<nmat;i++){matnos[i]=i+1;}
+  for(int i=0;i<nzones;i++){matlist[i]=m->at(i);}
+  for(int i=0;i<nmat;i++){matname[i]="Air";}
 
-// sample point coordinates
+// disengage deprecation signalling
 
-  for(int i=0;i<NSAMPLES;i++){xcoords_s[i]=0.0+i/double(NSAMPLES);rx.push_back(xcoords_s[i]);ycoords_s[i]=0.0;zcoords_s[i]=0.0;}
-
-// place coordinates into silo output format
-
-  double *coords_k[]={(double*)xcoords_k,(double*)ycoords_k,(double*)zcoords_k};
-  double *coords_t[]={(double*)xcoords_t,(double*)ycoords_t,(double*)zcoords_t};
-  double *coords_s[]={(double*)xcoords_s,(double*)ycoords_s,(double*)zcoords_s};
-
-// set up the number of nodes on the meshes
-
-  int nnodes_k=M->KNodes();
-  int nnodes_t=M->TNodes();
-
-  int nzones(int((M->Dim(0)-1)*(M->Dim(1)-1)));
-  int nzones_k(((M->Dim(0)-1)*(S[1]->order()+1)-1)*((M->Dim(1)-1)*(S[1]->order()+1)-1));
-  int nzones_t(((M->Dim(0)-1)*(S[0]->order()+1)-1)*((M->Dim(1)-1)*(S[0]->order()+1)-1));
-
-  int ndims(3);
-  int lnodelist_k(nzones_k*4); // includes dummies
-  int lnodelist_t(nzones_t*4); // includes dummies
-  int nshapes(1);
-
-  int shapesize[nshapes];
-  int shapecnt[nshapes];
-  int shapecnt_k[nshapes];
-  int shapecnt_t[nshapes];
-  int shapetype[nshapes];
-
-// setup data output arrays
-
-  double var1[nzones_k]; // zone centred kinematic fields
-  double var2[nnodes_k]; // node centred kinematic fields
-  long var3[nnodes_k];   // node centred longs
-  double var4[NSAMPLES]; // sample point data
-
-// set up the material data structure
-
-  int nmat(M->NMaterials());
-  int matnos[nmat];
-  int matlist[nzones_k];
-  int nmatdims(1);
-  int lmatlist[nmatdims];
-  int mixlen(0);
-  int mix_next[mixlen];
-  int mix_mat[mixlen];
-  int mix_vf[mixlen];
-
-  lmatlist[0]=nzones;
-
-// store material numbers present on the mesh
-
-  for(int imat=0;imat<nmat;imat++){matnos[imat]=M->Materials(imat);}
-
-// store material number in each zone
-
-  for(long i=0;i<nzones_k;i++){matlist[i]=(M->mElement[i]>=0)?M->Material(M->mElement[i]):M->Material(0);}
-
-// create a nodelist to display the kinematic data
-
-  int nodelist_k[lnodelist_k];
-
-  for(long ilist=0;ilist<M->lKNodeList();ilist++){
-    nodelist_k[ilist]=M->KNodeList(ilist);
-  }
-
-// create a nodelist to display thethermodynamic data
-
-  int nodelist_t[lnodelist_t];
-
-  for(long ilist=0;ilist<M->lTNodeList();ilist++){
-    nodelist_t[ilist]=M->TNodeList(ilist);
-  }
-
-// set the number of nodes per shape
-
-  shapesize[0]=4;
-
-// set the number of elements containing each shape
-
-  shapecnt[0]=nzones;shapecnt_k[0]=nzones_k;shapecnt_t[0]=nzones_t;
-
-// set the shape types
-
-  shapetype[0]=DB_ZONETYPE_QUAD;
+  dberr=DBSetDeprecateWarnings(0);
 
 // create the silo database - this opens it also
 
   dbfile=DBCreate(filename,DB_CLOBBER,DB_LOCAL,fileinfo,DB_HDF5);
 
-// create a zonelist for the unstructured grid ucd meshes
+// write out connectivity information. //
 
-  dberr=DBPutZonelist2(dbfile,"zlist_k",nzones_k,M->NDims(),nodelist_k,lnodelist_k,0,0,0,shapetype,shapesize,shapecnt_k,nshapes,NULL);
-  dberr=DBPutZonelist2(dbfile,"zlist_t",nzones_t,M->NDims(),nodelist_t,lnodelist_t,0,0,0,shapetype,shapesize,shapecnt_t,nshapes,NULL);
+  dberr=DBPutZonelist(dbfile, "zonelist", nzones, ndims, nodelist, lnodelist, origin ,shapesize, shapecounts, nshapetypes);
 
-// write the meshes
+// write out the meshes //
 
-  optlist = DBMakeOptlist(2);
-  dberr=DBAddOption(optlist, DBOPT_DTIME, &time);
-  dberr=DBAddOption(optlist, DBOPT_CYCLE, &cycle);
-  dberr=DBPutPointmesh (dbfile,"Kinematics",M->NDims(),coords_k,nnodes_k,DB_DOUBLE,optlist);
-  dberr=DBPutPointmesh (dbfile,"Thermodynamics",M->NDims(),coords_t,nnodes_t,DB_DOUBLE,optlist);
-  dberr=DBPutUcdmesh   (dbfile,"Elements",M->NDims(),NULL,coords_k,nnodes_k,nzones_k,"zlist_k",NULL,DB_DOUBLE,optlist);
-  dberr=DBPutPointmesh (dbfile,"Sample",1,coords_s,NSAMPLES,DB_DOUBLE,optlist);
+  optlist=DBMakeOptlist(2);
+  dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
+  dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
+  dberr=DBPutUcdmesh(dbfile,"Elements",ndims,NULL,coordsk,nnodesk,nzones,"zonelist",NULL,DB_DOUBLE,optlist);
+  dberr=DBPutPointmesh(dbfile,"Kinematics",ndims,coordsk,nnodesk,DB_DOUBLE,optlist);
+  dberr=DBPutPointmesh(dbfile,"Thermodynamics",ndims,coordst,nnodest,DB_DOUBLE,optlist);
   dberr=DBFreeOptlist(optlist);
 
-// write the materials
+// write out the material
 
-  dberr=DBPutMaterial(dbfile,"Materials","Elements",nmat,matnos,matlist,&nzones_k,1,NULL,NULL,NULL,NULL,mixlen,DB_INT,NULL);
+  optlist=DBMakeOptlist(1);
+  dberr=DBAddOption(optlist,DBOPT_MATNAMES,matname);
+  dberr=DBPutMaterial(dbfile,"Materials","Elements",nmat,matnos,matlist,matdims,ndims,NULL,NULL,NULL,NULL,mixlen,DB_INT,optlist);
+  dberr=DBFreeOptlist(optlist);
 
 // write the element numbers
 
-  for(long i=0;i<nzones_k;i++){matlist[i]=M->mElement[i];}
-  for(long i=0;i<nzones_k;i++){matlist[i]=(M->mElement[i]>=0)?M->mElement[i]:-1;}
+  for(int i=0;i<nzones;i++){elnos[i]=i;}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
-  dberr=DBPutUcdvar1(dbfile,"elementID","Elements",matlist,nzones_k,NULL,0,DB_INT,DB_ZONECENT,optlist);
+  dberr=DBPutUcdvar1(dbfile,"elementID","Elements",elnos,nzones,NULL,0,DB_INT,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 // write the node numbers
 
-  for(long i=0;i<nnodes_k;i++){var3[i]=i;}
+  for(long i=0;i<nnodesk;i++){nknos[i]=i;}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
-  dberr=DBPutUcdvar1(dbfile,"nodeID","Elements",var3,nnodes_k,NULL,0,DB_LONG,DB_NODECENT,optlist);
+  dberr=DBPutUcdvar1(dbfile,"nodeID","Elements",nknos,nnodesk,NULL,0,DB_LONG,DB_NODECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 // write scalar data fields
 
-//  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->Density(M->mElement[i]):M->Density(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*d)[M->mElement[i]+1]:(*d)[0];}}
+  for(long i=0;i<nzones;i++){var2[i]=d->at(i);}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g/cc");
-  dberr=DBPutUcdvar1(dbfile,"density","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBPutUcdvar1(dbfile,"density","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
-//  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->Pressure(M->mElement[i]):M->Pressure(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*p)[M->mElement[i]+1]:(*p)[0];}}
+  for(long i=0;i<nzones;i++){var2[i]=p->at(i);}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mb");
-  dberr=DBPutUcdvar1(dbfile,"pressure","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBPutUcdvar1(dbfile,"pressure","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
-//  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->Mass(M->mElement[i]):M->Mass(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*m)[M->mElement[i]+1]:(*m)[0];}}
+  for(long i=0;i<nzones;i++){var2[i]=q->at(i);}
   optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g");
-  dberr=DBPutUcdvar1(dbfile,"mass","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mb");
+  dberr=DBPutUcdvar1(dbfile,"bulk_q","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
-//  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->CCEnergy0(M->mElement[i]):M->CCEnergy0(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*ec0)[M->mElement[i]+1]:(*ec0)[0];}}
+  for(long i=0;i<nzones;i++){var2[i]=c->at(i);}
   optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
-  dberr=DBPutUcdvar1(dbfile,"pdv","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
+  dberr=DBPutUcdvar1(dbfile,"sound_speed","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
-//  for(long i=0;i<nzones_k;i++){var1[i]=(M->mElement[i]>=0)?M->Volume0(M->mElement[i]):M->Volume0(0);}
-  for(long j=0;j<nj;j++){for(long i=0;i<ni;i++){var1[j*ni+i]=(M->mElement[i]>=0)?(*V0)[M->mElement[i]+1]:(*V0)[0];}}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cc");
-  dberr=DBPutUcdvar1(dbfile,"volume","Elements",var1,nzones_k,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-// map energy field onto kinematic mesh for the vis
-
-//  double data_t[S[0]->nloc()];double data_k[S[1]->nloc()];
-//  for(int i=0;i<nzones;i++){
-//    for(int iloc=0;iloc<S[0]->nloc();iloc++){data_t[iloc]=M->Energy0(i*S[0]->nloc()+iloc);}
-//    S[0]->prolongate(data_t,data_k,S[0]->order());
-//    for(int iloc=0;iloc<S[1]->nloc();iloc++){var2[i*S[1]->nloc()+iloc]=data_k[iloc];}
-//    for(int iloc=0;iloc<S[0]->nloc();iloc++){var2[i*S[0]->nloc()+iloc]=M->Energy0(i*S[0]->nloc()+iloc);} // ->prolongate not working correctly ??
-//  }
-
-  {long ti(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=1;i<M->Dim(0);i++){for(int jloc=0;jloc<S[0]->order()+1;jloc++){for(int iloc=0;iloc<S[0]->order()+1;iloc++){long ix(i*S[0]->nloc()+iloc);var2[ti]=(*e0)[ix];ti++;}}}}}
+  for(int i=0;i<nzones;i++){var2[i]=e->at(i);}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
-  dberr=DBPutUcdvar1(dbfile,"energy","Elements",var2,nnodes_k,NULL,0,DB_DOUBLE,DB_NODECENT,optlist);
+  dberr=DBPutUcdvar1(dbfile,"energy","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 // write vector data fields
 
-//  for(int i=0;i<nnodes_k;i++){var2[i]=M->Velocitx0(0,i);}
-  {long ki(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=1;i<M->Dim(0);i++){for(int jloc=0;jloc<S[1]->order()+1;jloc++){for(int iloc=0;iloc<S[1]->order()+1;iloc++){long ix(i*S[1]->nloc()+iloc);var2[ki]=(*u0)[ix];ki++;}}}}}
+  for(long i=0;i<x->size();i++){var1[i]=u->at(i);};for(int i=0;i<x->size();i++){var1[x->size()+i]=u->at(i);}
   optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/us");
-  dberr=DBPutUcdvar1(dbfile,"velocity_x","Elements",var2,nnodes_k,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
+  dberr=DBPutUcdvar1(dbfile,"velocity_x","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
   dberr=DBFreeOptlist(optlist);
 
-//  for(int i=0;i<nnodes_k;i++){var2[i]=M->Velocity0(1,i);}
-  {long ki(0);for(int j=0;j<(M->Dim(1)-1);j++){for(int i=1;i<M->Dim(0);i++){for(int jloc=0;jloc<S[1]->order()+1;jloc++){for(int iloc=0;iloc<S[1]->order()+1;iloc++){long ix(i*S[1]->nloc()+iloc);var2[ki]=0.0;ki++;}}}}}
+  for(long i=0;i<x->size();i++){var1[i]=0.0;};for(int i=0;i<x->size();i++){var1[x->size()+i]=0.0;}
   optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/us");
-  dberr=DBPutUcdvar1(dbfile,"velocity_y","Elements",var2,nnodes_k,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
+  dberr=DBPutUcdvar1(dbfile,"velocity_y","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
   dberr=DBFreeOptlist(optlist);
 
-// sample the exact solution
-
-  double l[3]={1.0,0.0,1.0},r[3]={0.125,0.0,0.1};       // left/right flux states for Riemann solver
-//  double l[3]={1.0,-2.0,0.4},r[3]={1.0,2.0,0.4}; // 123 problem
-//  double l[3]={1.0,0.0,1000.0},r[3]={1.0,0.0,0.01};       // Colella & Woodward Blastwave
-
-  Riemann R(Riemann::exact,l,r);R.profile(&rx,time);
-
-  for(int i=0;i<NSAMPLES;i++){var4[i]=R.energy(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
-  dberr=DBPutPointvar1(dbfile,"exact_energy","Sample",var4,NSAMPLES,DB_DOUBLE,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-  for(int i=0;i<NSAMPLES;i++){var4[i]=R.density(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g/cc");
-  dberr=DBPutPointvar1(dbfile,"exact_density","Sample",var4,NSAMPLES,DB_DOUBLE,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-  for(int i=0;i<NSAMPLES;i++){var4[i]=R.pressure(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mb");
-  dberr=DBPutPointvar1(dbfile,"exact_pressure","Sample",var4,NSAMPLES,DB_DOUBLE,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-  for(int i=0;i<NSAMPLES;i++){var4[i]=R.velocity(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/us");
-  dberr=DBPutPointvar1(dbfile,"exact_velocity","Sample",var4,NSAMPLES,DB_DOUBLE,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-// close the file
+// close the database
 
   dberr=DBClose(dbfile);
-#endif
+
   return;
+
+}
+
+// return today's date
+
+std::string date(){
+
+  time_t now = time(0);
+
+  return ctime(&now);
 
 }
