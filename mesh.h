@@ -27,6 +27,8 @@ class Mesh{
   int NSideNodes(int i); // returns the numnber of nodes on side i on edge of mesh
   int SideNode(int i,int j); // returns the node number of node j on side i on edge of mesh
   double Coord(int idim,int i); // returns coordinate idim of node i
+  void CopyCoords(vector<vector<double> > &v); // replace a vector with the coordinates
+  double Volume(int i); // returns the volume of the element
 
   private:
 
@@ -44,6 +46,7 @@ class Mesh{
   vector<int> mSideType; // cell side boundary type
   vector<vector<int> > mSideNode; // node numbers on each cell side coincident with the mesh edge
   vector<vector<double> > mCoord; // coordinates of each node
+  vector<double > mVolume; // element volume
 
 // member function signatures
 
