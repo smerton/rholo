@@ -103,6 +103,18 @@ int main(){
   for(int i=1;i<ng;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];};ke+=0.25*m[0]*u0[0]*u0[0];ke+=0.25*m[ng-1]*u0[ng]*u0[ng];
   for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
 
+for(int i=0;i<M.NCells();i++){
+  cout<<i<<" vol= "<<M.Volume(i)<<endl;
+}
+
+
+// debug
+  cout<<"2D not yet operational, stopping."<<endl;
+  exit(1);
+// debug
+
+
+
 // start the Riemann solvers from initial flux states
 
   Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r);
@@ -235,7 +247,7 @@ int main(){
   for(int iel=0;iel<ng;iel++){
     for(int iloc=0;iloc<S.nloc();iloc++){
       int i(iel+iloc); // column address in the global matrix
-      if((i>0&&i<ng)){for(int gi=0;gi<S.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*S.dvalue(iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
+      if((i>0&&i<ng)){for(int gi=0;gi<S.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*S.dvalue(0,iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
       for(int jloc=0;jloc<S.nloc();jloc++){
         double nn(0.0); // mass matrix
         int j(iel+jloc); // row address in the global matrix

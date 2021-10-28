@@ -203,6 +203,16 @@ Mesh::Mesh(char* meshfile){
 
     for(int gi=0;gi<S.ngi();gi++){
 
+
+// debug
+    cout<<"cell "<<i<<" gi "<<gi<<" dN1/dx= "<<S.dvalue(0,0,gi)<<endl;
+    cout<<"cell "<<i<<" gi "<<gi<<" dN2/dx= "<<S.dvalue(0,1,gi)<<endl;
+    cout<<"cell "<<i<<" gi "<<gi<<" dN3/dx= "<<S.dvalue(0,2,gi)<<endl;
+    cout<<"cell "<<i<<" gi "<<gi<<" dN4/dx= "<<S.dvalue(0,3,gi)<<endl;
+    exit(1);
+// debug
+
+
       double j11(0.0),j12(0.0),j21(0.0),j22(0.0);
 
 // derivatives of the physical coordinates
@@ -226,10 +236,9 @@ Mesh::Mesh(char* meshfile){
 
 // commit to volume address space in the mesh class
 
-  mVolume.push_back(ivol);
+    mVolume.push_back(ivol);
 
   }
-
 
 // print out what we have found
 

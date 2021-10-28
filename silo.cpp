@@ -46,7 +46,6 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*q,VD*c,VD*u,VI*m,int step,double time,Shape*S){
   int nzones = nx*ny;                  // number of zones
   int ndims = 2;                       // number of dimensions
   int nnodesk = 2*x->size();           // number of nodes on kinematic grid
-  int nnodest = 2*nzones*S->nloc();    // number of nodes on thermodynamic grid
   int origin = 0;                      // first address in nodelist arrays
   int lnodelist=(2*S->nloc()*nzones);  // length of the node list
   int nodelist[lnodelist];             // the node list
@@ -80,21 +79,6 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*q,VD*c,VD*u,VI*m,int step,double time,Shape*S){
   double xcoordsk[nnodesk];for(int i=0;i<x->size();i++){xcoordsk[i]=x->at(i);};for(int i=0;i<x->size();i++){xcoordsk[x->size()+i]=x->at(i);}
   double ycoordsk[nnodesk];for(int i=0;i<x->size();i++){ycoordsk[i]=0.0;};for(int i=0;i<x->size();i++){ycoordsk[x->size()+i]=0.25;}
   double *coordsk[]={xcoordsk,ycoordsk};
-
-// thermodynamic coordinates
-
-  double xcoordst[nnodest],ycoordst[nnodest];
-  for(int i=0;i<nzones;i++){
-      for(int j=0;j<S->nloc();j++){
-        double pos(-1.0+j*2.0/(S->nloc()-1));xcoordst[i*S->nloc()+j]=0.0;
-        for(int k=0;k<S->nloc();k++){
-          xcoordst[i*S->nloc()+j]+=S->value(k,pos)*xcoordsk[i*(S->nloc()-1)+k];
-        }
-        xcoordst[(nzones*S->nloc())+i*S->nloc()+j]=xcoordst[i*S->nloc()+j];
-      }
-  }
-  for(int i=0;i<nzones*S->nloc();i++){ycoordst[i]=0.0;};for(int i=0;i<nzones*S->nloc();i++){ycoordst[nzones*S->nloc()+i]=0.25;}
-  double *coordst[]={xcoordst,ycoordst};
 
 // connectivities
 
@@ -140,7 +124,6 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*q,VD*c,VD*u,VI*m,int step,double time,Shape*S){
   dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
   dberr=DBPutUcdmesh(dbfile,"Elements",ndims,NULL,coordsk,nnodesk,nzones,"zonelist",NULL,DB_DOUBLE,optlist);
   dberr=DBPutPointmesh(dbfile,"Kinematics",ndims,coordsk,nnodesk,DB_DOUBLE,optlist);
-  dberr=DBPutPointmesh(dbfile,"Thermodynamics",ndims,coordst,nnodest,DB_DOUBLE,optlist);
   dberr=DBFreeOptlist(optlist);
 
 // write out the material

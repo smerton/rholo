@@ -18,55 +18,79 @@ Shape::Shape(int n){
 
   morder=n;
 
+// set the number of dimensions
+
+  mndims=2; // shouldn't we be getting this from the mesh class ?
+
 // set number of local nodes
 
-  mnloc=this->order()+1;
+  mnloc=(this->order()+1)*(this->order()+1);
 
 // set number of surface nodes on a face
 
-  msloc=1;
+  msloc=this->order()+1;
 
 // set number of integration points adequate for the shape
 
-  mngi=this->order()+1;
+  mngi=(this->order()+1)*(this->order()+1);
 
 // set number of faces
 
-  mnfaces=2;
+  mnfaces=4;
 
 // set up reflection across each face
 
   vector<int> reflections[this->nfaces()];
 
-  for(int i=0;i<this->nloc();i++){
-    reflections[0].push_back(this->nloc()-i-1);
-    reflections[1].push_back(this->nloc()-i-1);
-  }
+  reflections[0].push_back(2);
+  reflections[1].push_back(1);
+  reflections[2].push_back(2);
+  reflections[3].push_back(3);
 
   for(int iface=0;iface<this->nfaces();iface++){
     mreflect.push_back(reflections[iface]);
+  }
+
+// node positions
+
+  for(int j=0,k=0;j<sloc();j++){
+    for(int i=0;i<sloc();i++,k++){
+      mpos[0].push_back(i);
+      mpos[1].push_back(j);
+    }
   }
 
 // load a quadrature rule for the numerical integration of the polynomials Px
 
   QuadratureRule Q(this->order()+1);
 
-// shape value at each integration point
+// shape and derivative value at each integration point
 
-  for(int i=0;i<this->nloc();i++){
-    vector<double> ivalue,idvalue;
-    for(int gi=0;gi<this->ngi();gi++){
-      ivalue.push_back(this->value(i,Q.x[gi]));
-      idvalue.push_back(this->dvalue(i,Q.x[gi]));
+  for(int i=0;i<nloc();i++){
+    vector<double> values;
+    vector<vector<double> > dvalues(mndims);
+    for(int ipt=0;ipt<Q.npoints;ipt++){
+      for(int jpt=0;jpt<Q.npoints;jpt++){
+        values.push_back(value(i,Q.x[ipt],Q.x[jpt]));
+        for(int idim=0;idim<mndims;idim++){
+          dvalues.at(idim).push_back(dvalue(idim,i,Q.x[ipt],Q.x[jpt]));
+        }
+      }
     }
-    mvalue.push_back(ivalue);
-    mdvalue.push_back(idvalue);
+    mvalue.push_back(values);
+
+    for(int idim=0;idim<ndims();idim++){
+      mdvalue[idim].push_back(dvalues.at(idim));
+    }
+
   }
 
 // quadrature weights
 
-  for(int gi=0;gi<this->ngi();gi++){
-    mwgt.push_back(Q.w[gi]);
+  for(int ipt=0,gi=0;ipt<Q.npoints;ipt++){
+    for(int jpt=0;jpt<Q.npoints;jpt++,gi++){
+      mwgt.push_back(Q.w[ipt]*Q.w[jpt]);
+    }
   }
 
 }
@@ -74,7 +98,6 @@ Shape::Shape(int n){
 // destructor function to release storage associated with a Shape class object
 
 Shape::~Shape(){}
-
 
 /// member function to prolongate the vector u[] to a new vector v[] in the destination element
 
@@ -103,14 +126,18 @@ void Shape::prolongate(double*u,double*v,int p){
 // accessor functions to member data
 
 int Shape::order(){return morder;} // returns the polyhedral order
+int Shape::ndims(){return mndims;} // returns the number of dimensions
 int Shape::nloc(){return mnloc;} // returns number of local nodes
 int Shape::sloc(){return msloc;} // returns number of nodes on the surface
 int Shape::ngi(){return mngi;} // number of Gauss integration points
 int Shape::nfaces(){return mnfaces;} // number of element faces
 int Shape::reflect(int iloc,int iface){return mreflect[iface][iloc];} // refelct iloc across face iface
+int Shape::pos(int idim,int iloc){return mpos[idim][iloc];} // node position in dimension idim
 
 double Shape::wgt(int gi){return mwgt[gi];} // quadrature weight of integration point gi
 double Shape::value(int i,int gi){return mvalue[i][gi];} // shape i value at Gauss point gi
-double Shape::value(int i,double x){Polynomial P(this->order(),i,-1.0,1.0);return P.value(x);} // shape i value at coordinate x
-double Shape::dvalue(int i,int gi){return mdvalue[i][gi];} // derivative i value at Gauss point gi
-double Shape::dvalue(int i,double x){Polynomial P(this->order(),i,-1.0,1.0);return P.dvalue(x);} // shape i derivative value at coordinate x
+double Shape::value(int i,double x,double y){Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);return P1.value(x)*P2.value(y);} // shape i value at coordinate x,y
+double Shape::dvalue(int idim,int i,int gi){return mdvalue[idim][i][gi];} // derivative i value at Gauss point gi
+double Shape::dvalue(int idim,int i,double x,double y){Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);double dval[2];dval[0]=P1.dvalue(x)*P2.value(y);dval[1]=P1.value(x)*P2.dvalue(y);return dval[idim];
+
+} // shape i derivative value at coordinate x
