@@ -69,8 +69,8 @@ Shape::Shape(int n){
   for(int i=0;i<nloc();i++){
     vector<double> values;
     vector<vector<double> > dvalues(mndims);
-    for(int ipt=0;ipt<Q.npoints;ipt++){
-      for(int jpt=0;jpt<Q.npoints;jpt++){
+    for(int jpt=0;jpt<Q.npoints;jpt++){
+      for(int ipt=0;ipt<Q.npoints;ipt++){
         values.push_back(value(i,Q.x[ipt],Q.x[jpt]));
         for(int idim=0;idim<mndims;idim++){
           dvalues.at(idim).push_back(dvalue(idim,i,Q.x[ipt],Q.x[jpt]));

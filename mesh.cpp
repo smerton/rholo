@@ -73,8 +73,8 @@ Mesh::Mesh(char* meshfile){
           mType.push_back(type);
           vectmp.push_back(v1);
           vectmp.push_back(v2);
-          vectmp.push_back(v3);
           vectmp.push_back(v4);
+          vectmp.push_back(v3);
           mVertex.push_back(vectmp);
         }
 
@@ -203,30 +203,20 @@ Mesh::Mesh(char* meshfile){
 
     for(int gi=0;gi<S.ngi();gi++){
 
-
-// debug
-    cout<<"cell "<<i<<" gi "<<gi<<" dN1/dx= "<<S.dvalue(0,0,gi)<<endl;
-    cout<<"cell "<<i<<" gi "<<gi<<" dN2/dx= "<<S.dvalue(0,1,gi)<<endl;
-    cout<<"cell "<<i<<" gi "<<gi<<" dN3/dx= "<<S.dvalue(0,2,gi)<<endl;
-    cout<<"cell "<<i<<" gi "<<gi<<" dN4/dx= "<<S.dvalue(0,3,gi)<<endl;
-    exit(1);
-// debug
-
-
-      double j11(0.0),j12(0.0),j21(0.0),j22(0.0);
+      double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
 
 // derivatives of the physical coordinates
 
       for(int j=0;j<S.nloc();j++){
-        j11+=Coord(0,Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
-        j21+=Coord(0,Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
-        j12+=Coord(1,Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
-        j22+=Coord(1,Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
+        dxdu+=Coord(0,Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
+        dydu+=Coord(1,Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
+        dxdv+=Coord(0,Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
+        dydv+=Coord(1,Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
       }
 
 // calculate the determinant
 
-      double detJ(j11*j22-j12*j21);
+      double detJ(dxdu*dydv-dydu*dxdv);
 
 // integrate the jacobian to obtain the cell volume
 
