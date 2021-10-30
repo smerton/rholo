@@ -106,7 +106,7 @@ int main(){
   for(int i=0;i<n;i++){mat.at(i)=M.Material(i);}
   for(int i=0;i<n;i++){V0.at(i)=M.Volume(i);}
   for(int i=0;i<n;i++){V1.at(i)=M.Volume(i);}
-  for(int i=0;i<n;i++){int imat(mat[i]);p.at(i)=state[imat-1][2];}  // load pressure field from intial flux state
+  for(int i=0;i<n;i++){int imat(mat[i]);p.at(i)=state[imat-1][2];}  // load pressure field from initial flux state
   for(int i=0;i<n;i++){int imat(mat[i]);d0.at(i)=state[imat-1][0];} // load density field from initial flux state
   for(int i=0;i<n;i++){int imat(mat[i]);d1.at(i)=state[imat-1][0];}
   for(int i=0;i<n;i++){m.at(i)=d0[i]*V0[i];}                        // calculate the initial mass field
@@ -115,23 +115,23 @@ int main(){
   for(int i=0;i<n;i++){q.at(i)=0.0;}
   for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
 
-  for(int idim=0;idim<ndims;idim++){
-    for(int i=0;i<n;i++){
-for(int iloc=0;iloc<S.nloc();iloc++){
-  long j(M.Vertex(i,iloc));
-u0.at(idim).
-}
-    }
 
-    cout<<" v size= "<<u0.at(idim).size()<<endl;
+// load velocity fields from initial flux state
+
+  for(int idim=0;idim<ndims;idim++){
+    vector<double> vtmp(x0.at(idim).size());
+    for(int i=0;i<n;i++){
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        long j(M.Vertex(i,iloc));
+          if(vtmp[j]==0.0){vtmp.at(j)=(state[mat[i]-1][1]);}
+      }
+    }
+    u0.at(idim)=vtmp;
+    u1.at(idim)=vtmp;
   }
 
+// impose additional nodal constraints on the velocity field
 
-
-
-
-//  for(int i=0;i<ng+1;i++){u0.at(i)=(x0[i]<=0.5)?l[1]:r[1];}
-//  for(int i=0;i<ng+1;i++){u1.at(i)=u0[i];}
 
 // debug
 // output initial data
