@@ -15,7 +15,7 @@
 
 #include <iostream>
 #include <vector>
-#include <ctime>
+//#include <ctime>
 #include <filesystem>
 #include <algorithm>
 #include "silo.h"
@@ -205,10 +205,10 @@ void silo(VD*x,VD*d,VD*p,VD*e,VD*q,VD*c,VD*u,VI*m,int step,double time,Shape*S){
 
 // return today's date
 
-std::string date(){
+//std::string date(){
 
-  time_t now = time(0);
+//  time_t now = time(0);
 
-  return ctime(&now);
+//  return ctime(&now);
 
-}
+//}

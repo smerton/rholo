@@ -27,7 +27,7 @@ class Mesh{
   int NSideNodes(int i); // returns the numnber of nodes on side i on edge of mesh
   int SideNode(int i,int j); // returns the node number of node j on side i on edge of mesh
   double Coord(int idim,int i); // returns coordinate idim of node i
-  void CopyCoords(vector<vector<double> > &v); // replace a vector with the coordinates
+  void InitCoords(vector<vector<double> > &v); // initialise the mesh coordinates
   double Volume(int i); // returns the volume of the element
 
   private:

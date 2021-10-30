@@ -350,9 +350,9 @@ int Mesh::SideNode(int i, int j){return mSideNode[i][j];}
 
 double Mesh::Coord(int idim, int i){return mCoord[idim][i];}
 
-// member function to replace a vector with the coordinates
+// member function to initialise a vector with the mesh coordinates
 
-void Mesh::CopyCoords(vector<vector<double> > &v){v.resize(NDims());for(int i=0;i<NDims();i++){v.at(i).swap(mCoord.at(i));}return;}
+void Mesh::InitCoords(vector<vector<double> > &v){v.resize(NDims());for(int i=0;i<NDims();i++){v.at(i).swap(mCoord.at(i));}return;}
 
 // member function to return the element volume
 
