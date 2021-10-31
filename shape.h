@@ -15,18 +15,18 @@ class Shape{
 
 // accessor functions to member data
 
-    int order();                                        // returns the polyhedral order of the shape
-    int ndims();                                        // returns the number of dimensions of the shape
-    int nloc();                                         // returns number of local nodes
-    int sloc();                                         // returns number of nodes on the surface
-    int ngi();                                          // number of Gauss integration points
-    int nfaces();                                       // number of element faces
-    int reflect(int iloc,int iface);                    // refelct iloc across face iface
-    int pos(int idim,int iloc);                         // node number in dimension idim
+    int order() const;                                  // returns the polyhedral order of the shape
+    int ndims() const;                                  // returns the number of dimensions of the shape
+    int nloc() const;                                   // returns number of local nodes
+    int sloc() const;                                   // returns number of nodes on the surface
+    int ngi() const;                                    // number of Gauss integration points
+    int nfaces() const;                                 // number of element faces
+    int reflect(int iloc,int iface) const;              // refelct iloc across face iface
+    int pos(int idim,int iloc) const;                   // node number in dimension idim
 
-    double wgt(int gi);                                 // quadrature weight of integration point gi
-    double value(int i,int gi);                         // shape i value at Gauss point gi
-    double dvalue(int idim, int i,int gi);              // shape i derivative idim at Gauss point gi
+    double wgt(int gi) const;                           // quadrature weight of integration point gi
+    double value(int i,int gi) const;                   // shape i value at Gauss point gi
+    double dvalue(int idim, int i,int gi) const;        // shape i derivative idim at Gauss point gi
     double value(int i,double x,double y);              // shape i value at local coordinate x,y
     double dvalue(int idim, int i,double x, double y);  // shape i derivative idim at local coordinate x,y
 

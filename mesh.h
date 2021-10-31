@@ -13,22 +13,22 @@ class Mesh{
 
 // accessor functions to member data
 
-  int NDims(); // returns the number of mesh dimensions
-  int NNodes(); // returns the number of nodes on the mesh
-  int NMaterials(); // returns the number of materials on the mesh
-  int NCells(); // returns the number of cells on the mesh
-  int Material(int i); // returns material number in cell i
-  int Type(int i); // returns the geometric type of cell i
-  int NVertices(int i); // returns the number of vertices of cell i
-  int Vertex(int i,int j); // returns the node number of vertex j of cell i
-  int NSides(); // returns the number of cell sides coincident with a mesh edge
-  int SideAttr(int i); // returns the attribute of side i on edge of mesh
-  int SideType(int i); // returns the type of side i on edge of mesh
-  int NSideNodes(int i); // returns the numnber of nodes on side i on edge of mesh
-  int SideNode(int i,int j); // returns the node number of node j on side i on edge of mesh
-  double Coord(int idim,int i); // returns coordinate idim of node i
+  int NDims() const; // returns the number of mesh dimensions
+  int NNodes() const; // returns the number of nodes on the mesh
+  int NMaterials() const; // returns the number of materials on the mesh
+  int NCells() const; // returns the number of cells on the mesh
+  int Material(int i) const; // returns material number in cell i
+  int Type(int i) const; // returns the geometric type of cell i
+  int NVertices(int i) const; // returns the number of vertices of cell i
+  int Vertex(int i,int j) const; // returns the node number of vertex j of cell i
+  int NSides() const; // returns the number of cell sides coincident with a mesh edge
+  int SideAttr(int i) const; // returns the attribute of side i on edge of mesh
+  int SideType(int i) const; // returns the type of side i on edge of mesh
+  int NSideNodes(int i) const; // returns the numnber of nodes on side i on edge of mesh
+  int SideNode(int i,int j) const; // returns the node number of node j on side i on edge of mesh
+  double Coord(int idim,int i) const; // returns coordinate idim of node i
   void InitCoords(vector<vector<double> > &v); // initialise the mesh coordinates
-  double Volume(int i); // returns the volume of the element
+  double Volume(int i) const; // returns the volume of the element
 
   private:
 

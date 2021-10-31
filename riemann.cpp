@@ -81,7 +81,7 @@ void Riemann::pvrs_solver(){
 
 // velocity at the discontinuity
 
-  ustar=(mPl-mPr)/(zl+zr)+(mur*zr+mul*zr)/(zl+zr);
+  ustar=(mPl-mPr)/(zl+zr)+(mur*zr+mul*zl)/(zl+zr);
 
   return;
 

@@ -296,59 +296,59 @@ constexpr unsigned int str2int(const char* str, int h = 0){return !str[h] ? 5381
 
 // member function to return the number of mesh dimensions
 
-int Mesh::NDims(){return mNDims;}
+int Mesh::NDims() const {return mNDims;}
 
 // member function to return the number of nodes
 
-int Mesh::NNodes(){return mNNodes;}
+int Mesh::NNodes() const {return mNNodes;}
 
 // member function to return the number of materials
 
-int Mesh::NMaterials(){return mNMaterials;}
+int Mesh::NMaterials() const {return mNMaterials;}
 
 // member function to return the number of cells
 
-int Mesh::NCells(){return mNCells;}
+int Mesh::NCells() const {return mNCells;}
 
 // member function to return the material in cell i
 
-int Mesh::Material(int i){return mMaterial.at(i);}
+int Mesh::Material(int i) const {return mMaterial.at(i);}
 
 // member function to return the geometric type of cell i
 
-int Mesh::Type(int i){return mType.at(i);}
+int Mesh::Type(int i) const {return mType.at(i);}
 
 // member function to return the number of vertices of cell i
 
-int Mesh::NVertices(int i){return mVertex.at(i).size();}
+int Mesh::NVertices(int i) const {return mVertex.at(i).size();}
 
 // member function to return the node number of vertex j of cell i
 
-int Mesh::Vertex(int i, int j){return mVertex[i][j];}
+int Mesh::Vertex(int i, int j) const {return mVertex[i][j];}
 
 // member function to return the number of element sides coincident with a mesh edge
 
-int Mesh::NSides(){return mNSides;}
+int Mesh::NSides() const {return mNSides;}
 
 // member function to return the attribute of side i on edge of mesh
 
-int Mesh::SideAttr(int i){return mSideAttr.at(i);}
+int Mesh::SideAttr(int i) const {return mSideAttr.at(i);}
 
 // member function to return the type of side i on edge of mesh
 
-int Mesh::SideType(int i){return mSideType.at(i);}
+int Mesh::SideType(int i) const {return mSideType.at(i);}
 
 // member function to return the number of nodes on side i on edge of mesh
 
-int Mesh::NSideNodes(int i){return mSideNode.at(i).size();}
+int Mesh::NSideNodes(int i) const {return mSideNode.at(i).size();}
 
 // member function to return the node number of node j on side i on edge of mesh
 
-int Mesh::SideNode(int i, int j){return mSideNode[i][j];}
+int Mesh::SideNode(int i, int j) const {return mSideNode[i][j];}
 
 // member function to return coordinate idim of node i
 
-double Mesh::Coord(int idim, int i){return mCoord[idim][i];}
+double Mesh::Coord(int idim, int i) const {return mCoord[idim][i];}
 
 // member function to initialise a vector with the mesh coordinates
 
@@ -356,7 +356,7 @@ void Mesh::InitCoords(vector<vector<double> > &v){v.resize(NDims());for(int i=0;
 
 // member function to return the element volume
 
-double Mesh::Volume(int i){return mVolume.at(i);}
+double Mesh::Volume(int i) const {return mVolume.at(i);}
 
 // Destructor function to release storage associated with a mesh class object
 
