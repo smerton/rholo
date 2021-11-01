@@ -41,6 +41,10 @@
 #define VTOL 1.0e-10      // threshold for volume errors
 #define COURANT 0.333     // Courant number for CFL condition
 #define DTSFACTOR 0.5     // safety factor on time-step control
+#define NROWS nnodes      // number of rows in the global matrix
+#define NCOLS nnodes      // number of columns in the global matrix
+#define ROW M.Vertex(i,iloc) // row address in global matrix
+#define COL M.Vertex(i,jloc) // column address in global matrix
 
 #include <iostream>
 #include <vector>
@@ -61,14 +65,14 @@
 
 // function signatures
 
-string date();                                                                         // function to return the date and time
-void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ,VVVD &detDJ);        // calculate a jacobian and the determinant
-void header();                                                                         // header part
-void initial_data(int const n, int const nnodes, int const ndims, int const nmats);    // echo some initial information
-void vempty(vector<double>&v);                                                         // signature for emptying a vector
-void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,   // silo graphics output
+string date();                                                                              // function to return the date and time
+void header();                                                                              // header part
+void vempty(vector<double>&v);                                                              // empty a vector
+void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
+void initial_data(int const n, int const nnodes, int const ndims, int const nmats);         // echo some initial information
+void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M);
-void state_print(int const n,int const ndims, int const nmats, VI const &mat,          // output material states
+void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t);
 
@@ -87,12 +91,13 @@ int main(){
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
   double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
+  Matrix KMASS(NROWS);                                           // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
   vector<double> c(n),p(n),q(n);                                 // element sound speed, pressure and bulk viscosity
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // node coordinates
-  vector<vector<double> > detJ(n);                               // determinant of jacobian at each integration point
+  vector<double> detJ(S.ngi());                                  // determinant of jacobian at each integration point
   vector<vector<vector<double> > > detDJ(ndims);                 // determinant of jacobian for each derivative
   vector<double> dt_cfl(n);                                      // element time-step
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
@@ -128,7 +133,12 @@ int main(){
   for(int i=0;i<n;i++){e1.at(i)=E(d1[i],p[i]);}
   for(int i=0;i<n;i++){q.at(i)=0.0;}
   for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
-  for(int idim=0;idim<ndims;idim++){detDJ.at(idim).resize(n);}
+  for(int idim=0;idim<ndims;idim++){
+    detDJ.at(idim).resize(S.nloc());
+    for(int j=0;j<S.nloc();j++){
+      detDJ.at(idim).at(j).resize(S.ngi());                         // allocate determinant for each derivative
+    }
+  }
 
 // load velocity fields from initial flux state
 
@@ -151,6 +161,23 @@ int main(){
 // echo some initial information
 
   initial_data(n,nnodes,ndims,nmats);
+
+// assemble mass matrix for acceleration field
+
+  for(int i=0;i<n;i++){
+    jacobian(i,x0,M,S,detJ,detDJ);
+    for(int iloc=0;iloc<S.nloc();iloc++){
+      for(int jloc=0;jloc<S.nloc();jloc++){
+        double nn(0.0),nnx(0.0),nny(0.0); // mass matrix
+        for(int gi=0;gi<S.ngi();gi++){
+          nn+=d0[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi); // mass matrix
+          nnx+=S.value(iloc,gi)*detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);    // not used: left in as a diagnostic
+          nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);    // not used: left in as a diagnostic
+        }
+        KMASS.add(ROW,COL,nn);
+      }
+    }
+  }
 
 // start the Riemann solvers from initial flux states
 
@@ -224,17 +251,19 @@ int main(){
 //    R1.profile(&rx,time+dt);
 
 
-// update the jacobian
-
-  for(int i=0;i<n;i++){jacobian(x1,M,S,detJ,detDJ);}
-
 // update cell volumes at the full-step
 
   for(int i=0;i<n;i++){
 
+// update the jacobian
+
+    jacobian(i,x1,M,S,detJ,detDJ);
+
+// reset the cell volume
+
     V1.at(i)=0.0;
     for(int gi=0;gi<S.ngi();gi++){
-      V1.at(i)+=detJ[i][gi]*S.wgt(gi);
+      V1.at(i)+=detJ[gi]*S.wgt(gi);
     }
 
     if(V1.at(i)<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}
@@ -590,41 +619,33 @@ void state_print(int const n,int const ndims,int const nmats,VI const &mat,VD co
 
 // calculate a jacobian and the determinant
 
-void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ,VVVD &detDJ){
+void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ){
 
-  for(int i=0;i<M.NCells();i++){
+// loop over quadrature points and calculate the jacobian
 
-    vector<double> detJ_gi;
-    vector<vector<double> > detDJ_gi(M.NDims());
+  for(int gi=0;gi<S.ngi();gi++){
 
-    for(int gi=0;gi<S.ngi();gi++){
+    double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
 
-      double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+// derivatives of the physical coordinates at the quadrature points
 
-// derivatives of the physical coordinates
-
-      for(int j=0;j<S.nloc();j++){
-        dxdu+=x.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
-        dydu+=x.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
-        dxdv+=x.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
-        dydv+=x.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
-      }
-
-// jacobian of each derivative at the quadrature point
-
-      detDJ_gi.at(0).push_back(-dydu*dxdv); // Jacobian for x derivatives
-      detDJ_gi.at(1).push_back(dxdu*dydv);  // Jacobian for y derivatives
-
-// calculate the determinant at the quadrature point and append to the vector
-
-      detJ_gi.push_back(dxdu*dydv-dydu*dxdv);
-
+    for(int j=0;j<S.nloc();j++){
+      dxdu+=x.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
+      dydu+=x.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
+      dxdv+=x.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
+      dydv+=x.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
     }
 
-// commit to the memory locations of the vectors detJ and detDJ
+// calculate the determinant at the quadrature point and commit to the vector
 
-    detJ.at(i)=detJ_gi;
-    for(int idim=0;idim<M.NDims();idim++){detDJ.at(idim).at(i)=detDJ_gi[idim];}
+    detJ.at(gi)=dxdu*dydv-dydu*dxdv;
+
+// determinants for the deriavtives at the quadrature points
+
+    for(int j=0;j<S.nloc();j++){
+      detDJ.at(0).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dydu*S.dvalue(1,j,gi))/detJ[gi];
+      detDJ.at(1).at(j).at(gi)=(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi];
+    }
 
   }
 
