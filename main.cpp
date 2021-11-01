@@ -36,6 +36,7 @@
 #define OUTFREQ 0.04      // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
+#define VVVD vector<VVD>  // vector of VVD
 #define VI vector<int>    // vector of ints
 #define VTOL 1.0e-10      // threshold for volume errors
 #define COURANT 0.333     // Courant number for CFL condition
@@ -61,7 +62,7 @@
 // function signatures
 
 string date();                                                                         // function to return the date and time
-void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ);                    // calculate a jacobian and the determinant
+void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ,VVVD &detDJ);        // calculate a jacobian and the determinant
 void header();                                                                         // header part
 void initial_data(int const n, int const nnodes, int const ndims, int const nmats);    // echo some initial information
 void vempty(vector<double>&v);                                                         // signature for emptying a vector
@@ -91,7 +92,8 @@ int main(){
   vector<double> c(n),p(n),q(n);                                 // element sound speed, pressure and bulk viscosity
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // node coordinates
-  vector<vector<double> > detJ(n);                               // determinant of the jacobian at each integration point
+  vector<vector<double> > detJ(n);                               // determinant of jacobian at each integration point
+  vector<vector<vector<double> > > detDJ(ndims);                 // determinant of jacobian for each derivative
   vector<double> dt_cfl(n);                                      // element time-step
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
@@ -126,6 +128,7 @@ int main(){
   for(int i=0;i<n;i++){e1.at(i)=E(d1[i],p[i]);}
   for(int i=0;i<n;i++){q.at(i)=0.0;}
   for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
+  for(int idim=0;idim<ndims;idim++){detDJ.at(idim).resize(n);}
 
 // load velocity fields from initial flux state
 
@@ -223,7 +226,7 @@ int main(){
 
 // update the jacobian
 
-  for(int i=0;i<n;i++){jacobian(x1,M,S,detJ);}
+  for(int i=0;i<n;i++){jacobian(x1,M,S,detJ,detDJ);}
 
 // update cell volumes at the full-step
 
@@ -258,10 +261,56 @@ int main(){
 
     for(int i=0;i<n;i++){p.at(i)=P(d1[i],e1[i]);if(p[i]<0.0){cout<<"-'ve pressure detected in cell "<<i<<" e1= "<<e1[i]<<endl;exit(1);}}
 
+// bulk q
 
+//    for(int i=0;i<ng;i++){
+//      c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
+//      double l(x1[i+1]-x1[i]),divu((d0[i]-d1[i])/(d1[i]*dt));
+//      if(divu<0.0){
+//        q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
+//      }else{
+//        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
+//      }
+//    }
 
+  for(int i=0;i<n;i++){
 
+    double l(sqrt(V1[i])),divu(0.0);                // length of element and divergence field
+    double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0); // derivatives of the jacobian
+    vector<double> detJS(ndims);                    // jacobian for each component of the divergence term
+    c.at(i)=sqrt(GAMMA*p[i]/d1[i]);                 // sound speed
 
+// compute a jacobian for the element
+
+    for(int j=0;j<S.nloc();j++){
+      dxdu+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dx/du
+      dydu+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dy/du
+      dxdv+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dx/dv
+      dydv+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dy/dv
+    }
+
+// determinant for each derivative in the divergence terms
+
+    detJS.at(0)=-dydu*dxdv; // du/dX
+    detJS.at(1)=dxdu*dydv;  // du/dY
+
+// calculate element divergence field 
+
+    for(int idim=0;idim<ndims;idim++){
+      for(int j=0;j<S.nloc();j++){
+        divu+=u1.at(idim)[M.Vertex(i,j)]*S.dvalue(idim,j,0.0,0.0)/detJS[idim];
+      }
+    }
+
+// artificial viscosity term
+
+    if(divu<0.0){
+      q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
+    }else{
+      q.at(i)=0.0; // turn off q as cell divergence indicates expansion
+    }
+
+  }
 
 
 
@@ -293,19 +342,6 @@ int main(){
   exit(1);
 // debug
 
-
-
-// bulk q
-
-//    for(int i=0;i<ng;i++){
-//      c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
-//      double l(x1[i+1]-x1[i]),divu((d0[i]-d1[i])/(d1[i]*dt));
-//      if(divu<0.0){
-//        q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
-//      }else{
-//        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
-//      }
-//    }
 
 // assemble acceleration field
 
@@ -554,11 +590,12 @@ void state_print(int const n,int const ndims,int const nmats,VI const &mat,VD co
 
 // calculate a jacobian and the determinant
 
-void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ){
+void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ,VVVD &detDJ){
 
   for(int i=0;i<M.NCells();i++){
 
     vector<double> detJ_gi;
+    vector<vector<double> > detDJ_gi(M.NDims());
 
     for(int gi=0;gi<S.ngi();gi++){
 
@@ -573,15 +610,21 @@ void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ){
         dydv+=x.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
       }
 
-// calculate the determinant at the integration and append to the vector
+// jacobian of each derivative at the quadrature point
+
+      detDJ_gi.at(0).push_back(-dydu*dxdv); // Jacobian for x derivatives
+      detDJ_gi.at(1).push_back(dxdu*dydv);  // Jacobian for y derivatives
+
+// calculate the determinant at the quadrature point and append to the vector
 
       detJ_gi.push_back(dxdu*dydv-dydu*dxdv);
 
     }
 
-// commit to the memory location of the vector detJ
+// commit to the memory locations of the vectors detJ and detDJ
 
     detJ.at(i)=detJ_gi;
+    for(int idim=0;idim<M.NDims();idim++){detDJ.at(idim).at(i)=detDJ_gi[idim];}
 
   }
 
