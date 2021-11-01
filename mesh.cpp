@@ -352,7 +352,21 @@ double Mesh::Coord(int idim, int i) const {return mCoord[idim][i];}
 
 // member function to initialise a vector with the mesh coordinates
 
-void Mesh::InitCoords(vector<vector<double> > &v){v.resize(NDims());for(int i=0;i<NDims();i++){v.at(i).swap(mCoord.at(i));}return;}
+void Mesh::InitCoords(vector<vector<double> > &v){
+
+// first resize the first stride
+
+  v.resize(NDims());
+
+// replace each dimension with the vector of coordinates
+
+  for(int i=0;i<NDims();i++){
+    v.at(i)=mCoord.at(i);
+  }
+
+  return;
+
+}
 
 // member function to return the element volume
 

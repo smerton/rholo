@@ -61,6 +61,7 @@
 // function signatures
 
 string date();                                                                         // function to return the date and time
+void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ);                    // calculate a jacobian and the determinant
 void header();                                                                         // header part
 void initial_data(int const n, int const nnodes, int const ndims, int const nmats);    // echo some initial information
 void vempty(vector<double>&v);                                                         // signature for emptying a vector
@@ -90,6 +91,7 @@ int main(){
   vector<double> c(n),p(n),q(n);                                 // element sound speed, pressure and bulk viscosity
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // node coordinates
+  vector<vector<double> > detJ(n);                               // determinant of the jacobian at each integration point
   vector<double> dt_cfl(n);                                      // element time-step
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
@@ -201,6 +203,80 @@ int main(){
         }
       }
 
+// move the nodes to their full-step position
+
+    for(int idim=0;idim<ndims;idim++){
+      for(int i=0;i<nnodes;i++){
+        x1.at(idim).at(i)=x0.at(idim)[i]+u0.at(idim)[i]*dt;
+      }
+    }
+
+// evolve the Riemann problems to the end of the time-step on the end of time-step meshes
+
+//    vector<double> r0x,rx;vempty(r0x); // sample point coordinates
+////    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
+//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
+//    R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
+//    rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
+//    R1.profile(&rx,time+dt);
+
+
+// update the jacobian
+
+  for(int i=0;i<n;i++){jacobian(x1,M,S,detJ);}
+
+// update cell volumes at the full-step
+
+  for(int i=0;i<n;i++){
+
+    V1.at(i)=0.0;
+    for(int gi=0;gi<S.ngi();gi++){
+      V1.at(i)+=detJ[i][gi]*S.wgt(gi);
+    }
+
+    if(V1.at(i)<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}
+
+  }
+
+// update cell density at the full-step
+
+  for(int i=0;i<n;i++){d1.at(i)=m[i]/V1[i];}
+
+// debug
+//    for(int i=0;i<ng;i++){d1.at(i)=R1.density(3*i+1);} // 3*i+1 is cell-centre address
+// debug
+
+// update cell energy at the full-step
+
+  for(int i=0;i<n;i++){e1.at(i)=max(ECUT,e0[i]-((p[i]+q[i])*(V1[i]-V0[i]))/m[i]);}
+
+// debug
+//    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(3*i+1);} // 3*i+1 is cell-centre address
+// debug
+
+// update cell pressure at the full-step
+
+    for(int i=0;i<n;i++){p.at(i)=P(d1[i],e1[i]);if(p[i]<0.0){cout<<"-'ve pressure detected in cell "<<i<<" e1= "<<e1[i]<<endl;exit(1);}}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -218,51 +294,6 @@ int main(){
 // debug
 
 
-
-// move the nodes to their full-step position
-
-//    for(int i=0;i<ng+1;i++){x1.at(i)=x0[i]+u0[i]*dt;}
-
-// update kinetic energy for conservation checks
-
-//    ke=0.0;for(int i=1;i<ng;i++){ke+=0.25*(m[i-1]+m[i])*u0[i]*u0[i];} // include level 1 halo
-
-// evolve the Riemann problems to the end of the time-step on the end of time-step meshes
-
-//    vector<double> r0x,rx;vempty(r0x); // sample point coordinates
-////    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
-//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
-//    R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
-//    rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
-//    R1.profile(&rx,time+dt);
-
-// update cell volumes at the full-step
-
-//    for(int i=0;i<ng;i++){V1.at(i)=x1[i+1]-x1[i];if(V1[i]<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}}
-
-// update cell density at the full-step
-
-//    for(int i=0;i<ng;i++){d1.at(i)=m[i]/V1[i];}
-
-// debug
-//    for(int i=0;i<ng;i++){d1.at(i)=R1.density(3*i+1);} // 3*i+1 is cell-centre address
-// debug
-
-// update cell energy at the full-step
-
-//    for(int i=0;i<ng;i++){e1.at(i)=max(ECUT,e0[i]-((p[i]+q[i])*(V1[i]-V0[i]))/m[i]);}
-
-// update internal energy for conservation checks
-
-//    ie=0.0;for(int i=0;i<ng;i++){ie+=e1[i]*m[i];}
-
-// debug
-//    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(3*i+1);} // 3*i+1 is cell-centre address
-// debug
-
-// update cell pressure at the full-step
-
-//    for(int i=0;i<ng;i++){p.at(i)=P(d1[i],e1[i]);if(p[i]<0.0){cout<<"-'ve pressure detected in cell "<<i<<" e1= "<<e1[i]<<endl;exit(1);}}
 
 // bulk q
 
@@ -520,3 +551,42 @@ void state_print(int const n,int const ndims,int const nmats,VI const &mat,VD co
   return;
 
 }
+
+// calculate a jacobian and the determinant
+
+void jacobian(VVD const &x,Mesh const &M,Shape const &S,VVD &detJ){
+
+  for(int i=0;i<M.NCells();i++){
+
+    vector<double> detJ_gi;
+
+    for(int gi=0;gi<S.ngi();gi++){
+
+      double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+
+// derivatives of the physical coordinates
+
+      for(int j=0;j<S.nloc();j++){
+        dxdu+=x.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
+        dydu+=x.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
+        dxdv+=x.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
+        dydv+=x.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
+      }
+
+// calculate the determinant at the integration and append to the vector
+
+      detJ_gi.push_back(dxdu*dydv-dydu*dxdv);
+
+    }
+
+// commit to the memory location of the vector detJ
+
+    detJ.at(i)=detJ_gi;
+
+  }
+
+  return;
+
+}
+
+
