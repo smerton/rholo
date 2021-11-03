@@ -115,6 +115,9 @@ int main(){
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0},  // initial flux state in each material for the blast wave
 //                                 {1.000,0.000,0.000, 0.0100}}; // where each flux state is in the form (d,ux,uy,p)
 
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for vacuum boundary test
+//                                 {1.000, 0.000,0.000, 1.000}};   // where each flux state is in the form (d,ux,uy,p)
+
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
 
@@ -175,6 +178,8 @@ int main(){
           nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);    // not used: left in as a diagnostic
           nx+=detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);                      // not used: left in as a diagnostic
           ny+=detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);                      // not used: left in as a diagnostic
+//          nx+=S.dvalue(0,iloc,gi)*(dy/2.0)*S.wgt(gi);                   // not used: left in as a diagnostic
+//          ny+=S.dvalue(1,iloc,gi)*(dx/2.0)*S.wgt(gi);                   // not used: left in as a diagnostic
         }
         KMASS.add(ROW,COL,nn);
       }
@@ -298,11 +303,11 @@ int main(){
 
 // bulk q
 
-//    for(int i=0;i<ng;i++){
+//    for(int i=0;i<n;i++){
 //      c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
-//      double l(x1[i+1]-x1[i]),divu((d0[i]-d1[i])/(d1[i]*dt));
+//      double l(sqrt(V1[i])),divu((d0[i]-d1[i])/(d1[i]*dt));
 //      if(divu<0.0){
-//        q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
+//        q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
 //      }else{
 //        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
 //      }
@@ -312,10 +317,10 @@ int main(){
 
     double l(sqrt(V1[i])),divu(0.0);                // length of element and divergence field
     double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0); // derivatives of the jacobian
-    vector<double> detJS(ndims);                    // jacobian for each component of the divergence term
+    vector<vector<double> > detJS(ndims,vector<double>(S.nloc()));  // jacobian for each component of the divergence term
     c.at(i)=sqrt(GAMMA*p[i]/d1[i]);                 // sound speed
 
-// compute a jacobian for the element
+// compute a jacobian and determinant for the element
 
     for(int j=0;j<S.nloc();j++){
       dxdu+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dx/du
@@ -324,16 +329,39 @@ int main(){
       dydv+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dy/dv
     }
 
-// determinant for each derivative in the divergence terms
+//              a1   b3    b1   a3
+    double detj(dxdu*dydv-dydu*dxdv),area(4.0*detj);
 
-    detJS.at(0)=-dydu*dxdv; // du/dX
-    detJS.at(1)=dxdu*dydv;  // du/dY
+    double ui1(u1.at(0)[M.Vertex(i,0)]);
+    double ui2(u1.at(0)[M.Vertex(i,1)]);
+    double ui3(u1.at(0)[M.Vertex(i,2)]);
+    double ui4(u1.at(0)[M.Vertex(i,3)]);
+
+    double vi1(u1.at(1)[M.Vertex(i,0)]);
+    double vi2(u1.at(1)[M.Vertex(i,1)]);
+    double vi3(u1.at(1)[M.Vertex(i,2)]);
+    double vi4(u1.at(1)[M.Vertex(i,3)]);
+
+    double a1(dxdu);
+    double b3(dydv);
+    double b1(dydu);
+    double a3(dxdv);
+
+// determinants for the deriavtives in the divergence term
+
+    for(int j=0;j<S.nloc();j++){
+      detJS.at(0).at(j)=(dydv*S.dvalue(0,j,0.0,0.0)-dydu*S.dvalue(1,j,0.0,0.0))/detj;
+      detJS.at(1).at(j)=(-dxdv*S.dvalue(0,j,0.0,0.0)+dxdu*S.dvalue(1,j,0.0,0.0))/detj;
+   }
 
 // calculate element divergence field 
 
+//    divu=(ui1*(b1-b3)+ui2*(b1+b3)+ui3*(-b1+b3)+ui4*(-b1-b3))/area;
+//    divu+=(vi1*(-a1+a3)+vi2*(-a1-a3)+vi3*(a1-a3)+vi4*(a1+a3))/area;
+
     for(int idim=0;idim<ndims;idim++){
       for(int j=0;j<S.nloc();j++){
-        divu+=u1.at(idim)[M.Vertex(i,j)]*S.dvalue(idim,j,0.0,0.0)/detJS[idim];
+        divu+=u1.at(idim)[M.Vertex(i,j)]*detJS[idim][j];
       }
     }
 
@@ -341,6 +369,7 @@ int main(){
 
     if(divu<0.0){
       q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
+//      q.at(i)=d1[i]*((cq*divu*divu*area) - cl*sqrt(detj*c[i]))*divu;
     }else{
       q.at(i)=0.0; // turn off q as cell divergence indicates expansion
     }
@@ -377,9 +406,9 @@ int main(){
 
 
 // debug
-  for(int i=0;i<nnodes/2;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<endl;}
+  for(int i=0;i<nnodes/2;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
   cout<<endl;
-  for(int i=0;i<nnodes/2;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
+  for(int i=nnodes/2;i<nnodes;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
 // debug
 
 
@@ -431,8 +460,8 @@ int main(){
 
 // debug
 // output initial data
-  cout<<"main(): 2D not yet operational, stopping."<<endl;
-  exit(1);
+//  cout<<"main(): 2D not yet operational, stopping."<<endl;
+//  exit(1);
 // debug
 
 
@@ -463,12 +492,13 @@ int main(){
 
 // advance the solution for the new time step
 
-//    for(int i=0;i<ng+1;i++){u0.at(i)=u1[i];}
-//    for(int i=0;i<ng+1;i++){x0.at(i)=x1[i];}
-//    for(int i=0;i<ng;i++){e0.at(i)=e1[i];}
-//    for(int i=0;i<ng;i++){V0.at(i)=V1[i];}
-//    for(int i=0;i<ng;i++){d0.at(i)=d1[i];}
-//    for(int i=0;i<ng;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
+      u0=u1;
+      x0=x1;
+      e0=e1;
+      V0=V1;
+      d0=d1;
+
+      for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
 
   }
 
