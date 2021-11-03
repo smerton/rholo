@@ -84,14 +84,14 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input.mesh");                                     // load a new mesh from file
+  Mesh M("mesh/input-20cells.mesh");                                     // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3,f4,f5;                                       // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
   double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
-  Matrix KMASS(NROWS);                                           // mass matrix for kinematic field
+  Matrix KMASS(NROWS),KMASSI(NROWS);                             // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
   vector<double> c(n),p(n),q(n);                                 // element sound speed, pressure and bulk viscosity
@@ -168,16 +168,22 @@ int main(){
     jacobian(i,x0,M,S,detJ,detDJ);
     for(int iloc=0;iloc<S.nloc();iloc++){
       for(int jloc=0;jloc<S.nloc();jloc++){
-        double nn(0.0),nnx(0.0),nny(0.0); // mass matrix
+        double nn(0.0),nnx(0.0),nny(0.0),nx(0.0),ny(0.0); // mass matrix
         for(int gi=0;gi<S.ngi();gi++){
           nn+=d0[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi); // mass matrix
           nnx+=S.value(iloc,gi)*detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);    // not used: left in as a diagnostic
           nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);    // not used: left in as a diagnostic
+          nx+=detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);                      // not used: left in as a diagnostic
+          ny+=detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);                      // not used: left in as a diagnostic
         }
         KMASS.add(ROW,COL,nn);
       }
     }
   }
+
+// invert the mass matrix
+
+  KMASSI.inverse2(&KMASS); // lapack
 
 // start the Riemann solvers from initial flux states
 
@@ -334,45 +340,52 @@ int main(){
 // artificial viscosity term
 
     if(divu<0.0){
-      q.at(i)=d0[i]*l*divu*((cq*l*divu)-cl*c[i]);
+      q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
     }else{
       q.at(i)=0.0; // turn off q as cell divergence indicates expansion
     }
 
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// debug
-// output initial data
-  cout<<"main(): 2D not yet operational, stopping."<<endl;
-  exit(1);
-// debug
-
-
 // assemble acceleration field
+
+  for(int idim=0;idim<M.NDims();idim++){
+    double b[nnodes];for(int i=0;i<nnodes;i++){b[i]=0.0;}
+    for(int i=0;i<n;i++){
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        for(int gi=0;gi<S.ngi();gi++){
+          b[ROW]+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+        }
+      }
+    }
+
+// solve global system
+
+    for(int i=0;i<nnodes;i++){
+      double x(0.0);
+      for(int j=0;j<nnodes;j++){
+        x+=KMASSI.read(i,j)*b[j];
+      }
+
+// advance the solution
+
+      u1.at(idim).at(i)=u0.at(idim).at(i)+x*dt;
+
+    }
+
+  }
+
+
+// debug
+  for(int i=0;i<nnodes/2;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<endl;}
+  cout<<endl;
+  for(int i=0;i<nnodes/2;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
+// debug
+
+
+
+
+// old code:
 
 //  Matrix A(n+3);double b[n+3],x[n+3];for(int i=0;i<n+3;i++){b[i]=0.0;x[i]=0.0;}
 //  double m[2][2]={};m[0][0]=0.5;m[1][1]=0.5;// for mass lumping
@@ -405,6 +418,23 @@ int main(){
 // advance the solution
 
 //  for(int i=0;i<n+3;i++){u1.at(i+1)=u0[i+1]+x[i]*dt;}
+
+
+
+
+
+
+
+
+
+
+
+// debug
+// output initial data
+  cout<<"main(): 2D not yet operational, stopping."<<endl;
+  exit(1);
+// debug
+
 
 // impose boundary constraints on the acceleration field
 

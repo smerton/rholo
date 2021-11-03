@@ -5,7 +5,76 @@
 #include <iostream>
 #include "matrix.h"
 
+// interface to LAPACK
+
+extern "C"{
+
+// LU decomposition of a general matrix
+
+void dgetrf_(int* M,int* N,double* A,int* lda,int* IPIV,int *INFO);
+
+// generate inverse of a matrix given its LU decomposition
+
+void dgetri_(int* N,double* A,int* lda,int* IPIV,double* WORK,int* lwork,int* INFO);
+
+}
+
 using namespace std;
+
+//void Matrix::inverse2(double* A, int N){
+//
+//// emit the inverse via lapack
+//
+//  int *IPIV=new int[N];
+//  int LWORK=N*N;
+//  double *WORK=new double[LWORK];
+//  int INFO;
+//
+//  dgetrf_(&N,&N,A,&N,IPIV,&INFO);
+//  dgetri_(&N,A,&N,IPIV,WORK,&LWORK,&INFO);
+//
+//  delete[] IPIV;
+//  delete[] WORK;
+//
+//}
+
+void Matrix::inverse2(Matrix *A){
+
+// emit the inverse via lapack
+
+  int N(A->NRows());
+  int *IPIV=new int[N];
+  int LWORK=N*N;
+  double *WORK=new double[LWORK];
+  int INFO;
+  double *B=new double[N*N];
+
+// flatten
+
+  for(int i=0,k=0;i<N;i++){
+    for(int j=0;j<N;j++,k++){
+      B[k]=A->read(i,j);
+    }
+  }
+
+  dgetrf_(&N,&N,B,&N,IPIV,&INFO);
+  dgetri_(&N,B,&N,IPIV,WORK,&LWORK,&INFO);
+
+// unflatten
+
+  for(int i=0,k=0;i<N;i++){
+    for(int j=0;j<N;j++,k++){
+      mMat[i][j]=B[k];
+    }
+  }
+
+  delete[] IPIV;
+  delete[] WORK;
+  delete[] B;
+
+}
+
+// constructor for a new matrix object
 
 Matrix::Matrix(int n){
 
@@ -14,7 +83,7 @@ Matrix::Matrix(int n){
   mN=n;
 
   mMat=new double*[NRows()];
-  for(int i=0;i<NRows();i++){
+  for(long i=0;i<NRows();i++){
     mMat[i]=new double[NCols()];
   }
 
@@ -25,6 +94,11 @@ Matrix::Matrix(int n){
       this->write(i,j,0.0);
     }
   }
+
+// mark object as active
+
+  active=1;
+
 }
 
 // Member function to return the number of rows
@@ -61,9 +135,15 @@ void Matrix::solve(double*x,double*b){
 
 // local copy of the matrix
 
-  double A1[NRows()][NRows()];
-  for(int i=0;i<NRows();i++){
-    for(int j=0;j<NRows();j++){
+//  double A1[NRows()][NRows()]; // on stack
+
+  double** A1=new double*[NRows()]; // on heap
+  for(long i=0;i<NRows();i++){
+    A1[i]=new double[NRows()];
+  }
+
+  for(long i=0;i<NRows();i++){
+    for(long j=0;j<NRows();j++){
       A1[i][j]=mMat[i][j];
     }
     x[i]=0.0; // otherwise this is uninitialised (robustness issues)
@@ -72,12 +152,12 @@ void Matrix::solve(double*x,double*b){
 // form linear system x=A^{-1}b using LU decomposition of A=[L}{U}
 // so that Ax=b becomes L[Ux]=b in which Ux=y and Ly=b
 
-  for(int k=0;k<NRows()-1;k++){
-    for(int i=k+1;i<NRows();i++){
+  for(long k=0;k<NRows()-1;k++){
+    for(long i=k+1;i<NRows();i++){
       A1[i][k]=A1[i][k]/A1[k][k];
     }
-    for(int j=k+1;j<NRows();j++){
-      for(int i=k+1;i<NRows();i++){
+    for(long j=k+1;j<NRows();j++){
+      for(long i=k+1;i<NRows();i++){
         A1[i][j]=A1[i][j]-A1[i][k]*A1[k][j];
       }
     }
@@ -85,9 +165,9 @@ void Matrix::solve(double*x,double*b){
 
 // solve Ly=b by row elimination
 
-  for(int i=0;i<NRows();i++){
+  for(long i=0;i<NRows();i++){
     double r(0.0);
-    for(int j=0;j<NRows()-1;j++){
+    for(long j=0;j<NRows()-1;j++){
       r+=A1[i][j]*x[j];
     }
     x[i]=b[i]-r;
@@ -95,32 +175,32 @@ void Matrix::solve(double*x,double*b){
 
 // Ux=y by row elimination
 
-  for(int i=NRows()-1;i>=0;i--){
+  for(long i=NRows()-1;i>=0;i--){
     double r(0.0);
-    for(int j=i+1;j<NRows();j++){
+    for(long j=i+1;j<NRows();j++){
       r+=A1[i][j]*x[j];
     }
     x[i]=(x[i]-r)/A1[i][i];
   }
 
+// release heap storage
+
+  for(long i=0;i<NRows();i++){
+    delete[] A1[i];
+    A1[i]=NULL;
+  }
+  delete[] A1;
+  A1=NULL;
+
   return;
 
 }
 
-// Member function to return the inverse
+// Member function to form the inverse
 
-Matrix Matrix::inverse(){
+void Matrix::inverse(Matrix *A){
 
   double x[NRows()],row[NRows()];
-  Matrix B(NRows()),BI(NRows());
-
-// local copy of the matrix to avoid overwriting it
-
-  for(int i=0;i<NRows();i++){
-    for(int j=0;j<NRows();j++){
-      B.write(i,j,mMat[i][j]);
-    }
-  }
 
 // collect the inverse by row using LU decomposition with row elimination
 
@@ -133,37 +213,32 @@ Matrix Matrix::inverse(){
 
 // pass to the solver
 
-    B.solve(x,row);
+    A->solve(x,row);
 
 // unpack the column which is row i of the inverse
 
-    for(int j=0;j<NRows();j++){BI.write(j,i,x[j]);}
+    for(int j=0;j<NRows();j++){mMat[j][i]=x[j];}
 
   }
 
-  return BI;
+  return;
 
 }
 
-// Member function to return the product of 2 matrices
+// Member function to form the product of 2 matrices
 
-Matrix Matrix::product(Matrix*B){
-
-  Matrix C(NRows());
-
-//C=mMat*B
+void Matrix::product(Matrix *A,Matrix *B){
 
   for(int i=0;i<NRows();i++){
     for(int j=0;j<NRows();j++){
-      double r(0.0);
+      mMat[i][j]=0.0;
       for(int k=0;k<NRows();k++){
-        r+=mMat[i][k]*B->read(k,j);
+        mMat[i][j]+=A->read(i,k)*B->read(k,j);
       }
-      C.write(i,j,r);
     }
   }
 
-  return C;
+  return;
 
 }
 
@@ -211,7 +286,14 @@ void Matrix::add(int i,int j,double dat){mMat[i][j]+=dat;}
 
 Matrix::~Matrix(){
 
-  for(int i=0;i<NCols();i++){
+
+// mark object as inactive
+
+  active=0;
+
+// release storage
+
+  for(long i=0;i<NRows();i++){
     delete[] mMat[i];
     mMat[i]=NULL;
   }
