@@ -43,8 +43,11 @@
 #define DTSFACTOR 0.5     // safety factor on time-step control
 #define NROWS nnodes      // number of rows in the global matrix
 #define NCOLS nnodes      // number of columns in the global matrix
-#define ROW M.Vertex(i,iloc) // row address in global matrix
-#define COL M.Vertex(i,jloc) // column address in global matrix
+#define ROW M.Vertex(i,iloc)  // row address in global matrix
+#define COL M.Vertex(i,jloc)  // column address in global matrix
+#define VACUUM 1              // vacuum boundary
+#define FORCED_REFLECTIVE 2   // reflective boundary
+#define FREE_SURFACE 3        // free surface (transmissive) boundary
 
 #include <iostream>
 #include <vector>
@@ -68,6 +71,7 @@
 string date();                                                                              // function to return the date and time
 void header();                                                                              // header part
 void vempty(vector<double>&v);                                                              // empty a vector
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ);          // iinsert boundary conditions by modifying the mass matrix
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
 void initial_data(int const n, int const nnodes, int const ndims, int const nmats);         // echo some initial information
 void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
@@ -84,7 +88,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-20cells.mesh");                                     // load a new mesh from file
+  Mesh M("mesh/input.mesh");                                     // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3,f4,f5;                                       // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -102,6 +106,7 @@ int main(){
   vector<double> dt_cfl(n);                                      // element time-step
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
+  vector<int> bc_edge(4);                                       // boundary condition on each edge of the mesh
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
@@ -115,8 +120,8 @@ int main(){
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0},  // initial flux state in each material for the blast wave
 //                                 {1.000,0.000,0.000, 0.0100}}; // where each flux state is in the form (d,ux,uy,p)
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for vacuum boundary test
-//                                 {1.000, 0.000,0.000, 1.000}};   // where each flux state is in the form (d,ux,uy,p)
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for vacuum boundary test
+//                                 {1.000, 0.000,0.000, 1.000}}; // where each flux state is in the form (d,ux,uy,p)
 
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
@@ -136,10 +141,17 @@ int main(){
   for(int i=0;i<n;i++){e1.at(i)=E(d1[i],p[i]);}
   for(int i=0;i<n;i++){q.at(i)=0.0;}
   for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
+  bc_edge.at(0)=VACUUM;                                             // boundary condition on bottom edge of mesh
+  bc_edge.at(1)=VACUUM;                                             // boundary condition on right edge of mesh
+  bc_edge.at(2)=VACUUM;                                             // boundary condition on top edge of mesh
+  bc_edge.at(3)=VACUUM;                                             // boundary condition on left edge of mesh
+
+// allocate a determinant for each derivative
+
   for(int idim=0;idim<ndims;idim++){
     detDJ.at(idim).resize(S.nloc());
     for(int j=0;j<S.nloc();j++){
-      detDJ.at(idim).at(j).resize(S.ngi());                         // allocate determinant for each derivative
+      detDJ.at(idim).at(j).resize(S.ngi());
     }
   }
 
@@ -171,20 +183,24 @@ int main(){
     jacobian(i,x0,M,S,detJ,detDJ);
     for(int iloc=0;iloc<S.nloc();iloc++){
       for(int jloc=0;jloc<S.nloc();jloc++){
-        double nn(0.0),nnx(0.0),nny(0.0),nx(0.0),ny(0.0); // mass matrix
+        double nn(0.0),nnx(0.0),nny(0.0),nx(0.0),ny(0.0),nlx(0.0),nly(0.0); // mass matrix
         for(int gi=0;gi<S.ngi();gi++){
-          nn+=d0[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi); // mass matrix
-          nnx+=S.value(iloc,gi)*detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);    // not used: left in as a diagnostic
-          nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);    // not used: left in as a diagnostic
-          nx+=detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);                      // not used: left in as a diagnostic
-          ny+=detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);                      // not used: left in as a diagnostic
-//          nx+=S.dvalue(0,iloc,gi)*(dy/2.0)*S.wgt(gi);                   // not used: left in as a diagnostic
-//          ny+=S.dvalue(1,iloc,gi)*(dx/2.0)*S.wgt(gi);                   // not used: left in as a diagnostic
+          nn+=d0[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);   // mass matrix
+          nnx+=S.value(iloc,gi)*detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
+          nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
+          nlx+=detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);                       // not used: left in as a diagnostic
+          nly+=detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);                       // not used: left in as a diagnostic
+//          nx+=S.dvalue(0,iloc,gi)*(dy/2.0)*S.wgt(gi);                     // not used: left in as a diagnostic
+//          ny+=S.dvalue(1,iloc,gi)*(dx/2.0)*S.wgt(gi);                     // not used: left in as a diagnostic
         }
         KMASS.add(ROW,COL,nn);
       }
     }
   }
+
+// impose boundary constraints via row elimination
+
+  bc_insert(KMASS,M,S,d0,detJ);
 
 // invert the mass matrix
 
@@ -713,4 +729,86 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 }
 
+// boundary conditions are inserted via row elimination on the mass matrix
+// Notes on how boundary conditions have been implemented in RhoLo:
+//
+// Vacuum                    - do nothing, mass matrix OK as-is. There will be
+//                             an outward pressure gradient due to the state
+//                             of the material on the inside and a vacuum on the
+//                             outside and the mesh will likely take off, driven
+//                             by the outward pressure of the material.
+// Free-surface              - modify the mass matrix such that the action of a
+//                             continuous material field across domain boundary is
+//                             stored. Nodes on the edge of the mesh will not move
+//                             until a signal arrives. They will then be carried
+//                             by the fluid with the fluid velocity in the Lagrangian
+//                             frame.
+// Forced-reflective         - perpendicular component of veloicty field zero at the
+//                             boundary, material state reflected across the boundary.
+//                             Signal will bounce off the edge and flow direction will
+//                             reverse
+
+  void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ){
+
+// opposing face of cell
+
+  int oface[4]={2,3,0,1};
+
+  cout<<fixed<<setprecision(6);
+  cout<<"A before:"<<endl;
+  for(int i=0;i<M.NNodes();i++){
+    for(int j=0;j<M.NNodes();j++){
+      cout<<A.read(i,j)<<" ";
+    }
+    cout<<endl;
+  }
+
+// loop over boundary elements (note these are refered to here as "sides")
+// and choose what type of boundary to apply
+
+  for(int ib=0;ib<M.NSides();ib++){
+
+    if(M.bc_edge(M.SideAttr(ib))!=VACUUM){
+
+// vacuum boundary on this face - no modification to the mass matrix
+
+      continue;
+
+    }else{
+
+// material on this face - add it to the mass matrix
+
+      int i(M.E2E(M.NCells()+ib,oface[M.SideAttr(ib)]); // physical element connecting
+      for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+        for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
+          double nn(0.0); // mass matrix
+          for(int gi=0;gi<S.ngi();gi++){
+            nn+=d[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+          }
+          A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass on to existing value in the mass matrix
+        }
+      }
+
+    }
+  }
+
+
+
+  cout<<"A after:"<<endl;
+  for(int i=0;i<M.NNodes();i++){
+    for(int j=0;j<M.NNodes();j++){
+      cout<<A.read(i,j)<<" ";
+    }
+    cout<<endl;
+  }
+
+
+// debug
+  cout<<"Inside bc_insert"<<endl;
+  exit(1);
+// debug
+
+    return;
+
+  }
 

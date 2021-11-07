@@ -6,8 +6,8 @@ MFEM mesh v1.0
 #
 # RhoLo uses the following which may be inconsistent with MFEM:
 #   element attribute for material number (column 1 in elements block)
-#   boundary attribute for element side, =0 for bottom, 1 for right, =2 for top, =3 for left (column 1 in boundary block)
-#   boundary type =1 for free surface, or =2 for forced-reflective (column 2 in boundary block)
+#   boundary attribute for mesh side, =0 for bottom, 1 for right, =2 for top, =3 for left (column 1 in boundary block)
+#   boundary type not used - it is not known what MFEM uses this for (column 2 in boundary block)
 #   FiniteElementCollection not used - but MFEM may use this to set polyhedral order (in nodes block)
 #
 # The following format is interpreted by RhoLo
