@@ -29,6 +29,10 @@ class Mesh{
   double Coord(int idim,int i) const; // returns coordinate idim of node i
   void InitCoords(vector<vector<double> > &v); // initialise the mesh coordinates
   double Volume(int i) const; // returns the volume of the element
+  void bc_set(int bc); // push new boundary condition bc to the boundary condition vector
+  int bc_edge(int iedge) const; // returns the boundary condition on edge iedge of the mesh 
+  int nbcs() const; // returns the number of boundary conditions that have been set
+  int E2E(int iel,int iface) const; // returns the element on face iface of element iel
 
   private:
 
@@ -47,9 +51,12 @@ class Mesh{
   vector<vector<int> > mSideNode; // node numbers on each cell side coincident with the mesh edge
   vector<vector<double> > mCoord; // coordinates of each node
   vector<double > mVolume; // element volume
+  vector<int> mbc_edge; // boundary condition on each edge of the mesh
+  vector<vector<int> > mE2E; // element->element connectivities
 
 // member function signatures
 
   constexpr unsigned int str2int(const char* s); // to convert string to integer
+  void set_E2E(); // a function to set up connectivities
 
 };

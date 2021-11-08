@@ -73,7 +73,7 @@ void header();                                                                  
 void vempty(vector<double>&v);                                                              // empty a vector
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ);          // iinsert boundary conditions by modifying the mass matrix
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
-void initial_data(int const n, int const nnodes, int const ndims, int const nmats);         // echo some initial information
+void initial_data(int const n, int const nnodes, int const ndims, int const nmats, Mesh const &M); // echo some initial information
 void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
@@ -106,7 +106,6 @@ int main(){
   vector<double> dt_cfl(n);                                      // element time-step
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
-  vector<int> bc_edge(4);                                       // boundary condition on each edge of the mesh
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
@@ -141,10 +140,13 @@ int main(){
   for(int i=0;i<n;i++){e1.at(i)=E(d1[i],p[i]);}
   for(int i=0;i<n;i++){q.at(i)=0.0;}
   for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
-  bc_edge.at(0)=VACUUM;                                             // boundary condition on bottom edge of mesh
-  bc_edge.at(1)=VACUUM;                                             // boundary condition on right edge of mesh
-  bc_edge.at(2)=VACUUM;                                             // boundary condition on top edge of mesh
-  bc_edge.at(3)=VACUUM;                                             // boundary condition on left edge of mesh
+
+// set boundary condition on the edges of the mesh
+
+  M.bc_set(VACUUM);                                                 // set boundary condition on bottom edge of mesh
+  M.bc_set(VACUUM);                                                 // set boundary condition on right edge of mesh
+  M.bc_set(VACUUM);                                                 // set boundary condition on top edge of mesh
+  M.bc_set(VACUUM);                                                 // set boundary condition on left edge of mesh
 
 // allocate a determinant for each derivative
 
@@ -175,7 +177,7 @@ int main(){
 
 // echo some initial information
 
-  initial_data(n,nnodes,ndims,nmats);
+  initial_data(n,nnodes,ndims,nmats,M);
 
 // assemble mass matrix for acceleration field
 
@@ -609,7 +611,7 @@ void header(){
 
 // output some initial data
 
-void initial_data(int const n,int const nnodes,int const ndims, int const nmats){
+void initial_data(int const n,int const nnodes,int const ndims, int const nmats, Mesh const &M){
 
   cout<<"Initial data for the simulation"<<endl;
 
@@ -617,6 +619,26 @@ void initial_data(int const n,int const nnodes,int const ndims, int const nmats)
   cout<<"Number of cells:                  "<<n<<endl;
   cout<<"Number of nodes:                  "<<nnodes<<endl;
   cout<<"Number of materials:              "<<nmats<<endl;
+  cout<<"Boundary conditions have been set on "<<M.nbcs()<<" edges :"<<endl;
+
+  for(int i=0;i<M.nbcs();i++){
+
+    string bcname;
+
+    switch(M.bc_edge(i)){
+      case(VACUUM):
+        bcname="vacuum";
+        break;
+      case(FREE_SURFACE):
+        bcname="free-surface";
+        break;
+      case(FORCED_REFLECTIVE):
+        bcname="forced-reflective";
+        break;
+    }
+
+    cout<<"Edge "<<i<<" boundary type : "<<bcname<<endl;
+  }
 
   return;
 
@@ -778,7 +800,8 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 // material on this face - add it to the mass matrix
 
-      int i(M.E2E(M.NCells()+ib,oface[M.SideAttr(ib)]); // physical element connecting
+      int i(M.E2E(M.NCells()+ib,0)); // physical element connecting
+
       for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
         for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
           double nn(0.0); // mass matrix
@@ -792,8 +815,6 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
     }
   }
 
-
-
   cout<<"A after:"<<endl;
   for(int i=0;i<M.NNodes();i++){
     for(int j=0;j<M.NNodes();j++){
@@ -804,7 +825,7 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 
 // debug
-  cout<<"Inside bc_insert"<<endl;
+  cout<<"End of bc_insert"<<endl;
   exit(1);
 // debug
 

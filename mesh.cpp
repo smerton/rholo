@@ -230,6 +230,10 @@ Mesh::Mesh(char* meshfile){
 
   }
 
+// connectivity traversal
+
+  set_E2E();
+
 // print out what we have found
 
   cout<<"  Mesh::Mesh(): Data found in mesh file:"<<endl;
@@ -289,6 +293,103 @@ Mesh::Mesh(char* meshfile){
     if( input == "nodes" ) return nodes;
     return invalid;
  }
+
+// member function to set up the element->element connectivities
+
+void Mesh::set_E2E(){
+
+  for(int iel=0;iel<NCells();iel++){
+
+// vertices of current element
+
+    int n[5]={Vertex(iel,0),Vertex(iel,1),Vertex(iel,3),Vertex(iel,2),Vertex(iel,0)};
+
+    vector<int> iel_neighbours={-1,-1,-1,-1};
+
+// loop over faces of element iel
+
+    for(int iface=0;iface<NVertices(iel);iface++){
+
+// search for a neighbour on face iface of iel
+
+      for(int ieln=0;ieln<NCells();ieln++){
+
+        if(iel==ieln){continue;}
+
+// vertices of element ieln
+
+        int nn[5]={Vertex(ieln,0),Vertex(ieln,1),Vertex(ieln,3),Vertex(ieln,2),Vertex(ieln,0)};
+
+// loop over faces of element ieln
+
+        for(int ifacen=0;ifacen<NVertices(iel);ifacen++){
+
+// check if faces iface and ifacen are coincident
+
+          bool z1(n[iface]==nn[ifacen] || n[iface]==nn[ifacen+1]);
+          bool z2(n[iface+1]==nn[ifacen] || n[iface+1]==nn[ifacen+1]);
+
+          if(z1&&z2){iel_neighbours.at(iface)=ieln;} // ieln on face iface of iel
+
+        }
+
+      }
+
+    }
+
+    mE2E.push_back(iel_neighbours);
+
+  }
+
+// now connect boundary segments to the mesh
+
+  for(int ib=0;ib<NSides();ib++){
+
+// vertices of boundary segment
+
+    int nb[2]={SideNode(ib,0),SideNode(ib,1)};
+
+// search mesh for the adjacent element
+
+    for(int iel=0;iel<NCells();iel++){
+
+// vertices of element iel
+
+      int n[5]={Vertex(iel,0),Vertex(iel,1),Vertex(iel,3),Vertex(iel,2),Vertex(iel,0)};
+
+// search element for a face coincident with boundary segment
+
+      for(int iface=0;iface<NVertices(iel);iface++){
+
+// check if face iface lies on the domain boundary
+
+        if(E2E(iel,iface)<0){
+
+// check if face iface and boundary segment ib are coincident
+
+          bool z1(n[iface]==nb[0] || n[iface]==nb[1]);
+          bool z2(n[iface+1]==nb[0] || n[iface+1]==nb[1]);
+
+// boundary segment ib on face iface of iel
+
+          if(z1&&z2){
+            mE2E.at(iel).at(iface)=NCells()+ib; // connect ib to face iface of iel
+            vector<int> ib_neighbours={iel};// connect iel to boundary segment ib
+            mE2E.push_back(ib_neighbours);
+          }
+
+
+        }
+
+      }
+
+    }
+
+  }
+
+  return;
+
+}
 
 // function to convert a string to an int
 
@@ -371,6 +472,22 @@ void Mesh::InitCoords(vector<vector<double> > &v){
 // member function to return the element volume
 
 double Mesh::Volume(int i) const {return mVolume.at(i);}
+
+// member function to push a new boundary condition
+
+void Mesh::bc_set(int bc){mbc_edge.push_back(bc);}
+
+// member function to return the boundary condition on mesh edge iedge
+
+int Mesh::bc_edge(int iedge) const {return mbc_edge[iedge];}
+
+// member function to return the number of boundary conditions
+
+int Mesh::nbcs() const {return mbc_edge.size();}
+
+// member function to return the element on face iface of element iel
+
+int Mesh::E2E(int iel,int iface) const {return mE2E[iel][iface];}
 
 // Destructor function to release storage associated with a mesh class object
 
