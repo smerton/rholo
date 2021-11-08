@@ -88,7 +88,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input.mesh");                                     // load a new mesh from file
+  Mesh M("mesh/input-20cells.mesh");                                     // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3,f4,f5;                                       // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -110,8 +110,8 @@ int main(){
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
 
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for Sod's shock tube 
-                                 {0.125, 0.000,0.000, 0.100}};   // where each flux state is in the form (d,ux,uy,p)
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100}};   // where each flux state is in the form (d,ux,uy,p)
 
 //  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400},  // initial flux state in each material for the 123 problem 
 //                                 {1.000, 2.000,0.000, 0.400}}; // where each flux state is in the form (d,ux,uy,p)
@@ -119,8 +119,8 @@ int main(){
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0},  // initial flux state in each material for the blast wave
 //                                 {1.000,0.000,0.000, 0.0100}}; // where each flux state is in the form (d,ux,uy,p)
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for vacuum boundary test
-//                                 {1.000, 0.000,0.000, 1.000}}; // where each flux state is in the form (d,ux,uy,p)
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for vacuum boundary test
+                                 {1.000, 0.000,0.000, 1.000}}; // where each flux state is in the form (d,ux,uy,p)
 
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
@@ -391,7 +391,7 @@ int main(){
     }else{
       q.at(i)=0.0; // turn off q as cell divergence indicates expansion
     }
-
+q.at(i)=0.0;
   }
 
 // assemble acceleration field
@@ -751,85 +751,34 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 }
 
-// boundary conditions are inserted via row elimination on the mass matrix
-// Notes on how boundary conditions have been implemented in RhoLo:
-//
-// Vacuum                    - do nothing, mass matrix OK as-is. There will be
-//                             an outward pressure gradient due to the state
-//                             of the material on the inside and a vacuum on the
-//                             outside and the mesh will likely take off, driven
-//                             by the outward pressure of the material.
-// Free-surface              - modify the mass matrix such that the action of a
-//                             continuous material field across domain boundary is
-//                             stored. Nodes on the edge of the mesh will not move
-//                             until a signal arrives. They will then be carried
-//                             by the fluid with the fluid velocity in the Lagrangian
-//                             frame.
-// Forced-reflective         - perpendicular component of veloicty field zero at the
-//                             boundary, material state reflected across the boundary.
-//                             Signal will bounce off the edge and flow direction will
-//                             reverse
+// insert boundary masses into the global matrix if required
 
   void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ){
-
-// opposing face of cell
-
-  int oface[4]={2,3,0,1};
-
-  cout<<fixed<<setprecision(6);
-  cout<<"A before:"<<endl;
-  for(int i=0;i<M.NNodes();i++){
-    for(int j=0;j<M.NNodes();j++){
-      cout<<A.read(i,j)<<" ";
-    }
-    cout<<endl;
-  }
 
 // loop over boundary elements (note these are refered to here as "sides")
 // and choose what type of boundary to apply
 
-  for(int ib=0;ib<M.NSides();ib++){
+    for(int ib=0;ib<M.NSides();ib++){
 
-    if(M.bc_edge(M.SideAttr(ib))!=VACUUM){
+      if(M.bc_edge(M.SideAttr(ib))!=VACUUM){
 
-// vacuum boundary on this face - no modification to the mass matrix
+// material on this face - add in boundary masses
 
-      continue;
+        int i(M.E2E(M.NCells()+ib,0)); // physical element connecting
 
-    }else{
-
-// material on this face - add it to the mass matrix
-
-      int i(M.E2E(M.NCells()+ib,0)); // physical element connecting
-
-      for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-        for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
-          double nn(0.0); // mass matrix
-          for(int gi=0;gi<S.ngi();gi++){
-            nn+=d[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+          for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
+            double nn(0.0); // mass matrix
+            for(int gi=0;gi<S.ngi();gi++){
+              nn+=d[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+            }
+            A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass on to existing value in the mass matrix
           }
-          A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass on to existing value in the mass matrix
         }
+
       }
-
     }
-  }
-
-  cout<<"A after:"<<endl;
-  for(int i=0;i<M.NNodes();i++){
-    for(int j=0;j<M.NNodes();j++){
-      cout<<A.read(i,j)<<" ";
-    }
-    cout<<endl;
-  }
-
-
-// debug
-  cout<<"End of bc_insert"<<endl;
-  exit(1);
-// debug
 
     return;
 
   }
-
