@@ -88,7 +88,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-20cells.mesh");                                     // load a new mesh from file
+  Mesh M("mesh/input-square.mesh");                              // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3,f4,f5;                                       // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -245,8 +245,8 @@ int main(){
 
 // choose the smallest time step
 
-    dt=(*min_element(dts.begin(), dts.end()));
-//    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
+//    dt=(*min_element(dts.begin(), dts.end()));
+    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
@@ -321,78 +321,78 @@ int main(){
 
 // bulk q
 
-//    for(int i=0;i<n;i++){
-//      c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
-//      double l(sqrt(V1[i])),divu((d0[i]-d1[i])/(d1[i]*dt));
-//      if(divu<0.0){
-//        q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
-//      }else{
-//        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
-//      }
-//    }
-
-  for(int i=0;i<n;i++){
-
-    double l(sqrt(V1[i])),divu(0.0);                // length of element and divergence field
-    double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0); // derivatives of the jacobian
-    vector<vector<double> > detJS(ndims,vector<double>(S.nloc()));  // jacobian for each component of the divergence term
-    c.at(i)=sqrt(GAMMA*p[i]/d1[i]);                 // sound speed
-
-// compute a jacobian and determinant for the element
-
-    for(int j=0;j<S.nloc();j++){
-      dxdu+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dx/du
-      dydu+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dy/du
-      dxdv+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dx/dv
-      dydv+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dy/dv
-    }
-
-//              a1   b3    b1   a3
-    double detj(dxdu*dydv-dydu*dxdv),area(4.0*detj);
-
-    double ui1(u1.at(0)[M.Vertex(i,0)]);
-    double ui2(u1.at(0)[M.Vertex(i,1)]);
-    double ui3(u1.at(0)[M.Vertex(i,2)]);
-    double ui4(u1.at(0)[M.Vertex(i,3)]);
-
-    double vi1(u1.at(1)[M.Vertex(i,0)]);
-    double vi2(u1.at(1)[M.Vertex(i,1)]);
-    double vi3(u1.at(1)[M.Vertex(i,2)]);
-    double vi4(u1.at(1)[M.Vertex(i,3)]);
-
-    double a1(dxdu);
-    double b3(dydv);
-    double b1(dydu);
-    double a3(dxdv);
-
-// determinants for the deriavtives in the divergence term
-
-    for(int j=0;j<S.nloc();j++){
-      detJS.at(0).at(j)=(dydv*S.dvalue(0,j,0.0,0.0)-dydu*S.dvalue(1,j,0.0,0.0))/detj;
-      detJS.at(1).at(j)=(-dxdv*S.dvalue(0,j,0.0,0.0)+dxdu*S.dvalue(1,j,0.0,0.0))/detj;
-   }
-
-// calculate element divergence field 
-
-//    divu=(ui1*(b1-b3)+ui2*(b1+b3)+ui3*(-b1+b3)+ui4*(-b1-b3))/area;
-//    divu+=(vi1*(-a1+a3)+vi2*(-a1-a3)+vi3*(a1-a3)+vi4*(a1+a3))/area;
-
-    for(int idim=0;idim<ndims;idim++){
-      for(int j=0;j<S.nloc();j++){
-        divu+=u1.at(idim)[M.Vertex(i,j)]*detJS[idim][j];
+    for(int i=0;i<n;i++){
+      c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
+      double l(sqrt(V1[i])),divu((d0[i]-d1[i])/(d1[i]*dt));
+      if(divu<0.0){
+        q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
+      }else{
+        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
       }
     }
 
+//  for(int i=0;i<n;i++){
+//
+//    double l(sqrt(V1[i])),divu(0.0);                // length of element and divergence field
+//    double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0); // derivatives of the jacobian
+//    vector<vector<double> > detJS(ndims,vector<double>(S.nloc()));  // jacobian for each component of the divergence term
+//    c.at(i)=sqrt(GAMMA*p[i]/d1[i]);                 // sound speed
+
+// compute a jacobian and determinant for the element
+
+//    for(int j=0;j<S.nloc();j++){
+//      dxdu+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dx/du
+//      dydu+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dy/du
+//      dxdv+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dx/dv
+//      dydv+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dy/dv
+//    }
+
+//              a1   b3    b1   a3
+//    double detj(dxdu*dydv-dydu*dxdv),area(4.0*detj);
+
+//    double ui1(u1.at(0)[M.Vertex(i,0)]);
+//    double ui2(u1.at(0)[M.Vertex(i,1)]);
+//    double ui3(u1.at(0)[M.Vertex(i,2)]);
+//    double ui4(u1.at(0)[M.Vertex(i,3)]);
+
+//    double vi1(u1.at(1)[M.Vertex(i,0)]);
+//    double vi2(u1.at(1)[M.Vertex(i,1)]);
+//    double vi3(u1.at(1)[M.Vertex(i,2)]);
+//    double vi4(u1.at(1)[M.Vertex(i,3)]);
+
+//    double a1(dxdu);
+//    double b3(dydv);
+//    double b1(dydu);
+//    double a3(dxdv);
+
+// determinants for the deriavtives in the divergence term
+
+//    for(int j=0;j<S.nloc();j++){
+//      detJS.at(0).at(j)=(dydv*S.dvalue(0,j,0.0,0.0)-dydu*S.dvalue(1,j,0.0,0.0))/detj;
+//      detJS.at(1).at(j)=(-dxdv*S.dvalue(0,j,0.0,0.0)+dxdu*S.dvalue(1,j,0.0,0.0))/detj;
+//   }
+
+// calculate element divergence field 
+
+////    divu=(ui1*(b1-b3)+ui2*(b1+b3)+ui3*(-b1+b3)+ui4*(-b1-b3))/area;
+////    divu+=(vi1*(-a1+a3)+vi2*(-a1-a3)+vi3*(a1-a3)+vi4*(a1+a3))/area;
+
+//    for(int idim=0;idim<ndims;idim++){
+//      for(int j=0;j<S.nloc();j++){
+//        divu+=u1.at(idim)[M.Vertex(i,j)]*detJS[idim][j];
+//      }
+//    }
+
 // artificial viscosity term
 
-    if(divu<0.0){
-      q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
-//      q.at(i)=d1[i]*((cq*divu*divu*area) - cl*sqrt(detj*c[i]))*divu;
-    }else{
-      q.at(i)=0.0; // turn off q as cell divergence indicates expansion
-    }
-q.at(i)=0.0;
-  }
+//    if(divu<0.0){
+//      q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
+////      q.at(i)=d1[i]*((cq*divu*divu*area) - cl*sqrt(detj*c[i]))*divu;
+//    }else{
+//      q.at(i)=0.0; // turn off q as cell divergence indicates expansion
+//    }
+
+//  }
 
 // assemble acceleration field
 
@@ -426,7 +426,10 @@ q.at(i)=0.0;
 // debug
   for(int i=0;i<nnodes/2;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
   cout<<endl;
-  for(int i=nnodes/2;i<nnodes;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
+//  for(int i=nnodes/2;i<nnodes;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
+
+//  for(int i=0;i<11;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
+
 // debug
 
 
@@ -517,7 +520,6 @@ q.at(i)=0.0;
       d0=d1;
 
       for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
-
   }
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
