@@ -1,8 +1,8 @@
 // Finite element variant of RhoLo (Really High Order Lagrangian Operator - RhoLo)
 // RhoLo is an ultra simple finite element (DG) hydrodynamics test code
 // This finite element variant solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
-// using a mixed continuous finite element method (cell-centred thermodynamic variable d,rho,e with node 
-// centred kinematic variables u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
+// using a mixed continuous finite element method (cell-centred thermodynamic variables p,rho,e with node 
+// centred kinematic variables x,u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
 // implementation is only first order in time
 //
 // Author S. R. Merton
@@ -27,12 +27,12 @@
 //
 
 #define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 0.20      // insert a macro for the end time
+#define ENDTIME 0.15      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
-#define VISFREQ 0.05      // frequency of the graphics dump times
+#define VISFREQ 0.01      // frequency of the graphics dump times
 #define OUTFREQ 0.04      // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
@@ -46,7 +46,7 @@
 #define ROW M.Vertex(i,iloc)  // row address in global matrix
 #define COL M.Vertex(i,jloc)  // column address in global matrix
 #define VACUUM 1              // vacuum boundary
-#define FORCED_REFLECTIVE 2   // reflective boundary
+#define REFLECTIVE 2          // reflective boundary
 #define FREE_SURFACE 3        // free surface (transmissive) boundary
 
 #include <iostream>
@@ -54,7 +54,6 @@
 #include <iomanip>
 #include <cmath>
 #include <fstream>   // for file io
-#include "riemann.h" // signature of the riemann solvers
 #include "matrix.h"  // matrix operations
 #include "shape.h"   // signature of the shape class
 #include <bits/stdc++.h>
@@ -73,7 +72,10 @@ void header();                                                                  
 void vempty(vector<double>&v);                                                              // empty a vector
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ);          // iinsert boundary conditions by modifying the mass matrix
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
-void initial_data(int const n, int const nnodes, int const ndims, int const nmats, Mesh const &M); // echo some initial information
+void initial_data(int const n, int const nnodes, int const ndims, int const nmats,          // echo some initial information
+                  Mesh const &M);
+void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
+              VD const &q, VVD const &x, VVD const &u);
 void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
@@ -88,9 +90,9 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-square.mesh");                              // load a new mesh from file
+  Mesh M("mesh/input-20cells.mesh");                             // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
-  ofstream f1,f2,f3,f4,f5;                                       // files for output
+  ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
@@ -113,22 +115,23 @@ int main(){
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for Sod's shock tube 
 //                                 {0.125, 0.000,0.000, 0.100}};   // where each flux state is in the form (d,ux,uy,p)
 
-//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400},  // initial flux state in each material for the 123 problem 
-//                                 {1.000, 2.000,0.000, 0.400}}; // where each flux state is in the form (d,ux,uy,p)
+  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400},  // initial flux state in each material for the 123 problem 
+                                 {1.000, 2.000,0.000, 0.400}}; // where each flux state is in the form (d,ux,uy,p)
 
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0},  // initial flux state in each material for the blast wave
 //                                 {1.000,0.000,0.000, 0.0100}}; // where each flux state is in the form (d,ux,uy,p)
 
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for vacuum boundary test
-                                 {1.000, 0.000,0.000, 1.000}}; // where each flux state is in the form (d,ux,uy,p)
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for vacuum boundary test
+//                                 {1.000, 0.000,0.000, 1.000}}; // where each flux state is in the form (d,ux,uy,p)
 
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
 
 // initialise the problem
 
-  M.InitCoords(x0); // set initial coordinates
-  M.InitCoords(x1); // set initial coordinates
+  M.InitCoords(x0);                                                 // set initial coordinates
+  M.InitCoords(x1);                                                 // set initial coordinates
+
   for(int i=0;i<n;i++){mat.at(i)=M.Material(i);}
   for(int i=0;i<n;i++){V0.at(i)=M.Volume(i);}
   for(int i=0;i<n;i++){V1.at(i)=M.Volume(i);}
@@ -143,9 +146,9 @@ int main(){
 
 // set boundary condition on the edges of the mesh
 
-  M.bc_set(VACUUM);                                                 // set boundary condition on bottom edge of mesh
+  M.bc_set(REFLECTIVE);                                             // set boundary condition on bottom edge of mesh
   M.bc_set(VACUUM);                                                 // set boundary condition on right edge of mesh
-  M.bc_set(VACUUM);                                                 // set boundary condition on top edge of mesh
+  M.bc_set(REFLECTIVE);                                             // set boundary condition on top edge of mesh
   M.bc_set(VACUUM);                                                 // set boundary condition on left edge of mesh
 
 // allocate a determinant for each derivative
@@ -206,11 +209,7 @@ int main(){
 
 // invert the mass matrix
 
-  KMASSI.inverse2(&KMASS); // lapack
-
-// start the Riemann solvers from initial flux states
-
-  Riemann R0(Riemann::exact,l,r),R1(Riemann::exact,l,r);
+  KMASSI.inverse2(&KMASS); // lapack drivers dgetrf_ and dgetri_
 
 // set output precision
 
@@ -252,15 +251,15 @@ int main(){
 
 // graphics output
 
-      if(abs(remainder(time,VISFREQ))<1.0e-12){
+    if(abs(remainder(time,VISFREQ))<1.0e-12){
+      state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
+      silo(x0,d0,p,e0,q,c,u0,mat,step,time,M);
+    }else{
+      if(abs(remainder(step,VISFREQ))==0){
         state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
         silo(x0,d0,p,e0,q,c,u0,mat,step,time,M);
-      }else{
-        if(abs(remainder(step,VISFREQ))==0){
-          state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
-          silo(x0,d0,p,e0,q,c,u0,mat,step,time,M);
-        }
       }
+    }
 
 // move the nodes to their full-step position
 
@@ -270,50 +269,32 @@ int main(){
       }
     }
 
-// evolve the Riemann problems to the end of the time-step on the end of time-step meshes
-
-//    vector<double> r0x,rx;vempty(r0x); // sample point coordinates
-////    for(long i=0;i<NSAMPLES;i++){r0x.push_back(x1[0]+(i*(x1[ng]-x1[0])/double(NSAMPLES)));} // sample points
-//    for(long i=0;i<NSAMPLES;i++){r0x.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points
-//    R0.profile(&r0x,time+dt); // Riemann solution at the sample points along the mesh
-//    rx.clear();for(int i=0;i<ng;i++){rx.push_back(x1[i]);rx.push_back(0.5*(x1[i]+x1[i+1]));rx.push_back(x1[i+1]);}
-//    R1.profile(&rx,time+dt);
-
-
 // update cell volumes at the full-step
 
-  for(int i=0;i<n;i++){
+    for(int i=0;i<n;i++){
 
 // update the jacobian
 
-    jacobian(i,x1,M,S,detJ,detDJ);
+      jacobian(i,x1,M,S,detJ,detDJ);
 
 // reset the cell volume
 
-    V1.at(i)=0.0;
-    for(int gi=0;gi<S.ngi();gi++){
-      V1.at(i)+=detJ[gi]*S.wgt(gi);
+      V1.at(i)=0.0;
+      for(int gi=0;gi<S.ngi();gi++){
+        V1.at(i)+=detJ[gi]*S.wgt(gi);
+      }
+
+      if(V1.at(i)<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}
+
     }
-
-    if(V1.at(i)<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}
-
-  }
 
 // update cell density at the full-step
 
-  for(int i=0;i<n;i++){d1.at(i)=m[i]/V1[i];}
-
-// debug
-//    for(int i=0;i<ng;i++){d1.at(i)=R1.density(3*i+1);} // 3*i+1 is cell-centre address
-// debug
+    for(int i=0;i<n;i++){d1.at(i)=m[i]/V1[i];}
 
 // update cell energy at the full-step
 
-  for(int i=0;i<n;i++){e1.at(i)=max(ECUT,e0[i]-((p[i]+q[i])*(V1[i]-V0[i]))/m[i]);}
-
-// debug
-//    for(int i=0;i<ng;i++){e1.at(i)=R1.energy(3*i+1);} // 3*i+1 is cell-centre address
-// debug
+    for(int i=0;i<n;i++){e1.at(i)=max(ECUT,e0[i]-((p[i]+q[i])*(V1[i]-V0[i]))/m[i]);}
 
 // update cell pressure at the full-step
 
@@ -402,9 +383,16 @@ int main(){
       for(int iloc=0;iloc<S.nloc();iloc++){
         for(int gi=0;gi<S.ngi();gi++){
           b[ROW]+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+if(idim==1){b[ROW]=0.0;} // reflective
         }
       }
     }
+
+if(idim==0){
+b[0]=0.0;b[20]=0.0;
+b[21]=0.0;b[41]=0.0;
+}
+
 
 // solve global system
 
@@ -423,14 +411,6 @@ int main(){
   }
 
 
-// debug
-  for(int i=0;i<nnodes/2;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
-  cout<<endl;
-//  for(int i=nnodes/2;i<nnodes;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
-
-//  for(int i=0;i<11;i++){cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;}
-
-// debug
 
 
 
@@ -469,58 +449,63 @@ int main(){
 
 //  for(int i=0;i<n+3;i++){u1.at(i+1)=u0[i+1]+x[i]*dt;}
 
-
-
-
-
-
-
-
-
-
-
-// debug
-// output initial data
-//  cout<<"main(): 2D not yet operational, stopping."<<endl;
-//  exit(1);
-// debug
-
-
 // impose boundary constraints on the acceleration field
 
 //  u1.at(1)=u1[2];u1.at(ng-1)=u1[ng-2];
 //  u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
 
-// some output
 
-//    f1.open("exact.dat");f2.open("dpe.dat");f3.open("q.dat");f4.open("u.dat");f5.open("r.dat");
-//    f1<<fixed<<setprecision(17);f2<<fixed<<setprecision(17);f3<<fixed<<setprecision(17);f4<<fixed<<setprecision(17);
-//    for(int i=0;i<NSAMPLES;i++){f1<<r0x[i]<<" "<<R0.density(i)<<" "<<R0.pressure(i)<<" "<<R0.velocity(i)<<" "<<R0.energy(i)<<endl;}
-//    for(int i=1;i<NSAMPLES;i++){if(R0.region(i)!=R0.region(i-1)){f5<<r0x[i]<<" -20000.0"<<endl<<r0x[i]<<" 20000.0"<<endl<<r0x[i]<<" -20000.0"<<endl;}} // sample region
-//    for(int i=2;i<n+2;i++){f2<<0.5*(x1[i]+x1[i+1])<<" "<<d1[i]<<" "<<p[i]<<" "<<e1[i]<<" "<<endl;}
-//    for(int i=2;i<n+2;i++){f3<<0.5*(x1[i]+x1[i+1])<<" "<<q[i]<<endl;}
-//    for(int i=2;i<n+3;i++){f4<<x1[i]<<" "<<u1[i]<<endl;}
-//    f1.close();f2.close();f3.close();f4.close();f5.close();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // advance the time step
 
     time+=dt;
     step++;
 
+// advance the states for the new time step
+
+    u0=u1;x0=x1;e0=e1;V0=V1;d0=d1;
+    for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
+
 // debug
-//    for(int i=0;i<ng;i++){u1.at(i)=R1.velocity(3*i);u1.at(i+1)=R1.velocity(3*i+2);} // 3*i,3*i+2 are nodal address
+//  if(step==230){
+//    cout<<"debug stop."<<endl;
+//    output(); // might want this ??
+//    exit(1);
+//  }
 // debug
 
-// advance the solution for the new time step
-
-      u0=u1;
-      x0=x1;
-      e0=e1;
-      V0=V1;
-      d0=d1;
-
-      for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
   }
+
+// some output
+
+  lineouts(M,S,d1,p,e1,q,x1,u1);
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
 
@@ -559,9 +544,92 @@ int main(){
 //  cout<<"  No. points sampled= "<<ii<<endl;
 //  cout<<"  Range sampled= "<<xstart<<","<<xstop<<endl;
 
-//  cout<<"Normal termination."<<endl;
+  cout<<"Normal termination."<<endl;
 
   return 0;
+}
+
+// this function codes for some line-outs intended for use in the pseudo-1D tests
+
+void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,VD const &q,VVD const &x,VVD const &u){
+
+// some output
+
+  ofstream f1,f2,f3; // file handles for output
+
+  f1.open("dpe.dat");f2.open("q.dat");f3.open("u.dat");
+
+// set up line-outs
+
+  vector<int> plotdim={0}; // dimension to plot against (0 for x, 1 for y)
+  vector<int> linedim={1}; // dimension in which the line-out is located (0 for x, 1 for y)
+  vector<double> posline={0.25}; // datum on dimension linedim
+  vector<string> label={"YMID"}; // label for the line-out
+
+// loop over line-outs
+
+  for(int line=0;line<plotdim.size();line++){
+
+// set the output precision
+
+    f1<<fixed<<setprecision(10);
+    f2<<fixed<<setprecision(10);
+    f3<<fixed<<setprecision(10);
+
+// write out a header so we know what each file contains
+
+    f1<<"# "<<label[line]<<" line-out at "<<((linedim[line]==0)?"X=":"Y=")<<posline[line]<<": Coord Density Pressure Energy"<<endl;
+    f2<<"# "<<label[line]<<" line-out at "<<((linedim[line]==0)?"X=":"Y=")<<posline[line]<<": Coord q"<<endl;
+    f3<<"# "<<label[line]<<" line-out at "<<((linedim[line]==0)?"X=":"Y=")<<posline[line]<<": Coord velocity"<<endl;
+
+// sweep mesh and use centroid to find cells along the line-out
+
+    for(int i=0;i<M.NCells();i++){
+    
+// vertex coordinates of cell i
+
+      double xpos[4],ypos[4],xc[2]={0.0,0.0};
+      for(int j=0;j<S.nloc();j++){
+        xpos[j]=x[0].at(M.Vertex(i,j));
+        ypos[j]=x[1].at(M.Vertex(i,j));
+      }
+
+// get cell centroid
+
+      for(int j=0;j<S.nloc();j++){
+        xc[0]+=S.value(j,0.0,0.0)*xpos[j];
+        xc[1]+=S.value(j,0.0,0.0)*ypos[j];
+      }
+
+// check cell coincides with the line-out
+
+      if(abs(xc[linedim[line]]-posline[line])<1.0e-8){
+
+        f1<<xc[plotdim[line]]<<" "<<d.at(i)<<" "<<p.at(i)<<" "<<e.at(i)<<endl;
+        f2<<xc[plotdim[line]]<<" "<<q.at(i)<<endl;
+
+// output velocity through the two nodes parallel to the line-out
+
+        if(plotdim[line]==0){
+          f3<<x.at(plotdim[line]).at(M.Vertex(i,0))<<" "<<u.at(plotdim[line]).at(M.Vertex(i,0))<<endl;
+          f3<<x.at(plotdim[line]).at(M.Vertex(i,1))<<" "<<u.at(plotdim[line]).at(M.Vertex(i,1))<<endl;
+        }else{
+          f3<<x.at(plotdim[line]).at(M.Vertex(i,0))<<" "<<u.at(plotdim[line]).at(M.Vertex(i,0))<<endl;
+          f3<<x.at(plotdim[line]).at(M.Vertex(i,2))<<" "<<u.at(plotdim[line]).at(M.Vertex(i,2))<<endl;
+        }
+
+      }
+
+    }
+
+  }
+
+// close the output files
+
+  f1.close();f2.close();f3.close();
+
+  return;
+
 }
 
 // empty a vector
@@ -634,7 +702,7 @@ void initial_data(int const n,int const nnodes,int const ndims, int const nmats,
       case(FREE_SURFACE):
         bcname="free-surface";
         break;
-      case(FORCED_REFLECTIVE):
+      case(REFLECTIVE):
         bcname="forced-reflective";
         break;
     }
@@ -731,14 +799,14 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
     for(int j=0;j<S.nloc();j++){
       dxdu+=x.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
-      dydu+=x.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
       dxdv+=x.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
+      dydu+=x.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
       dydv+=x.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
     }
 
 // calculate the determinant at the quadrature point and commit to the vector
 
-    detJ.at(gi)=dxdu*dydv-dydu*dxdv;
+    detJ.at(gi)=dxdu*dydv-dxdv*dydu;
 
 // determinants for the deriavtives at the quadrature points
 

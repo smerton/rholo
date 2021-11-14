@@ -27,7 +27,7 @@ class Shape{
     double wgt(int gi) const;                           // quadrature weight of integration point gi
     double value(int i,int gi) const;                   // shape i value at Gauss point gi
     double dvalue(int idim, int i,int gi) const;        // shape i derivative idim at Gauss point gi
-    double value(int i,double x,double y);              // shape i value at local coordinate x,y
+    double value(int i,double x,double y) const;        // shape i value at local coordinate x,y
     double dvalue(int idim, int i,double x, double y);  // shape i derivative idim at local coordinate x,y
 
 // accessor function to prolongation operator

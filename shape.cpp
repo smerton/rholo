@@ -136,7 +136,7 @@ int Shape::pos(int idim,int iloc) const {return mpos[idim][iloc];} // node posit
 
 double Shape::wgt(int gi) const {return mwgt[gi];} // quadrature weight of integration point gi
 double Shape::value(int i,int gi) const {return mvalue[i][gi];} // shape i value at Gauss point gi
-double Shape::value(int i,double x,double y){Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);return P1.value(x)*P2.value(y);} // shape i value at coordinate x,y
+double Shape::value(int i,double x,double y) const {Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);return P1.value(x)*P2.value(y);} // shape i value at coordinate x,y
 double Shape::dvalue(int idim,int i,int gi) const {return mdvalue[idim][i][gi];} // derivative i value at Gauss point gi
 double Shape::dvalue(int idim,int i,double x,double y){Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);double dval[2];dval[0]=P1.dvalue(x)*P2.value(y);dval[1]=P1.value(x)*P2.dvalue(y);return dval[idim];
 
