@@ -27,12 +27,12 @@
 //
 
 #define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 0.15      // insert a macro for the end time
+#define ENDTIME 0.2       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
-#define VISFREQ 0.01      // frequency of the graphics dump times
+#define VISFREQ 0.05      // frequency of the graphics dump times
 #define OUTFREQ 0.04      // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
@@ -90,13 +90,13 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-20cells.mesh");                             // load a new mesh from file
+  Mesh M("mesh/input-40cells.mesh");                             // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
-  double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.03),cq(0.05);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(NROWS),KMASSI(NROWS);                             // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
@@ -112,11 +112,11 @@ int main(){
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100}};   // where each flux state is in the form (d,ux,uy,p)
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for Sod's shock tube 
+                                 {0.125, 0.000,0.000, 0.100}};   // where each flux state is in the form (d,ux,uy,p)
 
-  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400},  // initial flux state in each material for the 123 problem 
-                                 {1.000, 2.000,0.000, 0.400}}; // where each flux state is in the form (d,ux,uy,p)
+//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400},  // initial flux state in each material for the 123 problem 
+//                                 {1.000, 2.000,0.000, 0.400}}; // where each flux state is in the form (d,ux,uy,p)
 
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0},  // initial flux state in each material for the blast wave
 //                                 {1.000,0.000,0.000, 0.0100}}; // where each flux state is in the form (d,ux,uy,p)
@@ -389,8 +389,8 @@ if(idim==1){b[ROW]=0.0;} // reflective
     }
 
 if(idim==0){
-b[0]=0.0;b[20]=0.0;
-b[21]=0.0;b[41]=0.0;
+b[0]=0.0;b[40]=0.0;
+b[41]=0.0;b[81]=0.0;
 }
 
 

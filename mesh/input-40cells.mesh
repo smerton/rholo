@@ -1,0 +1,264 @@
+MFEM mesh v1.0
+
+# Input file for RhoLo based on MFEM mesh file format
+# This file was create on Sun 24 Oct 11:15:59 BST 2021 and can be visualised using GLVis
+# See https://mfem.org/mesh-format-v1.x for description of this format
+#
+# RhoLo uses the following which may be inconsistent with MFEM:
+#   element attribute for material number (column 1 in elements block)
+#   boundary attribute for mesh side, =0 for bottom, 1 for right, =2 for top, =3 for left (column 1 in boundary block)
+#   boundary type not used - it is not known what MFEM uses this for (column 2 in boundary block)
+#   FiniteElementCollection not used - but MFEM may use this to set polyhedral order (in nodes block)
+#
+# The following format is interpreted by RhoLo
+# dimension
+# <number of spatial dimensions of the mesh>
+#
+# elements
+# <number of elements>
+# <material number> <element type from MFEM geometry type list, see below> <node number of vertices>
+#
+# boundary
+# <number of element sides on the mesh boundary>
+# <element side coincident with mesh edge> <boundary condition, 1=free surface, 2= forced-reflective> <node number of vertices on this side>
+#
+# vertices
+# <number of mesh vertices>
+# <serialisation, =2 for x,y pairs>
+# <coordinate of vertex in each dimension>
+
+# MFEM Geometry Types (see mesh/geom.hpp):
+#
+# POINT       = 0
+# SEGMENT     = 1
+# TRIANGLE    = 2
+# SQUARE      = 3
+# TETRAHEDRON = 4
+# CUBE        = 5
+# PRISM       = 6
+#
+
+dimension
+2
+
+elements
+40
+1 3 0 1 42 41
+1 3 1 2 43 42
+1 3 2 3 44 43
+1 3 3 4 45 44
+1 3 4 5 46 45
+1 3 5 6 47 46
+1 3 6 7 48 47
+1 3 7 8 49 48
+1 3 8 9 50 49
+1 3 9 10 51 50
+1 3 10 11 52 51
+1 3 11 12 53 52
+1 3 12 13 54 53
+1 3 13 14 55 54
+1 3 14 15 56 55
+1 3 15 16 57 56
+1 3 16 17 58 57
+1 3 17 18 59 58
+1 3 18 19 60 59
+1 3 19 20 61 60
+2 3 20 21 62 61
+2 3 21 22 63 62
+2 3 22 23 64 63
+2 3 23 24 65 64
+2 3 24 25 66 65
+2 3 25 26 67 66
+2 3 26 27 68 67
+2 3 27 28 69 68
+2 3 28 29 70 69
+2 3 29 30 71 70
+2 3 30 31 72 71
+2 3 31 32 73 72
+2 3 32 33 74 73
+2 3 33 34 75 74
+2 3 34 35 76 75
+2 3 35 36 77 76
+2 3 36 37 78 77
+2 3 37 38 79 78
+2 3 38 39 80 79
+2 3 39 40 81 80
+
+boundary
+82
+0 1 0 1
+0 1 1 2
+0 1 2 3
+0 1 3 4
+0 1 4 5
+0 1 5 6
+0 1 6 7
+0 1 7 8
+0 1 8 9
+0 1 9 10
+0 1 10 11
+0 1 11 12
+0 1 12 13
+0 1 13 14
+0 1 14 15
+0 1 15 16
+0 1 16 17
+0 1 17 18
+0 1 18 19
+0 1 19 20
+0 1 20 21
+0 1 21 22
+0 1 22 23
+0 1 23 24
+0 1 24 25
+0 1 25 26
+0 1 26 27
+0 1 27 28
+0 1 28 29
+0 1 29 30
+0 1 30 31
+0 1 31 32
+0 1 32 33
+0 1 33 34
+0 1 34 35
+0 1 35 36
+0 1 36 37
+0 1 37 38
+0 1 38 39
+0 1 39 40
+1 1 40 81
+2 1 81 80
+2 1 80 79
+2 1 79 78
+2 1 78 77
+2 1 77 76
+2 1 76 75
+2 1 75 74
+2 1 74 73
+2 1 73 72
+2 1 72 71
+2 1 71 70
+2 1 70 69
+2 1 69 68
+2 1 68 67
+2 1 67 66
+2 1 66 65
+2 1 65 64
+2 1 64 63
+2 1 63 62
+2 1 62 61
+2 1 61 60
+2 1 60 59
+2 1 59 58
+2 1 58 57
+2 1 57 56
+2 1 56 55
+2 1 55 54
+2 1 54 53
+2 1 53 52
+2 1 52 51
+2 1 51 50
+2 1 50 49
+2 1 49 48
+2 1 48 47
+2 1 47 46
+2 1 46 45
+2 1 45 44
+2 1 44 43
+2 1 43 42
+2 1 42 41
+3 1 42 0
+
+vertices
+82
+2
+0.0 0.0
+0.025 0.0
+0.05 0.0
+0.075 0.0
+0.1 0.0
+0.125 0.0
+0.15 0.0
+0.175 0.0
+0.2 0.0
+0.225 0.0
+0.25 0.0
+0.275 0.0
+0.3 0.0
+0.325 0.0
+0.35 0.0
+0.375 0.0
+0.4 0.0
+0.425 0.0
+0.45 0.0
+0.475 0.0
+0.5 0.0
+0.525 0.0
+0.55 0.0
+0.575 0.0
+0.6 0.0
+0.625 0.0
+0.65 0.0
+0.675 0.0
+0.7 0.0
+0.725 0.0
+0.75 0.0
+0.775 0.0
+0.8 0.0
+0.825 0.0
+0.85 0.0
+0.875 0.0
+0.9 0.0
+0.925 0.0
+0.95 0.0
+0.975 0.0
+1.0 0.0
+0.0 0.5
+0.025 0.5
+0.05 0.5
+0.075 0.5
+0.1 0.5
+0.125 0.5
+0.15 0.5
+0.175 0.5
+0.2 0.5
+0.225 0.5
+0.25 0.5
+0.275 0.5
+0.3 0.5
+0.325 0.5
+0.35 0.5
+0.375 0.5
+0.4 0.5
+0.425 0.5
+0.45 0.5
+0.475 0.5
+0.5 0.5
+0.525 0.5
+0.55 0.5
+0.575 0.5
+0.6 0.5
+0.625 0.5
+0.65 0.5
+0.675 0.5
+0.7 0.5
+0.725 0.5
+0.75 0.5
+0.775 0.5
+0.8 0.5
+0.825 0.5
+0.85 0.5
+0.875 0.5
+0.9 0.5
+0.925 0.5
+0.95 0.5
+0.975 0.5
+1.0 0.5
+
+
+
+
+
+
+
+
