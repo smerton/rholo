@@ -32,7 +32,7 @@
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
-#define VISFREQ 0.05      // frequency of the graphics dump times
+#define VISFREQ 0.01      // frequency of the graphics dump times
 #define OUTFREQ 0.04      // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
@@ -70,6 +70,7 @@
 string date();                                                                              // function to return the date and time
 void header();                                                                              // header part
 void vempty(vector<double>&v);                                                              // empty a vector
+double length(Mesh const &M,Shape const &S,int const i);                                          // element i length scale
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ);          // iinsert boundary conditions by modifying the mass matrix
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
 void initial_data(int const n, int const nnodes, int const ndims, int const nmats,          // echo some initial information
@@ -96,7 +97,7 @@ int main(){
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
-  double const cl(0.03),cq(0.05);                                  // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(NROWS),KMASSI(NROWS);                             // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
@@ -221,7 +222,7 @@ int main(){
 
 // calculate a new stable time-step
 
-    for(int i=0;i<n;i++){double l(sqrt(V0[i]));dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
+    for(int i=0;i<n;i++){double l(length(M,S,i));dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
 
 // reduce across element and apply a saftey factor
 
@@ -244,8 +245,8 @@ int main(){
 
 // choose the smallest time step
 
-//    dt=(*min_element(dts.begin(), dts.end()));
-    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
+    dt=(*min_element(dts.begin(), dts.end()));
+//    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
@@ -284,7 +285,7 @@ int main(){
         V1.at(i)+=detJ[gi]*S.wgt(gi);
       }
 
-      if(V1.at(i)<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;exit(1);}
+      if(V1.at(i)<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;lineouts(M,S,d1,p,e1,q,x1,u1);exit(1);}
 
     }
 
@@ -304,7 +305,7 @@ int main(){
 
     for(int i=0;i<n;i++){
       c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
-      double l(sqrt(V1[i])),divu((d0[i]-d1[i])/(d1[i]*dt));
+      double l(length(M,S,i)),divu((d0[i]-d1[i])/(d1[i]*dt));
       if(divu<0.0){
         q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
       }else{
@@ -818,6 +819,44 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
   }
 
   return;
+
+}
+
+// compute the shortest distance a signal can take to cross element i
+
+double length(Mesh const &M,Shape const &S,int const i){
+
+  VD xydist; // distance between mid-points
+  VVD xymid(M.NDims()); // midpoint coordinates for each side
+
+// resize mid-point coordinate vector to hold information for 4 sides
+
+  for(int idim=0;idim<M.NDims();idim++){xymid.at(idim).resize(4);}
+
+// side mid-points using the finite element method
+
+  for(int idim=0;idim<M.NDims();idim++){
+    for(int j=0;j<S.nloc();j++){
+      xymid[idim][0]+=S.value(j,0.0,-1.0)*M.Coord(idim,M.Vertex(i,j)); // bottom face
+      xymid[idim][1]+=S.value(j,1.0,0.0)*M.Coord(idim,M.Vertex(i,j)); // right face
+      xymid[idim][2]+=S.value(j,0.0,1.0)*M.Coord(idim,M.Vertex(i,j)); // top face
+      xymid[idim][3]+=S.value(j,-1.0,0.0)*M.Coord(idim,M.Vertex(i,j)); // left face
+    }
+  }
+
+// distances between the mid-points
+
+  for(int iside=0;iside<3;iside++){
+    for(int jside=iside+1;jside<4;jside++){
+      double dx(abs(xymid[0][iside]-xymid[0][jside]));
+      double dy(abs(xymid[1][iside]-xymid[1][jside]));
+      xydist.push_back(sqrt(dx*dx+dy*dy));
+    }
+  }
+
+// return minimum distance between the mid-points
+
+  return (*min_element(xydist.begin(),xydist.end()));
 
 }
 
