@@ -32,8 +32,8 @@
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
-#define VISFREQ 0.01      // frequency of the graphics dump times
-#define OUTFREQ 0.04      // frequency of the output print times
+#define VISFREQ 0.01       // frequency of the graphics dump times
+#define OUTFREQ 0.01       // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
 #define VVVD vector<VVD>  // vector of VVD
@@ -47,7 +47,8 @@
 #define COL M.Vertex(i,jloc)  // column address in global matrix
 #define VACUUM 1              // vacuum boundary
 #define REFLECTIVE 2          // reflective boundary
-#define FREE_SURFACE 3        // free surface (transmissive) boundary
+#define VELOCITY 3            // velocity applied to boundary
+#define FLUID 4               // fluid in initial state on the boundary
 
 #include <iostream>
 #include <vector>
@@ -147,9 +148,9 @@ int main(){
 
 // set boundary condition on the edges of the mesh
 
-  M.bc_set(REFLECTIVE);                                             // set boundary condition on bottom edge of mesh
+  M.bc_set(VACUUM);                                             // set boundary condition on bottom edge of mesh
   M.bc_set(VACUUM);                                                 // set boundary condition on right edge of mesh
-  M.bc_set(REFLECTIVE);                                             // set boundary condition on top edge of mesh
+  M.bc_set(VACUUM);                                             // set boundary condition on top edge of mesh
   M.bc_set(VACUUM);                                                 // set boundary condition on left edge of mesh
 
 // allocate a determinant for each derivative
@@ -245,8 +246,8 @@ int main(){
 
 // choose the smallest time step
 
-    dt=(*min_element(dts.begin(), dts.end()));
-//    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
+//    dt=(*min_element(dts.begin(), dts.end()));
+    dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
@@ -411,79 +412,6 @@ b[41]=0.0;b[81]=0.0;
 
   }
 
-
-
-
-
-
-// old code:
-
-//  Matrix A(n+3);double b[n+3],x[n+3];for(int i=0;i<n+3;i++){b[i]=0.0;x[i]=0.0;}
-//  double m[2][2]={};m[0][0]=0.5;m[1][1]=0.5;// for mass lumping
-
-// next block codes for matrix assembly with a continuous Galerkin finite element type
-
-//  for(int iel=0;iel<ng;iel++){
-//    for(int iloc=0;iloc<S.nloc();iloc++){
-//      int i(iel+iloc); // column address in the global matrix
-//      if((i>0&&i<ng)){for(int gi=0;gi<S.ngi();gi++){b[i-1]+=(p[iel]+q[iel])*S.dvalue(0,iloc,gi)*S.wgt(gi);}} // integrate the shape derivative for rhs
-//      for(int jloc=0;jloc<S.nloc();jloc++){
-//        double nn(0.0); // mass matrix
-//        int j(iel+jloc); // row address in the global matrix
-//        for(int gi=0;gi<S.ngi();gi++){
-//          nn+=S.value(iloc,gi)*S.value(jloc,gi)*S.wgt(gi)*0.5*(x1[iel+1]-x1[iel]); // DG & notes use this - double check ??
-//        }
-//        if((i>0&&i<ng)&&(j>0&&j<ng)){
-//          A.add(i-1,j-1,d1[iel]*nn);
-////          A.add(i-1,j-1,d1[iel]*(x1[iel+1]-x1[iel])*m[iloc][jloc]); // use mass lumping
-//        }
-//      }
-//    }
-//
-//  }
-
-// solve global system
-
-//  A.solve(x,b);
-
-// advance the solution
-
-//  for(int i=0;i<n+3;i++){u1.at(i+1)=u0[i+1]+x[i]*dt;}
-
-// impose boundary constraints on the acceleration field
-
-//  u1.at(1)=u1[2];u1.at(ng-1)=u1[ng-2];
-//  u1.at(0)=u1[1];u1.at(ng)=u1[ng-1];
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // advance the time step
 
     time+=dt;
@@ -564,7 +492,7 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
   vector<int> plotdim={0}; // dimension to plot against (0 for x, 1 for y)
   vector<int> linedim={1}; // dimension in which the line-out is located (0 for x, 1 for y)
-  vector<double> posline={0.25}; // datum on dimension linedim
+  vector<double> posline={0.5}; // datum on dimension linedim
   vector<string> label={"YMID"}; // label for the line-out
 
 // loop over line-outs
@@ -700,11 +628,14 @@ void initial_data(int const n,int const nnodes,int const ndims, int const nmats,
       case(VACUUM):
         bcname="vacuum";
         break;
-      case(FREE_SURFACE):
-        bcname="free-surface";
+      case(VELOCITY):
+        bcname="velocity";
         break;
       case(REFLECTIVE):
-        bcname="forced-reflective";
+        bcname="reflective";
+        break;
+      case(FLUID):
+        bcname="fluid";
         break;
     }
 
@@ -860,18 +791,75 @@ double length(Mesh const &M,Shape const &S,int const i){
 
 }
 
-// insert boundary masses into the global matrix if required
+// impose boundary conditions by modifying the global mass matrix
 
-  void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ){
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ){
 
 // loop over boundary elements (note these are refered to here as "sides")
-// and choose what type of boundary to apply
+// and choose what type of boundary needs to be applied
 
-    for(int ib=0;ib<M.NSides();ib++){
 
-      if(M.bc_edge(M.SideAttr(ib))!=VACUUM){
+  cout<<"There are "<<M.NSides()<<" elements on the mesh boundary:"<<endl;
 
-// material on this face - add in boundary masses
+  for(int ib=0;ib<M.NSides();ib++){
+
+    string bcname;
+
+    switch(M.bc_edge(M.SideAttr(ib))){
+      case(VACUUM):
+
+// do nothing so mesh expands into the void
+
+        bcname="vacuum";
+
+        break;
+
+      case(VELOCITY):
+
+// set v.n=<value> on domain boundary and impose constraint on acceleration field
+
+        bcname="velocity";
+
+        break;
+
+      case(REFLECTIVE):
+
+// set v.n=0 on domain boundary and impose constraint on acceleration field via row elimination
+
+        bcname="reflective";
+
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+
+// deal with equation k
+
+          int k(M.SideNode(ib,iloc));
+
+// set v.n=0 on domain boundary
+
+//          u0.at(idim).at(k)=0.0;
+//          u1.at(idim).at(k)=0.0;
+
+// eliminate k'th solution
+
+//          for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
+
+// modify mass matrix
+
+          for(int col=0;col<M.NNodes();col++){
+            A.write(k,col,0.0);
+            A.write(col,k,0.0);
+          }
+          A.write(k,k,1.0);
+
+        }
+
+        break;
+
+      case(FLUID):
+
+// add in additional boundary fluid masses
+
+        bcname="fluid";
 
         int i(M.E2E(M.NCells()+ib,0)); // physical element connecting
 
@@ -885,9 +873,12 @@ double length(Mesh const &M,Shape const &S,int const i){
           }
         }
 
-      }
+        break;
     }
 
-    return;
-
+    cout<<"Edge "<<ib<<" boundary type : "<<bcname<<endl;
   }
+
+  return;
+
+}
