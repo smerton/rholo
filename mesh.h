@@ -26,13 +26,13 @@ class Mesh{
   int SideType(int i) const; // returns the type of side i on edge of mesh
   int NSideNodes(int i) const; // returns the numnber of nodes on side i on edge of mesh
   int SideNode(int i,int j) const; // returns the node number of node j on side i on edge of mesh
-  double SideValue(int iedge) const; // returns the boundary value on edge iedge of mesh
   double Coord(int idim,int i) const; // returns coordinate idim of node i
   void InitCoords(vector<vector<double> > &v); // initialise the mesh coordinates
   double Volume(int i) const; // returns the volume of the element
   void bc_set(int iedge,int bc); // push new boundary condition bc on to mesh edge iedge
   void bc_set(int iedge,int bc,double bcvalue); // push new boundary condition bc and value bcvalue on to mesh edge iedge
   int bc_edge(int iedge) const; // returns the boundary condition on edge iedge of the mesh 
+  double bc_value(int iedge) const; // returns the boundary value on edge iedge of the mesh 
   int nbcs() const; // returns the number of boundary conditions that have been set
   int E2E(int iel,int iface) const; // returns the element on face iface of element iel
   double Min(int idim) const; // returns mesh boundary minimum in dimension idim

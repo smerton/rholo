@@ -836,30 +836,30 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
 // search for all nodes on boundary ib to set v.n to a value and impose constraint on acceleration field
 
-//        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
 
 // deal with equation k
 
-//          int k(M.SideNode(ib,iloc));
+          int k(M.SideNode(ib,iloc));
 
 // set perpendicular velocity v.n to required velocity value
 
-//          u0.at(idim).at(k)=<value>;
-//          u1.at(idim).at(k)=<value>;
+          u0.at(idim).at(k)=M.bc_value(M.SideAttr(ib));
+          u1.at(idim).at(k)=M.bc_value(M.SideAttr(ib));
 
 // eliminate k'th solution
 
-//        for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
+//          for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
 
 // modify mass matrix
 
-//          for(int col=0;col<M.NNodes();col++){
-//            A.write(k,col,0.0);
-//            A.write(col,k,0.0);
-//          }
-//          A.write(k,k,1.0);
+          for(int col=0;col<M.NNodes();col++){
+            A.write(k,col,0.0);
+            A.write(col,k,0.0);
+          }
+          A.write(k,k,1.0);
 
-//        }
+        }
 
         break;
 
@@ -927,7 +927,7 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
 // eliminate k'th solution
 
-//        for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
+//          for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
 
 // modify mass matrix
 

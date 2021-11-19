@@ -447,10 +447,6 @@ int Mesh::NSideNodes(int i) const {return mSideNode.at(i).size();}
 
 int Mesh::SideNode(int i, int j) const {return mSideNode[i][j];}
 
-// member function to return the value on edge iedge of mesh
-
-double Mesh::SideValue(int iedge) const {return mbc_value[iedge];}
-
 // member function to return coordinate idim of node i
 
 double Mesh::Coord(int idim, int i) const {return mCoord[idim][i];}
@@ -488,6 +484,10 @@ void Mesh::bc_set(int iedge,int bc,double bcvalue){mbc_edge.at(iedge)=bc;mbc_val
 // member function to return the boundary condition on mesh edge iedge
 
 int Mesh::bc_edge(int iedge) const {return mbc_edge[iedge];}
+
+// member function to return the boundary value on mesh edge iedge
+
+double Mesh::bc_value(int iedge) const {return mbc_value[iedge];}
 
 // member function to return the number of boundary conditions
 
