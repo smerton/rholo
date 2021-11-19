@@ -473,9 +473,9 @@ void Mesh::InitCoords(vector<vector<double> > &v){
 
 double Mesh::Volume(int i) const {return mVolume.at(i);}
 
-// member function to push a new boundary condition
+// member function to push a new boundary conditions
 
-void Mesh::bc_set(int bc){mbc_edge.push_back(bc);}
+void Mesh::bc_set(int iedge,int bc,double vdotn){mbc_edge.at(iedge)=bc;}
 
 // member function to return the boundary condition on mesh edge iedge
 
@@ -488,6 +488,14 @@ int Mesh::nbcs() const {return mbc_edge.size();}
 // member function to return the element on face iface of element iel
 
 int Mesh::E2E(int iel,int iface) const {return mE2E[iel][iface];}
+
+// member function to return mesh boundary minimum in dimension idim
+
+double Mesh::Min(int idim) const {return *min_element(mCoord.at(idim).begin(),mCoord.at(idim).end());}
+
+// member function to return mesh boundary maximum in dimension idim
+
+double Mesh::Max(int idim) const {return *max_element(mCoord.at(idim).begin(),mCoord.at(idim).end());}
 
 // Destructor function to release storage associated with a mesh class object
 

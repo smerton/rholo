@@ -47,8 +47,9 @@
 #define COL M.Vertex(i,jloc)  // column address in global matrix
 #define VACUUM 1              // vacuum boundary
 #define REFLECTIVE 2          // reflective boundary
-#define VELOCITY 3            // velocity applied to boundary
-#define FLUID 4               // fluid in initial state on the boundary
+#define VELOCITY 3            // velocity v.n applied to boundary
+#define FLUID 4               // fluid on the boundary
+#define ACCELERATION 5        // velocity a.n applied to boundary
 
 #include <iostream>
 #include <vector>
@@ -71,8 +72,7 @@
 string date();                                                                              // function to return the date and time
 void header();                                                                              // header part
 void vempty(vector<double>&v);                                                              // empty a vector
-double length(Mesh const &M,Shape const &S,int const i);                                          // element i length scale
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ);          // iinsert boundary conditions by modifying the mass matrix
+double length(Mesh const &M,Shape const &S,int const i);                                    // element i length scale
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
 void initial_data(int const n, int const nnodes, int const ndims, int const nmats,          // echo some initial information
                   Mesh const &M);
@@ -83,6 +83,9 @@ void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t);
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
+               VVD &u0,VVD &u1);
+
 
 using namespace std;
 
@@ -92,7 +95,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-40cells.mesh");                             // load a new mesh from file
+  Mesh M("mesh/input-20cells.mesh");                             // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -114,6 +117,8 @@ int main(){
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
 
+// initial flux state in each material is in the form (d,ux,uy,p)
+
   vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for Sod's shock tube 
                                  {0.125, 0.000,0.000, 0.100}};   // where each flux state is in the form (d,ux,uy,p)
 
@@ -128,6 +133,13 @@ int main(){
 
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
+
+// set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
+
+  M.bc_set(0,VACUUM,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,REFLECTIVE,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VACUUM,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,REFLECTIVE,0.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -145,13 +157,6 @@ int main(){
   for(int i=0;i<n;i++){e1.at(i)=E(d1[i],p[i]);}
   for(int i=0;i<n;i++){q.at(i)=0.0;}
   for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
-
-// set boundary condition on the edges of the mesh
-
-  M.bc_set(VACUUM);                                             // set boundary condition on bottom edge of mesh
-  M.bc_set(VACUUM);                                                 // set boundary condition on right edge of mesh
-  M.bc_set(VACUUM);                                             // set boundary condition on top edge of mesh
-  M.bc_set(VACUUM);                                                 // set boundary condition on left edge of mesh
 
 // allocate a determinant for each derivative
 
@@ -207,7 +212,7 @@ int main(){
 
 // impose boundary constraints via row elimination
 
-  bc_insert(KMASS,M,S,d0,detJ);
+  bc_insert(KMASS,M,S,d0,detJ,u0,u1);
 
 // invert the mass matrix
 
@@ -385,16 +390,17 @@ int main(){
       for(int iloc=0;iloc<S.nloc();iloc++){
         for(int gi=0;gi<S.ngi();gi++){
           b[ROW]+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
-if(idim==1){b[ROW]=0.0;} // reflective
+//if(idim==1){b[ROW]=0.0;} // reflective
         }
       }
     }
 
-if(idim==0){
-b[0]=0.0;b[40]=0.0;
-b[41]=0.0;b[81]=0.0;
-}
-
+//if(idim==0){
+////b[0]=0.0;b[40]=0.0;
+////b[41]=0.0;b[81]=0.0;
+//b[0]=0.0;b[20]=0.0;
+//b[21]=0.0;b[41]=0.0;
+//}
 
 // solve global system
 
@@ -492,7 +498,7 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
   vector<int> plotdim={0}; // dimension to plot against (0 for x, 1 for y)
   vector<int> linedim={1}; // dimension in which the line-out is located (0 for x, 1 for y)
-  vector<double> posline={0.5}; // datum on dimension linedim
+  vector<double> posline={0.5*(M.Min(1)+M.Max(1))}; // datum on dimension linedim
   vector<string> label={"YMID"}; // label for the line-out
 
 // loop over line-outs
@@ -793,7 +799,7 @@ double length(Mesh const &M,Shape const &S,int const i){
 
 // impose boundary conditions by modifying the global mass matrix
 
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ){
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,VVD &u0,VVD &u1){
 
 // loop over boundary elements (note these are refered to here as "sides")
 // and choose what type of boundary needs to be applied
@@ -804,6 +810,10 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
   for(int ib=0;ib<M.NSides();ib++){
 
     string bcname;
+
+    int i(M.E2E(M.NCells()+ib,0)); // physical element connecting
+    int j(M.SideAttr(ib)); // element side coincident with mesh boundary
+    int idim=(j==0||j==2)?1:0; // perpendicular direction
 
     switch(M.bc_edge(M.SideAttr(ib))){
       case(VACUUM):
@@ -820,13 +830,94 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
         bcname="velocity";
 
+        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded yet, stopping."<<endl;
+
+        exit(1);
+
+// search for all nodes on boundary ib to set v.n to a value and impose constraint on acceleration field
+
+//        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+
+// deal with equation k
+
+//          int k(M.SideNode(ib,iloc));
+
+// set perpendicular velocity v.n to required velocity value
+
+//          u0.at(idim).at(k)=<value>;
+//          u1.at(idim).at(k)=<value>;
+
+// eliminate k'th solution
+
+//        for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
+
+// modify mass matrix
+
+//          for(int col=0;col<M.NNodes();col++){
+//            A.write(k,col,0.0);
+//            A.write(col,k,0.0);
+//          }
+//          A.write(k,k,1.0);
+
+//        }
+
         break;
 
       case(REFLECTIVE):
 
-// set v.n=0 on domain boundary and impose constraint on acceleration field via row elimination
+// set v.n=0 on domain boundary and impose constraint on acceleration field
 
         bcname="reflective";
+
+// set v.n=0 on domain boundary
+
+         for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+           int k(M.SideNode(ib,iloc));
+           u0.at(idim).at(k)=0.0;
+           u1.at(idim).at(k)=0.0;
+         }
+
+// reflect fluid state across the boundary
+
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+          for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
+            double nn(0.0); // mass matrix
+            for(int gi=0;gi<S.ngi();gi++){
+              nn+=d[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+            }
+            A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
+          }
+        }
+
+        break;
+
+      case(FLUID):
+
+// add in additional boundary fluid masses to give zero pressure gradient across the boundary
+
+        bcname="fluid";
+
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+          for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
+            double nn(0.0); // mass matrix
+            for(int gi=0;gi<S.ngi();gi++){
+              nn+=d[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+            }
+            A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
+          }
+        }
+
+        break;
+
+      case(ACCELERATION):
+
+// impose a.n=<value> on domain boundary via row elimination of the mass matrix
+
+        bcname="acceleration";
+
+        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded yet, stopping."<<endl;
+
+        exit(1);
 
         for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
 
@@ -834,14 +925,9 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
           int k(M.SideNode(ib,iloc));
 
-// set v.n=0 on domain boundary
-
-//          u0.at(idim).at(k)=0.0;
-//          u1.at(idim).at(k)=0.0;
-
 // eliminate k'th solution
 
-//          for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
+//        for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
 
 // modify mass matrix
 
@@ -855,25 +941,14 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
         break;
 
-      case(FLUID):
+      default:
 
-// add in additional boundary fluid masses
+        bcname="undefined";
 
-        bcname="fluid";
+        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded yet, stopping."<<endl;
 
-        int i(M.E2E(M.NCells()+ib,0)); // physical element connecting
+        exit(1);
 
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-          for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
-            double nn(0.0); // mass matrix
-            for(int gi=0;gi<S.ngi();gi++){
-              nn+=d[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
-            }
-            A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass on to existing value in the mass matrix
-          }
-        }
-
-        break;
     }
 
     cout<<"Edge "<<ib<<" boundary type : "<<bcname<<endl;
