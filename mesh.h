@@ -26,10 +26,12 @@ class Mesh{
   int SideType(int i) const; // returns the type of side i on edge of mesh
   int NSideNodes(int i) const; // returns the numnber of nodes on side i on edge of mesh
   int SideNode(int i,int j) const; // returns the node number of node j on side i on edge of mesh
+  double SideValue(int iedge) const; // returns the boundary value on edge iedge of mesh
   double Coord(int idim,int i) const; // returns coordinate idim of node i
   void InitCoords(vector<vector<double> > &v); // initialise the mesh coordinates
   double Volume(int i) const; // returns the volume of the element
-  void bc_set(int iedge,int bc,double vdotn); // push new boundary condition bc and velocty vdotn on mesh edge iedge
+  void bc_set(int iedge,int bc); // push new boundary condition bc on to mesh edge iedge
+  void bc_set(int iedge,int bc,double bcvalue); // push new boundary condition bc and value bcvalue on to mesh edge iedge
   int bc_edge(int iedge) const; // returns the boundary condition on edge iedge of the mesh 
   int nbcs() const; // returns the number of boundary conditions that have been set
   int E2E(int iel,int iface) const; // returns the element on face iface of element iel
@@ -53,7 +55,8 @@ class Mesh{
   vector<vector<int> > mSideNode; // node numbers on each cell side coincident with the mesh edge
   vector<vector<double> > mCoord; // coordinates of each node
   vector<double > mVolume; // element volume
-  vector<int> mbc_edge=vector<int>(4); // boundary condition on each edge of the mesh 
+  vector<int> mbc_edge=vector<int>(4); // boundary condition on each edge of the mesh
+  vector<double > mbc_value=vector<double>(4); // boundary value on each edge of mesh
   vector<vector<int> > mE2E; // element->element connectivities
 
 // member function signatures

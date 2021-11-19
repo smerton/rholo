@@ -136,10 +136,10 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VACUUM,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,REFLECTIVE,0.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VACUUM,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,REFLECTIVE,0.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,REFLECTIVE);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+  M.bc_set(3,REFLECTIVE);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 

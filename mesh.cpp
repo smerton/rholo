@@ -447,6 +447,10 @@ int Mesh::NSideNodes(int i) const {return mSideNode.at(i).size();}
 
 int Mesh::SideNode(int i, int j) const {return mSideNode[i][j];}
 
+// member function to return the value on edge iedge of mesh
+
+double Mesh::SideValue(int iedge) const {return mbc_value[iedge];}
+
 // member function to return coordinate idim of node i
 
 double Mesh::Coord(int idim, int i) const {return mCoord[idim][i];}
@@ -473,9 +477,13 @@ void Mesh::InitCoords(vector<vector<double> > &v){
 
 double Mesh::Volume(int i) const {return mVolume.at(i);}
 
-// member function to push a new boundary conditions
+// member function to push a new boundary condition
 
-void Mesh::bc_set(int iedge,int bc,double vdotn){mbc_edge.at(iedge)=bc;}
+void Mesh::bc_set(int iedge,int bc){mbc_edge.at(iedge)=bc;}
+
+// member function to push a new boundary condition and assign a value to the mesh edge
+
+void Mesh::bc_set(int iedge,int bc,double bcvalue){mbc_edge.at(iedge)=bc;mbc_value.at(iedge)=bcvalue;}
 
 // member function to return the boundary condition on mesh edge iedge
 
