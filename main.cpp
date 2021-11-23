@@ -95,7 +95,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-40cells.mesh");                             // load a new mesh from file
+  Mesh M("mesh/input-20cells.mesh");                             // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -137,10 +137,10 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,REFLECTIVE);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,REFLECTIVE);  // set boundary condition on right edge of mesh
-  M.bc_set(2,REFLECTIVE);  // set boundary condition on top edge of mesh
-  M.bc_set(3,REFLECTIVE);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -424,7 +424,8 @@ int main(){
 
 // debug
 //  for(int i=0;i<M.NNodes();i++){
-//    cout<<" "<<i<<" "<<udot[i]<<" "<<udot[2*NROWS+i]<<" "<<b[i]<<" "<<b[2*NROWS+i]<<" "<<b0[i]<<" "<<b0[NROWS+i]<<endl;
+//    cout<<" "<<i<<" "<<udot[i]<<" "<<udot[NROWS+i]<<endl;
+//    cout<<" "<<i<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;
 //  }
 //  exit(1);
 // debug
@@ -919,43 +920,54 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
         break;
 
-// bit of an issue - each node on the boundary gets visited twice as the sweep is cell-side based not node based !
-
       case(VELOCITY):
 
 // set v.n=<value> on domain boundary and impose a constraint on the acceleration field
 
         bcname="velocity";
 
-        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded yet, stopping."<<endl;
+// set v.n=<value> on domain boundary
 
-        exit(1);
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+          int k(M.SideNode(ib,iloc));
+          u0.at(idim).at(k)=M.bc_value(M.SideAttr(ib));
+          u1.at(idim).at(k)=M.bc_value(M.SideAttr(ib));
+        }
 
-// search for all nodes on boundary ib to set v.n to a value and impose constraint on acceleration field
+// eliminate k'th solution as we are imposing a condition on it
 
         for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
 
-// deal with equation k
+// boundary node and boundary value
 
           int k(M.SideNode(ib,iloc));
+          double rhs(0.0),bval(1.0e-200); // no net force acting on boundary node
 
-// set perpendicular velocity v.n to required velocity value
+// collect known information
 
-          u0.at(idim).at(k)=M.bc_value(M.SideAttr(ib));
-          u1.at(idim).at(k)=M.bc_value(M.SideAttr(ib));
+          for(int i=0;i<M.NNodes();i++){rhs+=A.read(i,idim*NROWS+k)*bval;}
 
-// eliminate k'th solution
+// store boundary value
 
-//          for(int i=0;i<M.NDims()*M.NNodes();i++){b.at(idim*NROWS+k)+=A.read(i,idim*NROWS+k)*M.bc_value(M.SideAttr(ib));}
+          b0.at(idim*NROWS+k)=bval;
 
-// modify mass matrix
+// move known information onto rhs
 
-          for(int col=0;col<M.NDims()*M.NNodes();col++){
-            A.write(idim*NROWS+k,col,0.0);
-            A.write(col,idim*NROWS+k,0.0);
+          b1.at(idim*NROWS+k)=rhs;
+
+        }
+
+// modify mass matrix and restore symmetry
+
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+          int k(M.SideNode(ib,iloc));
+          for(int i=0;i<M.NDims()*M.NNodes();i++){
+            if(i!=k){
+              A.write(i,idim*NROWS+k,0.0);
+              A.write(idim*NROWS+k,i,0.0);
+            }
           }
           A.write(idim*NROWS+k,idim*NROWS+k,1.0);
-
         }
 
         break;
