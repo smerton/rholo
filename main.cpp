@@ -84,8 +84,8 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t);
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
-               VVD &u0,VVD &u1);
-
+               VVD &u0,VVD &u1,VD &b0,VD &b1);
+void bc_insert(Mesh const &M,int const idim,VD &b);                                         // insert boundary conditions onto acceleration field
 
 using namespace std;
 
@@ -95,14 +95,14 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-20cells.mesh");                             // load a new mesh from file
+  Mesh M("mesh/input-40cells.mesh");                             // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
   double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
-  Matrix KMASS(NROWS),KMASSI(NROWS);                             // mass matrix for kinematic field
+  Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
   vector<double> c(n),p(n),q(n);                                 // element sound speed, pressure and bulk viscosity
@@ -113,6 +113,7 @@ int main(){
   vector<double> dt_cfl(n);                                      // element time-step
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
+  vector<double> b0(2*NROWS),b1(2*NROWS);                        // vectors for boundary conditions (b0=value, b1=eliminated row)
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
@@ -136,9 +137,9 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+  M.bc_set(0,REFLECTIVE);  // set boundary condition on bottom edge of mesh
   M.bc_set(1,REFLECTIVE);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+  M.bc_set(2,REFLECTIVE);  // set boundary condition on top edge of mesh
   M.bc_set(3,REFLECTIVE);  // set boundary condition on left edge of mesh
 
 // initialise the problem
@@ -191,28 +192,30 @@ int main(){
 
 // assemble mass matrix for acceleration field
 
-  for(int i=0;i<n;i++){
-    jacobian(i,x0,M,S,detJ,detDJ);
-    for(int iloc=0;iloc<S.nloc();iloc++){
-      for(int jloc=0;jloc<S.nloc();jloc++){
-        double nn(0.0),nnx(0.0),nny(0.0),nx(0.0),ny(0.0),nlx(0.0),nly(0.0); // mass matrix
-        for(int gi=0;gi<S.ngi();gi++){
-          nn+=d0[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);   // mass matrix
-          nnx+=S.value(iloc,gi)*detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
-          nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
-          nlx+=detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);                       // not used: left in as a diagnostic
-          nly+=detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);                       // not used: left in as a diagnostic
-//          nx+=S.dvalue(0,iloc,gi)*(dy/2.0)*S.wgt(gi);                     // not used: left in as a diagnostic
-//          ny+=S.dvalue(1,iloc,gi)*(dx/2.0)*S.wgt(gi);                     // not used: left in as a diagnostic
+  for(int idim=0;idim<M.NDims();idim++){
+    for(int i=0;i<n;i++){
+      jacobian(i,x0,M,S,detJ,detDJ);
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        for(int jloc=0;jloc<S.nloc();jloc++){
+          double nn(0.0),nnx(0.0),nny(0.0),nx(0.0),ny(0.0),nlx(0.0),nly(0.0); // mass matrix
+          for(int gi=0;gi<S.ngi();gi++){
+            nn+=d0[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);   // mass matrix
+            nnx+=S.value(iloc,gi)*detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
+            nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
+            nlx+=detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);                       // not used: left in as a diagnostic
+            nly+=detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);                       // not used: left in as a diagnostic
+//          nx+=S.dvalue(0,iloc,gi)*(dy/2.0)*S.wgt(gi);                       // not used: left in as a diagnostic
+//          ny+=S.dvalue(1,iloc,gi)*(dx/2.0)*S.wgt(gi);                       // not used: left in as a diagnostic
+          }
+          KMASS.add(idim*NROWS+ROW,idim*NROWS+COL,nn);
         }
-        KMASS.add(ROW,COL,nn);
       }
     }
   }
 
 // impose boundary constraints via row elimination
 
-  bc_insert(KMASS,M,S,d0,detJ,u0,u1);
+  bc_insert(KMASS,M,S,d0,detJ,u0,u1,b0,b1);
 
 // invert the mass matrix
 
@@ -311,7 +314,7 @@ int main(){
 
     for(int i=0;i<n;i++){
       c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
-      double l(length(M,S,i)),divu((d0[i]-d1[i])/(d1[i]*dt));
+      double l(length(M,S,i)),divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
       if(divu<0.0){
         q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
       }else{
@@ -384,39 +387,47 @@ int main(){
 
 // assemble acceleration field
 
+  vector<double> b=vector<double> (M.NDims()*nnodes);for(int i=0;i<M.NDims()*nnodes;i++){b.at(i)=-b1[i];}
   for(int idim=0;idim<M.NDims();idim++){
-    double b[nnodes];for(int i=0;i<nnodes;i++){b[i]=0.0;}
     for(int i=0;i<n;i++){
       for(int iloc=0;iloc<S.nloc();iloc++){
         for(int gi=0;gi<S.ngi();gi++){
-          b[ROW]+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
-//if(idim==1){b[ROW]=0.0;} // reflective
+          b.at(idim*NROWS+ROW)+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
         }
       }
     }
-
-//if(idim==0){
-////b[0]=0.0;b[40]=0.0;
-////b[41]=0.0;b[81]=0.0;
-//b[0]=0.0;b[20]=0.0;
-//b[21]=0.0;b[41]=0.0;
-//}
+    for(int i=0;i<M.NNodes();i++){
+      if(b0[idim*NROWS+i]!=0.0){b.at(idim*NROWS+i)=b0[idim*NROWS+i];}
+    }
+  }
 
 // solve global system
 
-    for(int i=0;i<nnodes;i++){
-      double x(0.0);
-      for(int j=0;j<nnodes;j++){
-        x+=KMASSI.read(i,j)*b[j];
-      }
+  vector<double> udot=vector<double>(M.NDims()*nnodes);
+  for(int i=0;i<M.NDims()*nnodes;i++){
+    double x(0.0);
+    for(int j=0;j<M.NDims()*nnodes;j++){
+      x+=KMASSI.read(i,j)*b[j];
+    }
+    udot.at(i)=x;
+  }
 
 // advance the solution
 
-      u1.at(idim).at(i)=u0.at(idim).at(i)+x*dt;
+//  for(int i=0;i<nnodes;i++){u1.at(idim).at(i)=u0.at(idim).at(i)+udot.at(i)*dt;}
 
+  for(int idim=0;idim<M.NDims();idim++){
+    for(int i=0;i<nnodes;i++){
+      u1.at(idim).at(i)=u0.at(idim).at(i)+udot.at(idim*NROWS+i)*dt;
     }
-
   }
+
+// debug
+//  for(int i=0;i<M.NNodes();i++){
+//    cout<<" "<<i<<" "<<udot[i]<<" "<<udot[2*NROWS+i]<<" "<<b[i]<<" "<<b[2*NROWS+i]<<" "<<b0[i]<<" "<<b0[NROWS+i]<<endl;
+//  }
+//  exit(1);
+// debug
 
 // advance the time step
 
@@ -797,23 +808,55 @@ double length(Mesh const &M,Shape const &S,int const i){
 
 }
 
-// impose boundary conditions by modifying the global mass matrix
+// impose boundary conditions on the acceleration field by modifying the global mass matrix
 
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,VVD &u0,VVD &u1){
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,VVD &u0,VVD &u1,VD &b0,VD &b1){
 
-// loop over boundary elements (note these are refered to here as "sides")
-// and choose what type of boundary needs to be applied
-
+// loop over boundary elements and choose what type of boundary needs to be applied
 
   cout<<"There are "<<M.NSides()<<" elements on the mesh boundary:"<<endl;
+
+// debug
+//  for(int ib=0;ib<M.NSides();ib++){
+//    for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+////      int k(M.SideNode(ib,iloc));
+//      cout<<"seg= "<<ib<<" node "<<M.SideNode(ib,iloc)<<endl;
+//    }
+//  }
+// debug
+
+
+  int nnodes(M.NNodes()); // needed for expansion of the NROWS macro
+
+// initialise boundary vectors
+
+  for(int i=0;i<M.NDims()*M.NNodes();i++){
+    b0.at(i)=0.0; // value on the boundary
+    b1.at(i)=0.0; // eliminated row
+  }
+
+// debug
+//  cout<<fixed<<setprecision(5);
+//  cout<<"A before: "<<endl;
+//  for(int i=0;i<M.NDims()*M.NNodes();i++){
+//    for(int j=0;j<M.NDims()*M.NNodes();j++){
+//      if(A.read(i,j)>=0.0){
+//        cout<<"  "<<A.read(i,j);
+//      }else{
+//        cout<<" "<<A.read(i,j);
+//      }
+//    }
+//    cout<<endl;
+//  }
+//  cout<<endl;
+// debug
 
   for(int ib=0;ib<M.NSides();ib++){
 
     string bcname;
 
-    int i(M.E2E(M.NCells()+ib,0)); // physical element connecting
     int j(M.SideAttr(ib)); // element side coincident with mesh boundary
-    int idim=(j==0||j==2)?1:0; // perpendicular direction
+    int idim=(j==0||j==2)?1:0; // direction perpendicular to mesh boundary
 
     switch(M.bc_edge(M.SideAttr(ib))){
       case(VACUUM):
@@ -824,9 +867,63 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
         break;
 
+      case(REFLECTIVE):
+
+// set v.n=0 on domain boundary and impose a constraint on the acceleration field
+
+        bcname="reflective";
+
+// set v.n=0 on domain boundary
+
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+          int k(M.SideNode(ib,iloc));
+          u0.at(idim).at(k)=0.0;
+          u1.at(idim).at(k)=0.0;
+        }
+
+// eliminate k'th solution as we are imposing a condition on it
+
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+
+// boundary node and boundary value
+
+          int k(M.SideNode(ib,iloc));
+          double rhs(0.0),bval(1.0e-200); // no net force acting on boundary node
+
+// collect known information
+
+          for(int i=0;i<M.NNodes();i++){rhs+=A.read(i,idim*NROWS+k)*bval;}
+
+// store boundary value
+
+          b0.at(idim*NROWS+k)=bval;
+
+// move known information onto rhs
+
+          b1.at(idim*NROWS+k)=rhs;
+
+        }
+
+// modify mass matrix and restore symmetry
+
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+          int k(M.SideNode(ib,iloc));
+          for(int i=0;i<M.NDims()*M.NNodes();i++){
+            if(i!=k){
+              A.write(i,idim*NROWS+k,0.0);
+              A.write(idim*NROWS+k,i,0.0);
+            }
+          }
+          A.write(idim*NROWS+k,idim*NROWS+k,1.0);
+        }
+
+        break;
+
+// bit of an issue - each node on the boundary gets visited twice as the sweep is cell-side based not node based !
+
       case(VELOCITY):
 
-// set v.n=<value> on domain boundary and impose constraint on acceleration field
+// set v.n=<value> on domain boundary and impose a constraint on the acceleration field
 
         bcname="velocity";
 
@@ -849,44 +946,16 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
 // eliminate k'th solution
 
-//          for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
+//          for(int i=0;i<M.NDims()*M.NNodes();i++){b.at(idim*NROWS+k)+=A.read(i,idim*NROWS+k)*M.bc_value(M.SideAttr(ib));}
 
 // modify mass matrix
 
-          for(int col=0;col<M.NNodes();col++){
-            A.write(k,col,0.0);
-            A.write(col,k,0.0);
+          for(int col=0;col<M.NDims()*M.NNodes();col++){
+            A.write(idim*NROWS+k,col,0.0);
+            A.write(col,idim*NROWS+k,0.0);
           }
-          A.write(k,k,1.0);
+          A.write(idim*NROWS+k,idim*NROWS+k,1.0);
 
-        }
-
-        break;
-
-      case(REFLECTIVE):
-
-// set v.n=0 on domain boundary and impose constraint on acceleration field
-
-        bcname="reflective";
-
-// set v.n=0 on domain boundary
-
-         for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-           int k(M.SideNode(ib,iloc));
-           u0.at(idim).at(k)=0.0;
-           u1.at(idim).at(k)=0.0;
-         }
-
-// reflect fluid state across the boundary
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-          for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
-            double nn(0.0); // mass matrix
-            for(int gi=0;gi<S.ngi();gi++){
-              nn+=d[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
-            }
-            A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
-          }
         }
 
         break;
@@ -901,7 +970,7 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
           for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
             double nn(0.0); // mass matrix
             for(int gi=0;gi<S.ngi();gi++){
-              nn+=d[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+              nn+=d[M.E2E(M.NCells()+ib,0)]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
             }
             A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
           }
@@ -952,6 +1021,80 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
     }
 
     cout<<"Edge "<<ib<<" boundary type : "<<bcname<<endl;
+  }
+
+// debug
+//  cout<<fixed<<setprecision(5);
+//  cout<<"A after: "<<endl;
+//  for(int i=0;i<M.NDims()*M.NNodes();i++){
+//    for(int j=0;j<M.NDims()*M.NNodes();j++){
+//      if(A.read(i,j)>=0.0){
+//        cout<<"  "<<A.read(i,j);
+//      }else{
+//        cout<<" "<<A.read(i,j);
+//      }
+//    }
+//    cout<<endl;
+//  }
+//  cout<<"stopping in bc_insert..."<<endl;
+//  exit(1);
+// debug
+
+
+// node 42 seems to have a velocity in 40 cell sod problem.
+//7*23+3=164
+//A=[164][164]
+
+//1.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000
+
+
+  return;
+
+}
+
+// impose boundary conditions on the acceleration field
+
+void bc_insert(Mesh const &M,int const idim,VD &b){
+
+// loop over boundary elements (note these are refered to here as "sides")
+// and choose what type of boundary needs to be applied
+
+  for(int ib=0;ib<M.NSides();ib++){
+
+    int j(M.SideAttr(ib)); // element side coincident with mesh boundary
+    int jdim=(j==0||j==2)?1:0; // perpendicular direction
+
+    switch(M.bc_edge(M.SideAttr(ib))){
+
+      case(REFLECTIVE):
+
+// reflective boundary so if idim is perpendicular we need to modify b along this boundary
+
+        if(idim==jdim){
+
+          for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+            b.at(M.SideNode(ib,iloc))=0.0;
+          }
+
+        }
+
+        break;
+
+      case(VELOCITY):
+
+// velocity has been imposed so prevent any perpendicular acceleration
+
+        if(idim==jdim){
+
+          for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+            b.at(M.SideNode(ib,iloc))=0.0;
+          }
+
+        }
+
+        break;
+    }
+
   }
 
   return;
