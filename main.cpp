@@ -95,7 +95,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-20cells.mesh");                             // load a new mesh from file
+  Mesh M("mesh/input-40cells.mesh");                             // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -137,10 +137,10 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,REFLECTIVE);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,REFLECTIVE);  // set boundary condition on right edge of mesh
+  M.bc_set(2,REFLECTIVE);  // set boundary condition on top edge of mesh
+  M.bc_set(3,REFLECTIVE);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -655,6 +655,9 @@ void initial_data(int const n,int const nnodes,int const ndims, int const nmats,
       case(FLUID):
         bcname="fluid";
         break;
+      case(ACCELERATION):
+        bcname="acceleration";
+        break;
     }
 
     cout<<"Edge "<<i<<" boundary type : "<<bcname<<endl;
@@ -974,7 +977,7 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
       case(FLUID):
 
-// add in additional boundary fluid masses to give zero pressure gradient across the boundary
+// add in additional boundary fluid masses to give zero pressure gradient across the edges of the domain
 
         bcname="fluid";
 
@@ -996,28 +999,40 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
         bcname="acceleration";
 
-        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded yet, stopping."<<endl;
-
-        exit(1);
+// eliminate k'th solution as we are imposing a condition on it
 
         for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
 
-// deal with equation k
+// boundary node and boundary value
 
           int k(M.SideNode(ib,iloc));
+          double rhs(0.0),bval(M.bc_value(M.SideAttr(ib))); // net force acting on boundary node = m*(<value>).n
 
-// eliminate k'th solution
+// collect known information
 
-//          for(int i=0;i<M.NNodes();i++){b.at(k)+=A.read(i,k)*M.bc_value(M.SideAttr(ib));}
+          for(int i=0;i<M.NNodes();i++){rhs+=A.read(i,idim*NROWS+k)*bval;}
 
-// modify mass matrix
+// store boundary value
 
-          for(int col=0;col<M.NNodes();col++){
-            A.write(k,col,0.0);
-            A.write(col,k,0.0);
+          b0.at(idim*NROWS+k)=bval;
+
+// move known information onto rhs
+
+          b1.at(idim*NROWS+k)=rhs;
+
+        }
+
+// modify mass matrix and restore symmetry
+
+        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+          int k(M.SideNode(ib,iloc));
+          for(int i=0;i<M.NDims()*M.NNodes();i++){
+            if(i!=k){
+              A.write(i,idim*NROWS+k,0.0);
+              A.write(idim*NROWS+k,i,0.0);
+            }
           }
-          A.write(k,k,1.0);
-
+          A.write(idim*NROWS+k,idim*NROWS+k,1.0);
         }
 
         break;
@@ -1026,7 +1041,7 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
         bcname="undefined";
 
-        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded yet, stopping."<<endl;
+        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded, stopping."<<endl;
 
         exit(1);
 
