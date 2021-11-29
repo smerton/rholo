@@ -3,7 +3,7 @@ Description "This is a 30x30 cell mesh"
 Description "in x-y slab geometry"
 
 # Set number of nodes on each axis
-Nodes 11 11 1
+Nodes 31 31 1
 
 # Set mesh extent
 Domain x 0.0 1.0 y 0.0 1.0 z 0.0 0.0
