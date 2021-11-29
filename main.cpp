@@ -27,7 +27,7 @@
 //
 
 #define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 0.2       // insert a macro for the end time
+#define ENDTIME 0.75       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -50,6 +50,8 @@
 #define VELOCITY 3            // velocity v.n applied to boundary
 #define FLUID 4               // fluid on the boundary
 #define ACCELERATION 5        // velocity a.n applied to boundary
+#define TAYLOR 1              // Taylor-Green vortex problem
+#define RAYLEIGH 2            // Rayleigh-Taylor instability problem
 
 #include <iostream>
 #include <vector>
@@ -86,6 +88,8 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
                VVD &u0,VVD &u1,VD &b0,VD &b1);
 void bc_insert(Mesh const &M,int const idim,VD &b);                                         // insert boundary conditions onto acceleration field
+void set_u_TAYLOR(Mesh const &M,int const &idim,VD &u,double const &dpi);                   // overide the velocity field for the Taylor-Green vortex
+void set_u_RAYLEIGH(Mesh const &M,int const &idim,VD &u,double const &dpi);                 // overide the velocity field for the Rayleigh-Taylor instability
 
 using namespace std;
 
@@ -95,7 +99,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/input-40cells.mesh");                             // load a new mesh from file
+  Mesh M("mesh/taylor-green-50x50.mesh");                        // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -117,11 +121,13 @@ int main(){
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
+  int test_problem(0);                                           // set later for specific test cases that may need some overides
+  double dpi(4.0*atan(1.0));                                     // definition of pi to double precision
 
 // initial flux state in each material is in the form (d,ux,uy,p)
 
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for Sod's shock tube 
-                                 {0.125, 0.000,0.000, 0.100}};   // where each flux state is in the form (d,ux,uy,p)
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100}}; // where each flux state is in the form (d,ux,uy,p)
 
 //  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400},  // initial flux state in each material for the 123 problem 
 //                                 {1.000, 2.000,0.000, 0.400}}; // where each flux state is in the form (d,ux,uy,p)
@@ -131,6 +137,9 @@ int main(){
 
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for vacuum boundary test
 //                                 {1.000, 0.000,0.000, 1.000}}; // where each flux state is in the form (d,ux,uy,p)
+
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}};   // initial flux state in each material for Taylor problem
+  test_problem=TAYLOR;                                           // set overides needed to run this problem
 
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
@@ -171,16 +180,44 @@ int main(){
 // load velocity fields from initial flux state
 
   for(int idim=0;idim<ndims;idim++){
+
     vector<double> vtmp(x0.at(idim).size());
+
     for(int i=0;i<n;i++){
       for(int iloc=0;iloc<S.nloc();iloc++){
         long j(M.Vertex(i,iloc));
         vtmp.at(j)=(vtmp[j]==0.0)?(state[mat[i]-1][1+idim]):((vtmp[j]!=(state[mat[i]-1][1+idim]))?0.0:(state[mat[i]-1][1+idim]));
       }
     }
+
+// velocity overides needed for certain test problems
+
+    switch(test_problem){
+
+      case(TAYLOR):
+
+// Taylor Green vortex
+
+        set_u_TAYLOR(M,idim,vtmp,dpi);
+
+        break;
+
+      case(RAYLEIGH):
+
+// Rayleigh-Taylor instability
+
+        set_u_RAYLEIGH(M,idim,vtmp,dpi);
+
+        break;
+    }
+
+// commit to velocty field address spaces
+
     u0.at(idim)=vtmp;
     u1.at(idim)=vtmp;
+
   }
+
 
 // display the header so we have a date and time stamp in the output
 
@@ -219,7 +256,11 @@ int main(){
 
 // invert the mass matrix
 
+  cout<<"Inverting the mass matrix..."<<endl;
+
   KMASSI.inverse2(&KMASS); // lapack drivers dgetrf_ and dgetri_
+
+  cout<<"Done."<<endl;
 
 // set output precision
 
@@ -441,11 +482,11 @@ int main(){
     for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
 
 // debug
-//  if(step==230){
-//    cout<<"debug stop."<<endl;
+  if(step==1){
+    cout<<"debug stop."<<endl;
 //    output(); // might want this ??
-//    exit(1);
-//  }
+    exit(1);
+  }
 // debug
 
   }
@@ -1123,6 +1164,53 @@ void bc_insert(Mesh const &M,int const idim,VD &b){
     }
 
   }
+
+  return;
+
+}
+
+// start velocity field for the Taylor-Green vortex
+
+void set_u_TAYLOR(Mesh const &M,int const &idim,VD &u,double const &dpi){
+
+  cout<<"set_u_TAYLOR(): Overiding velocity components to run the Taylor-Green vortex problem..."<<endl;
+
+  switch(idim){
+
+    case(0):
+
+// input x component of velocity field
+
+      for(long i=0;i<M.NNodes();i++){
+        u.at(i)=sin(dpi*M.Coord(0,i))*cos(dpi*M.Coord(1,i));
+      }
+
+      break;
+
+    case(1):
+
+// input y component of velocity field
+
+      for(long i=0;i<M.NNodes();i++){
+        u.at(i)=-cos(dpi*M.Coord(0,i))*sin(dpi*M.Coord(1,i));
+      }
+
+      break;
+  }
+
+  cout<<"set_u_TAYLOR(): Done."<<endl;
+
+  return;
+
+}
+
+// start velocity field for the Rayleigh-Taylor instability
+
+void set_u_RAYLEIGH(Mesh const &M,int const &idim,VVD &u,double const &dpi){
+
+  cout<<"Velocity field for the Rayleigh-Taylor instability test not coded yet."<<endl;
+
+  exit(1);
 
   return;
 
