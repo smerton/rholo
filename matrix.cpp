@@ -51,17 +51,23 @@ void Matrix::inverse2(Matrix *A){
 
 // flatten
 
+  cout<<"  Matrix::inverse2(): flattening..."<<endl;
+
   for(int i=0,k=0;i<N;i++){
     for(int j=0;j<N;j++,k++){
       B[k]=A->read(i,j);
     }
   }
 
+  cout<<"  Matrix::inverse2(): performing LU factorisation..."<<endl;
   dgetrf_(&N,&N,B,&N,IPIV,&INFO);
+
+  cout<<"  Matrix::inverse2(): finding inverse using LU factorisation..."<<endl;
   dgetri_(&N,B,&N,IPIV,WORK,&LWORK,&INFO);
 
 // unflatten
 
+  cout<<"  Matrix::inverse2(): unflattening..."<<endl;
   for(int i=0,k=0;i<N;i++){
     for(int j=0;j<N;j++,k++){
       mMat[i][j]=B[k];
