@@ -27,7 +27,7 @@
 //
 
 #define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 0.75       // insert a macro for the end time
+#define ENDTIME 0.20       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -88,8 +88,8 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
                VVD &u0,VVD &u1,VD &b0,VD &b1);
 void bc_insert(Mesh const &M,int const idim,VD &b);                                         // insert boundary conditions onto acceleration field
-void set_u_TAYLOR(Mesh const &M,int const &idim,VD &u,double const &dpi);                   // overide the velocity field for the Taylor-Green vortex
-void set_u_RAYLEIGH(Mesh const &M,int const &idim,VD &u,double const &dpi);                 // overide the velocity field for the Rayleigh-Taylor instability
+void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1);   // input overides for the Taylor-Green vortex
+void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Rayleigh-Taylor instability
 
 using namespace std;
 
@@ -99,7 +99,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/taylor-green-50x50.mesh");                        // load a new mesh from file
+  Mesh M("mesh/taylor-green-30x30.mesh");                        // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -190,27 +190,6 @@ int main(){
       }
     }
 
-// velocity overides needed for certain test problems
-
-    switch(test_problem){
-
-      case(TAYLOR):
-
-// Taylor Green vortex
-
-        set_u_TAYLOR(M,idim,vtmp,dpi);
-
-        break;
-
-      case(RAYLEIGH):
-
-// Rayleigh-Taylor instability
-
-        set_u_RAYLEIGH(M,idim,vtmp,dpi);
-
-        break;
-    }
-
 // commit to velocty field address spaces
 
     u0.at(idim)=vtmp;
@@ -218,6 +197,26 @@ int main(){
 
   }
 
+// input overides needed to initialise certain test problems
+
+  switch(test_problem){
+
+    case(TAYLOR):
+
+// Taylor Green vortex
+
+      init_TAYLOR(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
+
+      break;
+
+    case(RAYLEIGH):
+
+// Rayleigh-Taylor instability
+
+      init_RAYLEIGH(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
+
+      break;
+  }
 
 // display the header so we have a date and time stamp in the output
 
@@ -482,11 +481,11 @@ int main(){
     for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
 
 // debug
-  if(step==1){
-    cout<<"debug stop."<<endl;
+//  if(step==1){
+//    cout<<"debug stop."<<endl;
 //    output(); // might want this ??
-    exit(1);
-  }
+//    exit(1);
+//  }
 // debug
 
   }
@@ -1169,46 +1168,66 @@ void bc_insert(Mesh const &M,int const idim,VD &b){
 
 }
 
-// start velocity field for the Taylor-Green vortex
+// input overides for the Taylor-Green vortex
 
-void set_u_TAYLOR(Mesh const &M,int const &idim,VD &u,double const &dpi){
+void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1){
 
-  cout<<"set_u_TAYLOR(): Overiding velocity components to run the Taylor-Green vortex problem..."<<endl;
+// start x component of velocity field
 
-  switch(idim){
-
-    case(0):
-
-// input x component of velocity field
-
-      for(long i=0;i<M.NNodes();i++){
-        u.at(i)=sin(dpi*M.Coord(0,i))*cos(dpi*M.Coord(1,i));
-      }
-
-      break;
-
-    case(1):
-
-// input y component of velocity field
-
-      for(long i=0;i<M.NNodes();i++){
-        u.at(i)=-cos(dpi*M.Coord(0,i))*sin(dpi*M.Coord(1,i));
-      }
-
-      break;
+  for(long i=0;i<M.NNodes();i++){
+    u0.at(0).at(i)=sin(dpi*M.Coord(0,i))*cos(dpi*M.Coord(1,i));
+    u1.at(0).at(i)=u0.at(0).at(i);
   }
 
-  cout<<"set_u_TAYLOR(): Done."<<endl;
+// start y component of velocity field
+
+  for(long i=0;i<M.NNodes();i++){
+    u0.at(1).at(i)=-cos(dpi*M.Coord(0,i))*sin(dpi*M.Coord(1,i));
+    u1.at(1).at(i)=u0.at(1).at(i);
+  }
+
+// load density field
+
+  for(long i=0;i<M.NCells();i++){
+    d0.at(i)=1.0;
+    d1.at(i)=d0.at(i);
+  }
+
+// load pressure field
+
+  for(long i=0;i<M.NCells();i++){
+    double xc[2];xc[0]=0.0;xc[1]=0.0;
+    for(int iloc=0;iloc<S.nloc();iloc++){
+      xc[0]+=S.value(iloc,0.0,0.0)*M.Coord(0,M.Vertex(i,iloc));
+      xc[1]+=S.value(iloc,0.0,0.0)*M.Coord(1,M.Vertex(i,iloc));
+    }
+    p.at(i)=0.25*d0.at(i)*(cos(2.0*dpi*xc[0])+cos(2.0*dpi*xc[1]))+1.0;
+  }
+
+// invert the eos to start the energy field
+// energy should = (3.0*dpi/8.0)*cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])
+// so we can use this as a check
+
+  for(int i=0;i<M.NCells();i++){
+    double xc[2];xc[0]=0.0;xc[1]=0.0;
+    for(int iloc=0;iloc<S.nloc();iloc++){
+      xc[0]+=S.value(iloc,0.0,0.0)*M.Coord(0,M.Vertex(i,iloc));
+      xc[1]+=S.value(iloc,0.0,0.0)*M.Coord(1,M.Vertex(i,iloc));
+    }
+    double echeck((3.0*dpi/8.0)*(cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])));
+    e0.at(i)=E(d0[i],p[i]);
+    e1.at(i)=E(d1[i],p[i]);
+  }
 
   return;
 
 }
 
-// start velocity field for the Rayleigh-Taylor instability
+// input overides for the Rayleigh-Taylor instability
 
-void set_u_RAYLEIGH(Mesh const &M,int const &idim,VVD &u,double const &dpi){
+void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p){
 
-  cout<<"Velocity field for the Rayleigh-Taylor instability test not coded yet."<<endl;
+  cout<<"Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
   exit(1);
 
