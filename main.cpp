@@ -27,7 +27,7 @@
 //
 
 #define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 0.20       // insert a macro for the end time
+#define ENDTIME 0.2       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -129,6 +129,11 @@ int main(){
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for Sod's shock tube 
 //                                 {0.125, 0.000,0.000, 0.100}}; // where each flux state is in the form (d,ux,uy,p)
 
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for double Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100},  // where each flux state is in the form (d,ux,uy,p)
+//                                 {0.125, 0.000,0.000, 0.100}, 
+//                                 {1.000, 0.000,0.000, 1.000}};
+
 //  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400},  // initial flux state in each material for the 123 problem 
 //                                 {1.000, 2.000,0.000, 0.400}}; // where each flux state is in the form (d,ux,uy,p)
 
@@ -146,10 +151,10 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,REFLECTIVE);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,REFLECTIVE);  // set boundary condition on right edge of mesh
-  M.bc_set(2,REFLECTIVE);  // set boundary condition on top edge of mesh
-  M.bc_set(3,REFLECTIVE);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
