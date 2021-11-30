@@ -22,6 +22,7 @@
 #include "silo.h"
 #include "shape.h"
 #include "mesh.h"
+#include <cmath>
 
 // function signatures
 
@@ -193,6 +194,14 @@ void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const 
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
   dberr=DBPutUcdvar1(dbfile,"velocity_y","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBFreeOptlist(optlist);
+
+// write velocity resultant
+
+  for(long i=0;i<nnodesk;i++){var1[i]=sqrt(u.at(0).at(i)*u.at(0).at(i)+u.at(1).at(i)*u.at(1).at(i));}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
+  dberr=DBPutUcdvar1(dbfile,"velocity","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
   dberr=DBFreeOptlist(optlist);
 
 // close the database
