@@ -1,0 +1,119 @@
+# MFEM mesh v1.0
+#
+# "Sod Shock Tube simulation."
+# "This is a 10x1 cell mesh"
+# "in x-y slab geometry"
+#
+# Input file for RhoLo based on MFEM mesh file format
+# This file was created by gen on Mon Nov 29 23:29:51 2021
+# and can be visualised using GLVis
+# See https://mfem.org/mesh-format-v1.x for description of this format
+#
+# Stamp revealed the following header information:
+#     User: smerton
+#     Host: Sabertooth
+#     Home: /home/smerton
+#     pwd:  /home/smerton/git/rholo/finite-element-xy/mesh
+#
+# RhoLo uses the following which may be inconsistent with MFEM:
+#   element attribute for material number (column 1 in elements block)
+#   boundary attribute for mesh side, =0 for bottom, 1 for right, =2 for top, =3 for left (column 1 in boundary block)
+#   boundary type not used - it is not known what MFEM uses this for (column 2 in boundary block)
+#   FiniteElementCollection not used - but MFEM may use this to set polyhedral order (in nodes block)
+#
+# The following format is interpreted by RhoLo
+# dimension
+# <number of spatial dimensions of the mesh>
+#
+# elements
+# <number of elements>
+# <material number> <element type from MFEM geometry type list, see below> <node number of vertices>
+#
+# boundary
+# <number of element sides on the mesh boundary>
+# <element side coincident with mesh edge> <boundary condition, 1=free surface, 2= forced-reflective> <node number of vertices on this side>
+#
+# vertices
+# <number of mesh vertices>
+# <serialisation, =2 for x,y pairs>
+# <coordinate of vertex in each dimension>
+#
+#
+# MFEM Geometry Types (see mesh/geom.hpp):
+#
+# POINT       = 0
+# SEGMENT     = 1
+# TRIANGLE    = 2
+# SQUARE      = 3
+# TETRAHEDRON = 4
+# CUBE        = 5
+# PRISM       = 6
+#
+
+dimension
+2
+
+elements
+10
+1 3 0 1 12 11 0.05 
+1 3 1 2 13 12 0.15 
+1 3 2 3 14 13 0.25 
+1 3 3 4 15 14 0.35 
+1 3 4 5 16 15 0.45 
+2 3 5 6 17 16 0.55 
+2 3 6 7 18 17 0.65 
+2 3 7 8 19 18 0.75 
+2 3 8 9 20 19 0.85 
+2 3 9 10 21 20 0.95 
+
+boundary
+22
+0 1 0 1
+0 1 1 2
+0 1 2 3
+0 1 3 4
+0 1 4 5
+0 1 5 6
+0 1 6 7
+0 1 7 8
+0 1 8 9
+0 1 9 10
+1 1 10 21
+2 1 21 20
+2 1 20 19
+2 1 19 18
+2 1 18 17
+2 1 17 16
+2 1 16 15
+2 1 15 14
+2 1 14 13
+2 1 13 12
+2 1 12 11
+3 1 11 0
+
+vertices
+22
+2
+0.00000000000000000 0.00000000000000000
+0.10000000000000001 0.00000000000000000
+0.20000000000000001 0.00000000000000000
+0.30000000000000004 0.00000000000000000
+0.40000000000000002 0.00000000000000000
+0.50000000000000000 0.00000000000000000
+0.60000000000000009 0.00000000000000000
+0.70000000000000007 0.00000000000000000
+0.80000000000000004 0.00000000000000000
+0.90000000000000002 0.00000000000000000
+1.00000000000000000 0.00000000000000000
+0.00000000000000000 0.50000000000000000
+0.10000000000000001 0.50000000000000000
+0.20000000000000001 0.50000000000000000
+0.30000000000000004 0.50000000000000000
+0.40000000000000002 0.50000000000000000
+0.50000000000000000 0.50000000000000000
+0.60000000000000009 0.50000000000000000
+0.70000000000000007 0.50000000000000000
+0.80000000000000004 0.50000000000000000
+0.90000000000000002 0.50000000000000000
+1.00000000000000000 0.50000000000000000
+
