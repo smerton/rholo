@@ -1,11 +1,11 @@
-# MFEM mesh v1.0
+MFEM mesh v1.0
 #
 # "Sod Shock Tube simulation."
 # "This is a 10x1 cell mesh"
 # "in x-y slab geometry"
 #
 # Input file for RhoLo based on MFEM mesh file format
-# This file was created by gen on Mon Nov 29 23:33:24 2021
+# This file was created by gen on Wed Dec  1 11:23:35 2021
 # and can be visualised using GLVis
 # See https://mfem.org/mesh-format-v1.x for description of this format
 #
@@ -55,26 +55,26 @@ dimension
 
 elements
 20
-1 3 0 1 22 21 0.05 
-1 3 1 2 23 22 0.15 
-1 3 2 3 24 23 0.25 
-1 3 3 4 25 24 0.35 
-1 3 4 5 26 25 0.45 
-2 3 5 6 27 26 0.55 
-2 3 6 7 28 27 0.65 
-2 3 7 8 29 28 0.75 
-2 3 8 9 30 29 0.85 
-2 3 9 10 31 30 0.95 
-3 3 10 11 32 31 1.05 
-3 3 11 12 33 32 1.15 
-3 3 12 13 34 33 1.25 
-3 3 13 14 35 34 1.35 
-3 3 14 15 36 35 1.45 
-4 3 15 16 37 36 1.55 
-4 3 16 17 38 37 1.65 
-4 3 17 18 39 38 1.75 
-4 3 18 19 40 39 1.85 
-4 3 19 20 41 40 1.95 
+1 3 0 1 22 21 
+1 3 1 2 23 22 
+1 3 2 3 24 23 
+1 3 3 4 25 24 
+1 3 4 5 26 25 
+2 3 5 6 27 26 
+2 3 6 7 28 27 
+2 3 7 8 29 28 
+2 3 8 9 30 29 
+2 3 9 10 31 30 
+3 3 10 11 32 31 
+3 3 11 12 33 32 
+3 3 12 13 34 33 
+3 3 13 14 35 34 
+3 3 14 15 36 35 
+4 3 15 16 37 36 
+4 3 16 17 38 37 
+4 3 17 18 39 38 
+4 3 18 19 40 39 
+4 3 19 20 41 40 
 
 boundary
 42
