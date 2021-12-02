@@ -5,8 +5,11 @@ Description "in x-y slab geometry"
 # Set number of nodes on each axis
 Nodes 49 49 1
 
+# Mesh distortion algorithm
+Noh
+
 # Set mesh extent
-Domain x 0.0 1.0 y 0.0 1.0 z 0.0 0.0
+Domain x -1.0 1.0 y -1.0 1.0 z 0.0 0.0
 
 # Set boundary condition on each face
 Boundaries R R R R T T
@@ -18,7 +21,7 @@ Pk 1
 Pt 0
 
 # Define materials
-Material 1 density 1.0 pressure 1.0 velocity 0.0 0.0 0.0 x 0.0 1.0 y 0.0 1.0 z 0.0 0.0
+Material 1 density 1.0 pressure 1.0 velocity 0.0 0.0 0.0 x -1.0 1.0 y -1.0 1.0 z 0.0 0.0
 
 # Set ambient material
 Ambient 1
