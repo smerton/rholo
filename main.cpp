@@ -26,7 +26,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001    // insert a macro for the first time step
+#define DTSTART 0.005     // insert a macro for the first time step
 #define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -101,13 +101,14 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-48x48.mesh");                                   // load a new mesh from file
+  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
   double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
+//  double const cl(0.6),cq(2.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
@@ -1266,30 +1267,18 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
   for(long i=0;i<M.NNodes();i++){
 
-    double origin[2]={0.0,0.0}; // origin coordinates
-    double rx(M.Coord(0,i)-origin[0]);     // mesh origin assumed to be (0.5,0.5)
-    double ry(M.Coord(1,i)-origin[1]);     // mesh origin assumed to be (0.5,0.5)
-    double rnorm(sqrt(rx*rx+ry*ry)); // length of vector from domain origin to node i
+    double origin[2]={0.0,0.0};            // origin coordinates assuming we are on the domain [-1,1]
+    double rx(M.Coord(0,i)-origin[0]);     // radial vector component from domain origin to node
+    double ry(M.Coord(1,i)-origin[1]);     // radial vector component from domain origin to node
+    double rnorm(sqrt(rx*rx+ry*ry));       // length of radial vector from domain origin to node
 
 // velocity is a radial vector from degree of freedom towards the domain origin
 
-    if(rnorm!=0.0){
+    u0.at(0).at(i)=-rx/max(rnorm,1.0e-12);
+    u1.at(0).at(i)=u0.at(0).at(i);
 
-      u0.at(0).at(i)=rx/rnorm;
-      u1.at(0).at(i)=u0.at(0).at(i);
-
-      u0.at(1).at(i)=ry/rnorm;
-      u1.at(1).at(i)=u0.at(1).at(i);
-
-    }else{
-
-      u0.at(0).at(i)=0.0;
-      u1.at(0).at(i)=u0.at(0).at(i);
-
-      u0.at(1).at(i)=0.0;
-      u1.at(1).at(i)=u0.at(1).at(i);
-
-    }
+    u0.at(1).at(i)=-ry/max(rnorm,1.0e-12);
+    u1.at(1).at(i)=u0.at(1).at(i);
 
   }
 
