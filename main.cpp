@@ -26,8 +26,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 0.2       // insert a macro for the end time
+#define DTSTART 0.001    // insert a macro for the first time step
+#define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -52,6 +52,7 @@
 #define ACCELERATION 5        // velocity a.n applied to boundary
 #define TAYLOR 1              // Taylor-Green vortex problem
 #define RAYLEIGH 2            // Rayleigh-Taylor instability problem
+#define NOH 3                 // Noh stagnation shock problem
 
 #include <iostream>
 #include <vector>
@@ -90,6 +91,7 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 void bc_insert(Mesh const &M,int const idim,VD &b);                                         // insert boundary conditions onto acceleration field
 void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1);   // input overides for the Taylor-Green vortex
 void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Rayleigh-Taylor instability
+void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Noh stagnation shock
 
 using namespace std;
 
@@ -99,7 +101,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/taylor-green-30x30.mesh");                        // load a new mesh from file
+  Mesh M("mesh/noh-48x48.mesh");                                   // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -143,18 +145,21 @@ int main(){
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for vacuum boundary test
 //                                 {1.000, 0.000,0.000, 1.000}}; // where each flux state is in the form (d,ux,uy,p)
 
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}};   // initial flux state in each material for Taylor problem
-  test_problem=TAYLOR;                                           // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}}; // initial flux state in each material for Taylor problem
+//  test_problem=TAYLOR;                                         // set overides needed to run this problem
+
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}};   // initial flux state in each material for Noh problem
+  test_problem=NOH;                                              // set overides needed to run this problem
 
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -221,6 +226,15 @@ int main(){
       init_RAYLEIGH(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
 
       break;
+
+    case(NOH):
+
+// Noh stagnation shock
+
+      init_NOH(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
+
+      break;
+
   }
 
 // display the header so we have a date and time stamp in the output
@@ -307,11 +321,11 @@ int main(){
 // graphics output
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
-      state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
+//      state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
       silo(x0,d0,p,e0,q,c,u0,mat,step,time,M);
     }else{
       if(abs(remainder(step,VISFREQ))==0){
-        state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
+//        state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
         silo(x0,d0,p,e0,q,c,u0,mat,step,time,M);
       }
     }
@@ -1177,6 +1191,8 @@ void bc_insert(Mesh const &M,int const idim,VD &b){
 
 void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1){
 
+  cout<<"init_TAYLOR(): Input overides for Taylor-Green..."<<endl;
+
 // start x component of velocity field
 
   for(long i=0;i<M.NNodes();i++){
@@ -1232,10 +1248,72 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 
 void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p){
 
-  cout<<"Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
+  cout<<"init_TAYLOR(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
   exit(1);
 
   return;
 
 }
+
+// input overides for the Noh stagnation shock
+
+void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1){
+
+  cout<<"init_NOH(): Input overides for Noh..."<<endl;
+
+// start x component of velocity field
+
+  for(long i=0;i<M.NNodes();i++){
+
+    double origin[2]={0.0,0.0}; // origin coordinates
+    double rx(M.Coord(0,i)-origin[0]);     // mesh origin assumed to be (0.5,0.5)
+    double ry(M.Coord(1,i)-origin[1]);     // mesh origin assumed to be (0.5,0.5)
+    double rnorm(sqrt(rx*rx+ry*ry)); // length of vector from domain origin to node i
+
+// velocity is a radial vector from degree of freedom towards the domain origin
+
+    if(rnorm!=0.0){
+
+      u0.at(0).at(i)=rx/rnorm;
+      u1.at(0).at(i)=u0.at(0).at(i);
+
+      u0.at(1).at(i)=ry/rnorm;
+      u1.at(1).at(i)=u0.at(1).at(i);
+
+    }else{
+
+      u0.at(0).at(i)=0.0;
+      u1.at(0).at(i)=u0.at(0).at(i);
+
+      u0.at(1).at(i)=0.0;
+      u1.at(1).at(i)=u0.at(1).at(i);
+
+    }
+
+  }
+
+// load density field
+
+  for(long i=0;i<M.NCells();i++){
+    d0.at(i)=1.0;
+    d1.at(i)=d0.at(i);
+  }
+
+// load pressure field
+
+  for(long i=0;i<M.NCells();i++){
+    p.at(i)=0.0;
+  }
+
+// start the energy field
+
+  for(int i=0;i<M.NCells();i++){
+    e0.at(i)=0.0;
+    e1.at(i)=e0.at(i);
+  }
+
+  return;
+
+}
+
