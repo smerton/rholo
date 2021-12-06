@@ -26,8 +26,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.005     // insert a macro for the first time step
-#define ENDTIME 0.6       // insert a macro for the end time
+#define DTSTART 0.001     // insert a macro for the first time step
+#define ENDTIME 1.0       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -53,6 +53,7 @@
 #define TAYLOR 1              // Taylor-Green vortex problem
 #define RAYLEIGH 2            // Rayleigh-Taylor instability problem
 #define NOH 3                 // Noh stagnation shock problem
+#define SEDOV 4               // Sedov expanding shock problem
 
 #include <iostream>
 #include <vector>
@@ -92,6 +93,7 @@ void bc_insert(Mesh const &M,int const idim,VD &b);                             
 void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1);   // input overides for the Taylor-Green vortex
 void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Rayleigh-Taylor instability
 void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Noh stagnation shock
+void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Sedov stagnation shock
 
 using namespace std;
 
@@ -101,14 +103,13 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/sedov-24x24.mesh");                               // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
   double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
-//  double const cl(0.6),cq(2.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
@@ -149,18 +150,21 @@ int main(){
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}}; // initial flux state in each material for Taylor problem
 //  test_problem=TAYLOR;                                         // set overides needed to run this problem
 
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}};   // initial flux state in each material for Noh problem
-  test_problem=NOH;                                              // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}}; // initial flux state in each material for Noh problem
+//  test_problem=NOH;                                            // set overides needed to run this problem
+
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}};   // initial flux state in each material for Sedov problem
+  test_problem=SEDOV;                                            // set overides needed to run this problem
 
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -233,6 +237,12 @@ int main(){
 // Noh stagnation shock
 
       init_NOH(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
+
+    case(SEDOV):
+
+// Sedov expanding shock
+
+      init_SEDOV(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
 
       break;
 
@@ -1306,3 +1316,45 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
 }
 
+// input overides for the Sedov explosion
+
+void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1){
+
+  cout<<"init_SEDOV(): Input overides for Sedov..."<<endl;
+
+// load density field
+
+  for(long i=0;i<M.NCells();i++){
+    d0.at(i)=1.0;
+    d1.at(i)=d0.at(i);
+  }
+
+// load energy field
+
+  for(long i=0;i<M.NCells();i++){
+
+    e0.at(i)=0.0;
+    e1.at(i)=e0.at(i);
+
+    for(int iloc=0;iloc<S.nloc();iloc++){
+
+// delta function at domain origin
+
+      if( abs(M.Coord(0,M.Vertex(i,iloc)))<1.0e-7 && abs(M.Coord(1,M.Vertex(i,iloc)))<1.0e-7  ){
+        e0.at(i)=0.25;
+        e1.at(i)=e0.at(i); 
+      }
+
+    }
+
+  }
+
+// load pressure field
+
+  for(long i=0;i<M.NCells();i++){
+    p.at(i)=P(d0[i],e0[i]);
+  }
+
+  return;
+
+}
