@@ -2,7 +2,8 @@
 
 // Author S. R. Merton
 
-#define GAMMA (5.0/3.0)          // ratio of specific heats, usually 1.4 or 5/3
+//#define GAMMA (5.0/3.0)      // ratio of specific heats, usually 1.4 or 5/3
+#define GAMMA (1.4)          // ratio of specific heats, usually 1.4 or 5/3
 
 using namespace std;
 
