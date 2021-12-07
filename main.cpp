@@ -1341,7 +1341,7 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
 // delta function at domain origin
 
       if( abs(M.Coord(0,M.Vertex(i,iloc)))<1.0e-7 && abs(M.Coord(1,M.Vertex(i,iloc)))<1.0e-7  ){
-        e0.at(i)=0.25;
+        e0.at(i)=1.0;
         e1.at(i)=e0.at(i); 
       }
 
