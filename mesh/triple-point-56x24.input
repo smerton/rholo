@@ -1,0 +1,28 @@
+Title "Triple-point problem."
+Description "This is a 56x24 cell mesh"
+Description "in x-y slab geometry"
+
+# Set number of nodes on each axis
+Nodes 57 25 1
+
+# Set mesh extent
+Domain x 0.0 7.0 y 0.0 3.0 z 0.0 0.0
+
+# Set boundary condition on each face
+Boundaries R R R R T T
+
+# Set polyhedral order for kinematics
+Pk 1
+
+# Set polyhedral order for thermodynamics (Pt=Pk-1 or 0 to turn on PdV)
+Pt 0
+
+# Define materials
+Material 1 density 1.0 pressure 1.0 velocity 0.0 0.0 0.0 x 0.0 1.0 y 0.0 3.0 z 0.0 0.0
+Material 2 density 1.0 pressure 0.1 velocity 0.0 0.0 0.0 x 1.0 7.0 y 0.0 1.5 z 0.0 0.0
+Material 3 density 0.125 pressure 0.1 velocity 0.0 0.0 0.0 x 1.0 7.0 y 1.5 3.0 z 0.0 0.0
+
+# Set ambient material
+Ambient 1
+
+End
