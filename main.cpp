@@ -26,8 +26,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 1.0       // insert a macro for the end time
+#define DTSTART 0.0005     // insert a macro for the first time step
+#define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -103,13 +103,14 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sedov-24x24.mesh");                               // load a new mesh from file
+  Mesh M("mesh/triple-point-28x12.mesh");                        // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
-  double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
+//  double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
+  double const cl(1.0),cq(3.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
@@ -153,8 +154,12 @@ int main(){
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}}; // initial flux state in each material for Noh problem
 //  test_problem=NOH;                                            // set overides needed to run this problem
 
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}};   // initial flux state in each material for Sedov problem
-  test_problem=SEDOV;                                            // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}}; // initial flux state in each material for Sedov problem
+//  test_problem=SEDOV;                                          // set overides needed to run this problem
+
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for triple-point problem
+                                 {1.000, 0.000,0.000, 0.100},    // where each flux state is in the form (d,ux,uy,p)
+                                 {0.125, 0.000,0.000, 0.100}};
 
   double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
   double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
