@@ -2,11 +2,8 @@
 
 // Author S. R. Merton
 
-#define GAMMA (5.0/3.0)      // ratio of specific heats, usually 1.4 or 5/3
-//#define GAMMA (1.4)          // ratio of specific heats, usually 1.4 or 5/3
-
 using namespace std;
 
-double P(double d,double e); // pressure as a function of energy
-double E(double d,double p); // invert the eos to get energy as a function of pressure
-double C(double p,double d); // sound speed
+double P(double d,double e,double g); // pressure as a function of energy
+double E(double d,double p,double g); // invert the eos to get energy as a function of pressure
+double C(double p,double d,double g); // sound speed

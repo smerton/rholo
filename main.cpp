@@ -26,8 +26,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0005     // insert a macro for the first time step
-#define ENDTIME 0.6       // insert a macro for the end time
+#define DTSTART 0.001     // insert a macro for the first time step
+#define ENDTIME 0.5       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -54,6 +54,7 @@
 #define RAYLEIGH 2            // Rayleigh-Taylor instability problem
 #define NOH 3                 // Noh stagnation shock problem
 #define SEDOV 4               // Sedov expanding shock problem
+#define TRIPLE 5              // Triple point problem
 
 #include <iostream>
 #include <vector>
@@ -83,17 +84,17 @@ void initial_data(int const n, int const nnodes, int const ndims, int const nmat
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
               VD const &q, VVD const &x, VVD const &u);
 void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
-          VVD const &u,VI const &mat,int s, double t,Mesh const &M);
+          VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
-                  VVD const &x, VVD const &u, int const &s, double const &t);
+                  VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
                VVD &u0,VVD &u1,VD &b0,VD &b1);
-void bc_insert(Mesh const &M,int const idim,VD &b);                                         // insert boundary conditions onto acceleration field
-void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1);   // input overides for the Taylor-Green vortex
-void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Rayleigh-Taylor instability
-void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Noh stagnation shock
-void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1); // input overides for the Sedov stagnation shock
+void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,VVVD const &detDJ,VD const &detJ); // insert boundary conditions on acceleration field
+void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat);   // input overides for the Taylor-Green vortex
+void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Rayleigh-Taylor instability
+void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Noh stagnation shock
+void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Sedov stagnation shock
 
 using namespace std;
 
@@ -103,14 +104,13 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/triple-point-28x12.mesh");                        // load a new mesh from file
+  Mesh M("mesh/triple-point-56x24.mesh");                        // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
-//  double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
-  double const cl(1.0),cq(3.0);                                  // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
@@ -128,41 +128,49 @@ int main(){
   int step(0);                                                   // step number
   int test_problem(0);                                           // set later for specific test cases that may need some overides
   double dpi(4.0*atan(1.0));                                     // definition of pi to double precision
+  vector<double> gamma(M.NMaterials());                          // ratio of specific heats, set from material definition
 
-// initial flux state in each material is in the form (d,ux,uy,p)
+// initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100}}; // where each flux state is in the form (d,ux,uy,p)
+//  test_problem=SOD;                                                    // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for double Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100},  // where each flux state is in the form (d,ux,uy,p)
-//                                 {0.125, 0.000,0.000, 0.100}, 
-//                                 {1.000, 0.000,0.000, 1.000}};
+//  test_problem=SODSOD;                                                 // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for double shock problem 
+//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
+//                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400},  // initial flux state in each material for the 123 problem 
-//                                 {1.000, 2.000,0.000, 0.400}}; // where each flux state is in the form (d,ux,uy,p)
+//  test_problem=R2R;                                                    // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},      // initial flux state in each material for the 123 problem 
+//                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
-//  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0},  // initial flux state in each material for the blast wave
-//                                 {1.000,0.000,0.000, 0.0100}}; // where each flux state is in the form (d,ux,uy,p)
+//  test_problem=BLASTWAVE;                                              // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},      // initial flux state in each material for the blast wave
+//                                 {1.000,0.000,0.000, 0.0100,1.4}};
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},  // initial flux state in each material for vacuum boundary test
-//                                 {1.000, 0.000,0.000, 1.000}}; // where each flux state is in the form (d,ux,uy,p)
+//  test_problem=VACUUMBC;                                               // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4},      // initial flux state in each material for vacuum boundary test
+//                                 {1.000, 0.000,0.000, 1.000,1.4}};
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}}; // initial flux state in each material for Taylor problem
-//  test_problem=TAYLOR;                                         // set overides needed to run this problem
+//  test_problem=TAYLOR;                                                 // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}}; // initial flux state in each material for Noh problem
-//  test_problem=NOH;                                            // set overides needed to run this problem
 
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000}}; // initial flux state in each material for Sedov problem
-//  test_problem=SEDOV;                                          // set overides needed to run this problem
+//  test_problem=NOH;                                                    // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Noh problem
 
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000},    // initial flux state in each material for triple-point problem
-                                 {1.000, 0.000,0.000, 0.100},    // where each flux state is in the form (d,ux,uy,p)
-                                 {0.125, 0.000,0.000, 0.100}};
+//  test_problem=SEDOV;                                                    // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};       // initial flux state in each material for Sedov problem
 
-  double l[3]={state[0][0],state[0][1],state[0][3]};             // left flux state for input to the Riemann solvers
-  double r[3]={state[1][0],state[1][1],state[1][3]};             // right flux state for input to the Riemann solvers
+  test_problem=TRIPLE;                                                 // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
+                                 {1.000, 0.000,0.000, 0.100,1.4},
+                                 {0.125, 0.000,0.000, 0.100,1.5}};
+
+// acquire adiabatic constant for each material
+
+  for(int imat=0;imat<M.NMaterials();imat++){gamma.at(imat)=state[imat][4];}
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
@@ -183,10 +191,10 @@ int main(){
   for(int i=0;i<n;i++){int imat(mat[i]);d0.at(i)=state[imat-1][0];} // load density field from initial flux state
   for(int i=0;i<n;i++){int imat(mat[i]);d1.at(i)=state[imat-1][0];}
   for(int i=0;i<n;i++){m.at(i)=d0[i]*V0[i];}                        // calculate the initial mass field
-  for(int i=0;i<n;i++){e0.at(i)=E(d0[i],p[i]);}                     // invert the eos to start the energy field
-  for(int i=0;i<n;i++){e1.at(i)=E(d1[i],p[i]);}
+  for(int i=0;i<n;i++){e0.at(i)=E(d0[i],p[i],gamma[mat[i]-1]);}     // invert the eos to start the energy field
+  for(int i=0;i<n;i++){e1.at(i)=E(d1[i],p[i],gamma[mat[i]-1]);}
   for(int i=0;i<n;i++){q.at(i)=0.0;}
-  for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*p[i]/d0[i]);}
+  for(int i=0;i<n;i++){c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d0[i]);}
 
 // allocate a determinant for each derivative
 
@@ -225,7 +233,7 @@ int main(){
 
 // Taylor Green vortex
 
-      init_TAYLOR(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
+      init_TAYLOR(M,S,dpi,d0,d1,u0,u1,p,e0,e1,gamma,mat);
 
       break;
 
@@ -233,7 +241,7 @@ int main(){
 
 // Rayleigh-Taylor instability
 
-      init_RAYLEIGH(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
+      init_RAYLEIGH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,gamma,mat);
 
       break;
 
@@ -241,13 +249,13 @@ int main(){
 
 // Noh stagnation shock
 
-      init_NOH(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
+      init_NOH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,gamma,mat);
 
     case(SEDOV):
 
 // Sedov expanding shock
 
-      init_SEDOV(M,S,dpi,d0,d1,u0,u1,p,e0,e1);
+      init_SEDOV(M,S,dpi,d0,d1,u0,u1,p,e0,e1,gamma,mat);
 
       break;
 
@@ -337,12 +345,12 @@ int main(){
 // graphics output
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
-//      state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
-      silo(x0,d0,p,e0,q,c,u0,mat,step,time,M);
+//      state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time,gamma);
+      silo(x0,d0,p,e0,q,c,u0,mat,step,time,M,gamma);
     }else{
       if(abs(remainder(step,VISFREQ))==0){
-//        state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time);
-        silo(x0,d0,p,e0,q,c,u0,mat,step,time,M);
+//        state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time,gamma);
+        silo(x0,d0,p,e0,q,c,u0,mat,step,time,M,gamma);
       }
     }
 
@@ -383,12 +391,12 @@ int main(){
 
 // update cell pressure at the full-step
 
-    for(int i=0;i<n;i++){p.at(i)=P(d1[i],e1[i]);if(p[i]<0.0){cout<<"-'ve pressure detected in cell "<<i<<" e1= "<<e1[i]<<endl;exit(1);}}
+    for(int i=0;i<n;i++){p.at(i)=P(d1[i],e1[i],gamma[mat[i]-1]);if(p[i]<0.0){cout<<"-'ve pressure detected in cell "<<i<<" e1= "<<e1[i]<<endl;exit(1);}}
 
 // bulk q
 
     for(int i=0;i<n;i++){
-      c.at(i)=sqrt(GAMMA*p[i]/d1[i]);
+      c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d1[i]);
       double l(length(M,S,i)),divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
       if(divu<0.0){
         q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
@@ -471,10 +479,11 @@ int main(){
         }
       }
     }
-    for(int i=0;i<M.NNodes();i++){
-      if(b0[idim*NROWS+i]!=0.0){b.at(idim*NROWS+i)=b0[idim*NROWS+i];}
-    }
   }
+
+// insert boundary conditions
+
+  bc_insert(M,S,b,b0,p,q,detDJ,detJ);
 
 // solve global system
 
@@ -497,14 +506,6 @@ int main(){
     }
   }
 
-// debug
-//  for(int i=0;i<M.NNodes();i++){
-//    cout<<" "<<i<<" "<<udot[i]<<" "<<udot[NROWS+i]<<endl;
-//    cout<<" "<<i<<" "<<u1.at(0).at(i)<<" "<<u1.at(1).at(i)<<endl;
-//  }
-//  exit(1);
-// debug
-
 // advance the time step
 
     time+=dt;
@@ -513,7 +514,7 @@ int main(){
 // advance the states for the new time step
 
     u0=u1;x0=x1;e0=e1;V0=V1;d0=d1;
-    for(int i=0;i<n;i++){c.at(i)=sqrt(GAMMA*(p[i]+q[i])/d1[i]);}
+    for(int i=0;i<n;i++){c.at(i)=sqrt(gamma[mat[i]-1]*(p[i]+q[i])/d1[i]);}
 
 // debug
 //  if(step==1){
@@ -745,7 +746,7 @@ void initial_data(int const n,int const nnodes,int const ndims, int const nmats,
 // material state - args are passed by ref to prevent a copy, and are const to prevent changes
 
 void state_print(int const n,int const ndims,int const nmats,VI const &mat,VD const &d,VD const &V,
-                  VD const &m,VD const &e,VD const &p,VVD const &x, VVD const &u, int const &s, double const &t){
+                  VD const &m,VD const &e,VD const &p,VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma){
 
 // material average data
 
@@ -774,7 +775,7 @@ void state_print(int const n,int const ndims,int const nmats,VI const &mat,VD co
 
   for(int i=0;i<nmats;i++){
     dmat.at(i)=mmat[i]/vmat[i];
-    pmat.at(i)=P(dmat[i],iemat[i]/mmat[i]);
+    pmat.at(i)=P(dmat[i],iemat[i]/mmat[i],gamma[mat[i]-1]);
   }
 
 // sum across material to get domain totals
@@ -803,7 +804,7 @@ void state_print(int const n,int const ndims,int const nmats,VI const &mat,VD co
     cout<<i+1<<"     "<<dmat[i]<<" "<<mmat[i]<<" "<<vmat[i]<<" "<<pmat[i]<<" "<<iemat[i]/mmat[i]<<" "<<iemat[i]<<" "<<kemat[i]<<" "<<temat[i]<<endl;
   }
 
-  cout<<"total "<<dtot<<" "<<mtot<<" "<<vtot<<" "<<P(dtot,ietot)<<" "<<ietot/mtot<<" "<<ietot<<" "<<ketot<<" "<<tetot<<endl;
+  cout<<"total "<<dtot<<" "<<mtot<<" "<<vtot<<" "<<P(dtot,ietot,1.4)<<" "<<ietot/mtot<<" "<<ietot<<" "<<ketot<<" "<<tetot<<endl;
 
   cout<<"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"<<endl;
 
@@ -887,23 +888,13 @@ double length(Mesh const &M,Shape const &S,int const i){
 
 }
 
-// impose boundary conditions on the acceleration field by modifying the global mass matrix
+// insert boundary conditions into the mass matrix
 
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,VVD &u0,VVD &u1,VD &b0,VD &b1){
 
 // loop over boundary elements and choose what type of boundary needs to be applied
 
   cout<<"There are "<<M.NSides()<<" elements on the mesh boundary:"<<endl;
-
-// debug
-//  for(int ib=0;ib<M.NSides();ib++){
-//    for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-////      int k(M.SideNode(ib,iloc));
-//      cout<<"seg= "<<ib<<" node "<<M.SideNode(ib,iloc)<<endl;
-//    }
-//  }
-// debug
-
 
   int nnodes(M.NNodes()); // needed for expansion of the NROWS macro
 
@@ -914,21 +905,7 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
     b1.at(i)=0.0; // eliminated row
   }
 
-// debug
-//  cout<<fixed<<setprecision(5);
-//  cout<<"A before: "<<endl;
-//  for(int i=0;i<M.NDims()*M.NNodes();i++){
-//    for(int j=0;j<M.NDims()*M.NNodes();j++){
-//      if(A.read(i,j)>=0.0){
-//        cout<<"  "<<A.read(i,j);
-//      }else{
-//        cout<<" "<<A.read(i,j);
-//      }
-//    }
-//    cout<<endl;
-//  }
-//  cout<<endl;
-// debug
+// impose boundary constraints via row elimination of the global mass matrix
 
   for(int ib=0;ib<M.NSides();ib++){
 
@@ -958,6 +935,20 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
           int k(M.SideNode(ib,iloc));
           u0.at(idim).at(k)=0.0;
           u1.at(idim).at(k)=0.0;
+        }
+
+// reflect the mass matrix
+
+        for(int jdim=0;jdim<M.NDims();jdim++){
+          for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+            for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
+              double nn(0.0); // mass matrix
+              for(int gi=0;gi<S.ngi();gi++){
+                nn+=d[M.E2E(M.NCells()+ib,0)]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+              }
+              A.add(jdim*NROWS+M.SideNode(ib,iloc),jdim*NROWS+M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
+            }
+          }
         }
 
 // eliminate k'th solution as we are imposing a condition on it
@@ -1056,13 +1047,15 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
         bcname="fluid";
 
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-          for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
-            double nn(0.0); // mass matrix
-            for(int gi=0;gi<S.ngi();gi++){
-              nn+=d[M.E2E(M.NCells()+ib,0)]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+        for(int jdim=0;jdim<M.NDims();jdim++){
+          for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
+            for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
+              double nn(0.0); // mass matrix
+              for(int gi=0;gi<S.ngi();gi++){
+                nn+=d[M.E2E(M.NCells()+ib,0)]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+              }
+              A.add(jdim*NROWS+M.SideNode(ib,iloc),jdim*NROWS+M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
             }
-            A.add(M.SideNode(ib,iloc),M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
           }
         }
 
@@ -1125,87 +1118,111 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
     cout<<"Edge "<<ib<<" boundary type : "<<bcname<<endl;
   }
 
-// debug
-//  cout<<fixed<<setprecision(5);
-//  cout<<"A after: "<<endl;
-//  for(int i=0;i<M.NDims()*M.NNodes();i++){
-//    for(int j=0;j<M.NDims()*M.NNodes();j++){
-//      if(A.read(i,j)>=0.0){
-//        cout<<"  "<<A.read(i,j);
-//      }else{
-//        cout<<" "<<A.read(i,j);
-//      }
-//    }
-//    cout<<endl;
-//  }
-//  cout<<"stopping in bc_insert..."<<endl;
-//  exit(1);
-// debug
-
-
-// node 42 seems to have a velocity in 40 cell sod problem.
-//7*23+3=164
-//A=[164][164]
-
-//1.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000  0.00000
-
-
   return;
 
 }
 
-// impose boundary conditions on the acceleration field
+// insert boundary conditions on acceleration field
 
-void bc_insert(Mesh const &M,int const idim,VD &b){
+void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,VVVD const &detDJ,VD const &detJ){
 
-// loop over boundary elements (note these are refered to here as "sides")
-// and choose what type of boundary needs to be applied
+  int nnodes(M.NNodes()); // needed for expansion of the NROWS macro
+
+// loop over boundary elements and choose what type of boundary needs to be applied
 
   for(int ib=0;ib<M.NSides();ib++){
 
+    string bcname;
+
     int j(M.SideAttr(ib)); // element side coincident with mesh boundary
-    int jdim=(j==0||j==2)?1:0; // perpendicular direction
+    int idim=(j==0||j==2)?1:0; // perpendicular direction
+
+// modify source vector accordingly
 
     switch(M.bc_edge(M.SideAttr(ib))){
 
+      case(VACUUM):
+
+// do nothing so mesh expands into the void
+
+        bcname="vacuum";
+
+        break;
+
       case(REFLECTIVE):
 
-// reflective boundary so if idim is perpendicular we need to modify b along this boundary
+// reflective boundary so a.n=0.0
 
-        if(idim==jdim){
+        bcname="reflective";
 
-          for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-            b.at(M.SideNode(ib,iloc))=0.0;
-          }
-
-        }
+        for(int i=0;i<M.NNodes();i++){if(b0[idim*NROWS+i]!=0.0){b.at(idim*NROWS+i)=-b0[idim*NROWS+i];}}
 
         break;
 
       case(VELOCITY):
 
-// velocity has been imposed so prevent any perpendicular acceleration
+// velocity has been imposed so prevent any perpendicular acceleration to retain the value
 
-        if(idim==jdim){
+        bcname="velocity";
 
+        for(int i=0;i<M.NNodes();i++){if(b0[idim*NROWS+i]!=0.0){b.at(idim*NROWS+i)=b0[idim*NROWS+i];}}
+
+        break;
+
+      case(ACCELERATION):
+
+// acceleration has been imposed so enforce the value
+
+        bcname="acceleration";
+
+        for(int i=0;i<M.NNodes();i++){if(b0[idim*NROWS+i]!=0.0){b.at(idim*NROWS+i)=b0[idim*NROWS+i];}}
+
+        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded, stopping."<<endl;
+
+        exit(1);
+
+        break;
+
+      case(FLUID):
+
+// add extra fluid mass on this boundary
+
+        bcname="fluid";
+
+        for(int jdim=0;jdim<M.NDims();jdim++){
           for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-            b.at(M.SideNode(ib,iloc))=0.0;
+            double nn(0.0);
+            for(int gi=0;gi<S.ngi();gi++){
+              nn+=detDJ[jdim][iloc][gi]*detJ[gi]*S.wgt(gi);
+            }
+//if(jdim==0){cout<<"Adding extra mass to side node "<<M.SideNode(ib,iloc)<<" : ele "<<M.E2E(M.NCells()+ib,0)<<" is copied across segment "<<ib<<endl;}
+            b.at(jdim*NROWS+M.SideNode(ib,iloc))+=(p[M.E2E(M.NCells()+ib,0)]+q[M.E2E(M.NCells()+ib,0)])*nn;
           }
-
         }
 
         break;
+
+      default:
+
+        bcname="undefined";
+
+        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded, stopping."<<endl;
+
+        exit(1);
     }
 
   }
 
+// debug
+//  exit(1);
+// debug
   return;
 
 }
 
 // input overides for the Taylor-Green vortex
 
-void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1){
+void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &gamma,vector<int> const &mat){
 
   cout<<"init_TAYLOR(): Input overides for Taylor-Green..."<<endl;
 
@@ -1252,8 +1269,8 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
       xc[1]+=S.value(iloc,0.0,0.0)*M.Coord(1,M.Vertex(i,iloc));
     }
     double echeck((3.0*dpi/8.0)*(cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])));
-    e0.at(i)=E(d0[i],p[i]);
-    e1.at(i)=E(d1[i],p[i]);
+    e0.at(i)=E(d0[i],p[i],gamma[mat[i]-1]);
+    e1.at(i)=E(d1[i],p[i],gamma[mat[i]-1]);
   }
 
   return;
@@ -1262,7 +1279,7 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 
 // input overides for the Rayleigh-Taylor instability
 
-void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p){
+void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD const &gamma,vector<int> const &mat){
 
   cout<<"init_TAYLOR(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
@@ -1274,7 +1291,7 @@ void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,
 
 // input overides for the Noh stagnation shock
 
-void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1){
+void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &gamma,vector<int> const &mat){
 
   cout<<"init_NOH(): Input overides for Noh..."<<endl;
 
@@ -1323,7 +1340,7 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
 // input overides for the Sedov explosion
 
-void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1){
+void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &gamma,vector<int> const &mat){
 
   cout<<"init_SEDOV(): Input overides for Sedov..."<<endl;
 
@@ -1357,7 +1374,7 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
 // load pressure field
 
   for(long i=0;i<M.NCells();i++){
-    p.at(i)=P(d0[i],e0[i]);
+    p.at(i)=P(d0[i],e0[i],gamma[mat[i]-1]);
   }
 
   return;

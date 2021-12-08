@@ -4,7 +4,7 @@
 // Author S. R. Merton
 
 #include <vector>
-#include "eos.h"
+#define GAMMA 1.4
 
 using namespace std;
 

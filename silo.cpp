@@ -31,7 +31,7 @@ std::string date();
 using namespace std;
 
 void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,
-          VVD const &u,VI const &m,int step,double time,Mesh const &M){
+          VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g){
 
   DBfile*dbfile;
   DBoptlist *optlist=NULL;
@@ -180,6 +180,12 @@ void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const 
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
   dberr=DBPutUcdvar1(dbfile,"energy","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
+  for(int i=0;i<nzones;i++){var2[i]=g.at(matlist[i]-1);}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
+  dberr=DBPutUcdvar1(dbfile,"gamma","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 // write vector data fields
