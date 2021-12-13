@@ -104,7 +104,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/triple-point-56x24.mesh");                        // load a new mesh from file
+  Mesh M("mesh/taylor-green-10x10.mesh");                        // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -153,8 +153,8 @@ int main(){
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4},      // initial flux state in each material for vacuum boundary test
 //                                 {1.000, 0.000,0.000, 1.000,1.4}};
 
-//  test_problem=TAYLOR;                                                 // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
+  test_problem=TAYLOR;                                                 // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
 
 //  test_problem=NOH;                                                    // set overides needed to run this problem
@@ -163,10 +163,10 @@ int main(){
 //  test_problem=SEDOV;                                                    // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};       // initial flux state in each material for Sedov problem
 
-  test_problem=TRIPLE;                                                 // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
-                                 {1.000, 0.000,0.000, 0.100,1.4},
-                                 {0.125, 0.000,0.000, 0.100,1.5}};
+//  test_problem=TRIPLE;                                                 // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
+//                                 {1.000, 0.000,0.000, 0.100,1.4},
+//                                 {0.125, 0.000,0.000, 0.100,1.5}};
 
 // acquire adiabatic constant for each material
 

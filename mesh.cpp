@@ -298,6 +298,10 @@ Mesh::Mesh(char* meshfile){
 
 void Mesh::set_E2E(){
 
+// opposing faces
+
+  int oface[4]={2,3,0,1};
+
   for(int iel=0;iel<NCells();iel++){
 
 // vertices of current element
@@ -374,10 +378,10 @@ void Mesh::set_E2E(){
 
           if(z1&&z2){
             mE2E.at(iel).at(iface)=NCells()+ib; // connect ib to face iface of iel
-            vector<int> ib_neighbours={iel};// connect iel to boundary segment ib
-            mE2E.push_back(ib_neighbours);
+            vector<int> ib_neighbours={-1,-1,-1,-1}; // vector address space for neighbours
+            mE2E.push_back(ib_neighbours); // append vector address space for neighbours
+            mE2E.at(NCells()+ib).at(oface[iface])=iel; // connect iel to boundary segment ib
           }
-
 
         }
 
@@ -386,6 +390,116 @@ void Mesh::set_E2E(){
     }
 
   }
+
+// set ghost cell count
+
+  mNGCells=mE2E.size()-NCells();
+  mNGNodes=0;
+
+  cout<<"There are "<<NGCells()<<" ghost cells."<<endl;
+
+// now construct ghost cells around perimeter of the mesh
+
+  for(int ielg=NCells();ielg<NCells()+NGCells();ielg++){
+    for(int ifaceg=0;ifaceg<4;ifaceg++){
+      int iel(E2E(ielg,ifaceg));
+      if(iel!=-1){
+
+        int inod(ielg-NCells());
+
+// ghost cell vertex numbering
+
+        vector<int> vectmp;
+
+// generate vertices for the ghost cells by reflecting the physical element
+
+        switch(ifaceg){
+          case(0):
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,2)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,3)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,0)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,1)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,2)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,3)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,2))+(Coord(1,Vertex(iel,2))-Coord(1,Vertex(iel,0))));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,3))+(Coord(1,Vertex(iel,3))-Coord(1,Vertex(iel,1))));
+            vectmp.push_back(Vertex(iel,2));   // ghost node 0 coincident with a physical node 2
+            vectmp.push_back(Vertex(iel,3));   // ghost node 1 coincident with a physical node 3
+            vectmp.push_back(NNodes()+inod);   // equates to vertex number of ghost node 2
+            vectmp.push_back(NNodes()+inod+1); // equates to vertex number of ghost node 3
+          break;
+          case(1):
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,0))-(Coord(0,Vertex(iel,1))-Coord(0,Vertex(iel,0))));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,0)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,2))-(Coord(0,Vertex(iel,3))-Coord(0,Vertex(iel,2))));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,2)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,1)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,0)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,3)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,2)));
+            vectmp.push_back(NNodes()+inod+1);   // equates to vertex number of ghost node 0
+            vectmp.push_back(Vertex(iel,0));   // ghost node 1 coincident with a physical node 0
+            vectmp.push_back(NNodes()+inod);   // equates to vertex number of ghost node 2
+            vectmp.push_back(Vertex(iel,2));   // ghost node 3 coincident with a physical node 2
+          break;
+          case(2):
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,2)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,3)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,0)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,1)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,0))-(Coord(1,Vertex(iel,2))-Coord(1,Vertex(iel,0))));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,1))-(Coord(1,Vertex(iel,3))-Coord(1,Vertex(iel,1))));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,0)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,1)));
+            vectmp.push_back(NNodes()+inod);   // equates to vertex number of ghost node 0
+            vectmp.push_back(NNodes()+inod+1); // equates to vertex number of ghost node 1
+            vectmp.push_back(Vertex(iel,0));   // ghost node 2 coincident with a physical node 0
+            vectmp.push_back(Vertex(iel,1));   // ghost node 3 coincident with a physical node 1
+          break;
+          case(3):
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,1)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,1))+(Coord(0,Vertex(iel,1))-Coord(0,Vertex(iel,0))));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,3)));
+            mCoord.at(0).push_back(Coord(0,Vertex(iel,3))+(Coord(0,Vertex(iel,3))-Coord(0,Vertex(iel,2))));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,1)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,0)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,3)));
+            mCoord.at(1).push_back(Coord(1,Vertex(iel,2)));
+            vectmp.push_back(Vertex(iel,1));   // ghost node 0 coincident with a physical node 1
+            vectmp.push_back(NNodes()+inod);   // equates to vertex number of ghost node 1
+            vectmp.push_back(Vertex(iel,3));   // ghost node 2 coincident with a physical node 3
+            vectmp.push_back(NNodes()+inod+1); // equates to vertex number of ghost node 3
+          break;
+        }
+
+// store the ghost vertices
+
+        mVertex.push_back(vectmp);
+
+// store the address reached
+
+        mNGNodes=inod+1;
+
+      }
+    }
+  }
+
+
+// debug
+  cout<<"There are "<<NNodes()<<" nodes."<<endl;
+  cout<<"There are "<<NGNodes()<<" ghost nodes."<<endl;
+
+  for(int ielg=NCells();ielg<NCells()+NGCells();ielg++){
+    cout<<" ielg "<<ielg<<" vertices are ";
+    for(int ivert=0;ivert<NVertices(ielg);ivert++){
+      cout<<Vertex(ielg,ivert)<<" ";
+    }
+    cout<<endl;
+  }
+  exit(1);
+// debug
+
+
 
   return;
 
@@ -403,6 +517,10 @@ int Mesh::NDims() const {return mNDims;}
 
 int Mesh::NNodes() const {return mNNodes;}
 
+// member function to return the number of ghost nodes
+
+int Mesh::NGNodes() const {return mNGNodes;}
+
 // member function to return the number of materials
 
 int Mesh::NMaterials() const {return mNMaterials;}
@@ -410,6 +528,10 @@ int Mesh::NMaterials() const {return mNMaterials;}
 // member function to return the number of cells
 
 int Mesh::NCells() const {return mNCells;}
+
+// member function to return the number of ghost cells
+
+int Mesh::NGCells() const {return mNGCells;}
 
 // member function to return the material in cell i
 

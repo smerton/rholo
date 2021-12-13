@@ -15,8 +15,10 @@ class Mesh{
 
   int NDims() const; // returns the number of mesh dimensions
   int NNodes() const; // returns the number of nodes on the mesh
+  int NGNodes() const; // returns the number of ghost nodes on the mesh edge 
   int NMaterials() const; // returns the number of materials on the mesh
   int NCells() const; // returns the number of cells on the mesh
+  int NGCells() const; // returns the number of ghost cells on the mesh edge
   int Material(int i) const; // returns material number in cell i
   int Type(int i) const; // returns the geometric type of cell i
   int NVertices(int i) const; // returns the number of vertices of cell i
@@ -44,8 +46,10 @@ class Mesh{
 
   int mNDims; // number of mesh dimensions
   int mNNodes; // number of nodes on the mesh
+  int mNGNodes; // number of ghost nodes on the mesh edge
   int mNMaterials; // number of materials on the mesh
   int mNCells; // number of cells on the mesh
+  int mNGCells; // number of ghost cells on the mesh edge
   int mNSides; // number of cell sides coinciding with the mesh edge
   vector<int> mMaterial; // material in each cell
   vector<int> mType; // polyhedral type of each cell
