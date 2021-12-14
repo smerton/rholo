@@ -10,6 +10,7 @@
 #include <sstream>
 #include <string>
 #include <algorithm>
+#include <iomanip>
 
 using namespace std;
 
@@ -302,6 +303,10 @@ void Mesh::set_E2E(){
 
   int oface[4]={2,3,0,1};
 
+// number of cells on each mesh edge
+
+  int cells_on_edge[4]={0,0,0,0};
+
   for(int iel=0;iel<NCells();iel++){
 
 // vertices of current element
@@ -343,6 +348,16 @@ void Mesh::set_E2E(){
 
     mE2E.push_back(iel_neighbours);
 
+  }
+
+// find the number of elements along each edge of the mesh
+
+  for(int iel=0;iel<NCells();iel++){
+    for(int iface=0;iface<NVertices(iel);iface++){
+      if(E2E(iel,iface)<0){
+        cells_on_edge[iface]++;
+      }
+    }
   }
 
 // now connect boundary segments to the mesh
@@ -400,81 +415,95 @@ void Mesh::set_E2E(){
 
 // now construct ghost cells around perimeter of the mesh
 
+  int inod(NNodes()-1);
+
   for(int ielg=NCells();ielg<NCells()+NGCells();ielg++){
     for(int ifaceg=0;ifaceg<4;ifaceg++){
       int iel(E2E(ielg,ifaceg));
       if(iel!=-1){
 
-        int inod(ielg-NCells());
+        inod++;
 
 // ghost cell vertex numbering
 
-        vector<int> vectmp;
+        vector<int> vectmp1;
+        vector<double> vectmp2[2];
 
 // generate vertices for the ghost cells by reflecting the physical element
 
         switch(ifaceg){
           case(0):
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,2)));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,3)));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,0)));
             mCoord.at(0).push_back(Coord(0,Vertex(iel,1)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,2)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,3)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,2))+(Coord(1,Vertex(iel,2))-Coord(1,Vertex(iel,0))));
             mCoord.at(1).push_back(Coord(1,Vertex(iel,3))+(Coord(1,Vertex(iel,3))-Coord(1,Vertex(iel,1))));
-            vectmp.push_back(Vertex(iel,2));   // ghost node 0 coincident with a physical node 2
-            vectmp.push_back(Vertex(iel,3));   // ghost node 1 coincident with a physical node 3
-            vectmp.push_back(NNodes()+inod);   // equates to vertex number of ghost node 2
-            vectmp.push_back(NNodes()+inod+1); // equates to vertex number of ghost node 3
+            vectmp1.push_back(Vertex(iel,2));   // ghost node 0 coincident with a physical node 2
+            vectmp1.push_back(Vertex(iel,3));   // ghost node 1 coincident with a physical node 3
+            vectmp1.push_back(inod+1);   // equates to vertex number of ghost node 2
+            vectmp1.push_back(inod); // equates to vertex number of ghost node 3
+
+// last ghost on edge so skip corner node
+
+            if(ielg==(NCells()+cells_on_edge[0]+cells_on_edge[1]+cells_on_edge[2]-1)){
+              mCoord.at(0).push_back(Coord(0,Vertex(iel,0)));
+              mCoord.at(1).push_back(Coord(1,Vertex(iel,2))+(Coord(1,Vertex(iel,2))-Coord(1,Vertex(iel,0))));
+              inod++;
+            }
+
           break;
           case(1):
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,0))-(Coord(0,Vertex(iel,1))-Coord(0,Vertex(iel,0))));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,0)));
             mCoord.at(0).push_back(Coord(0,Vertex(iel,2))-(Coord(0,Vertex(iel,3))-Coord(0,Vertex(iel,2))));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,2)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,1)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,0)));
             mCoord.at(1).push_back(Coord(1,Vertex(iel,3)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,2)));
-            vectmp.push_back(NNodes()+inod+1);   // equates to vertex number of ghost node 0
-            vectmp.push_back(Vertex(iel,0));   // ghost node 1 coincident with a physical node 0
-            vectmp.push_back(NNodes()+inod);   // equates to vertex number of ghost node 2
-            vectmp.push_back(Vertex(iel,2));   // ghost node 3 coincident with a physical node 2
+            vectmp1.push_back(inod+1);   // equates to vertex number of ghost node 0
+            vectmp1.push_back(Vertex(iel,0));   // ghost node 1 coincident with a physical node 0
+            vectmp1.push_back(inod);   // equates to vertex number of ghost node 2
+            vectmp1.push_back(Vertex(iel,2));   // ghost node 3 coincident with a physical node 2
+
+// last ghost on edge so skip corner node
+
+            if(ielg==(NCells()+cells_on_edge[0]+cells_on_edge[1]+cells_on_edge[2]+cells_on_edge[3]-1)){
+              mCoord.at(0).push_back(Coord(0,Vertex(iel,0))-(Coord(0,Vertex(iel,1))-Coord(0,Vertex(iel,0))));
+              mCoord.at(1).push_back(Coord(1,Vertex(iel,1)));
+            }
+
           break;
           case(2):
             mCoord.at(0).push_back(Coord(0,Vertex(iel,2)));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,3)));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,0)));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,1)));
             mCoord.at(1).push_back(Coord(1,Vertex(iel,0))-(Coord(1,Vertex(iel,2))-Coord(1,Vertex(iel,0))));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,1))-(Coord(1,Vertex(iel,3))-Coord(1,Vertex(iel,1))));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,0)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,1)));
-            vectmp.push_back(NNodes()+inod);   // equates to vertex number of ghost node 0
-            vectmp.push_back(NNodes()+inod+1); // equates to vertex number of ghost node 1
-            vectmp.push_back(Vertex(iel,0));   // ghost node 2 coincident with a physical node 0
-            vectmp.push_back(Vertex(iel,1));   // ghost node 3 coincident with a physical node 1
+            vectmp1.push_back(inod);   // equates to vertex number of ghost node 0
+            vectmp1.push_back(inod+1); // equates to vertex number of ghost node 1
+            vectmp1.push_back(Vertex(iel,0));   // ghost node 2 coincident with a physical node 0
+            vectmp1.push_back(Vertex(iel,1));   // ghost node 3 coincident with a physical node 1
+
+// last ghost on edge so skip corner node
+
+            if(ielg==(NCells()+cells_on_edge[0]-1)){
+              mCoord.at(0).push_back(Coord(0,Vertex(iel,3)));
+              mCoord.at(1).push_back(Coord(1,Vertex(iel,1))-(Coord(1,Vertex(iel,3))-Coord(1,Vertex(iel,2))));
+              inod++;
+            }
+
           break;
           case(3):
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,1)));
             mCoord.at(0).push_back(Coord(0,Vertex(iel,1))+(Coord(0,Vertex(iel,1))-Coord(0,Vertex(iel,0))));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,3)));
-            mCoord.at(0).push_back(Coord(0,Vertex(iel,3))+(Coord(0,Vertex(iel,3))-Coord(0,Vertex(iel,2))));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,1)));
             mCoord.at(1).push_back(Coord(1,Vertex(iel,0)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,3)));
-            mCoord.at(1).push_back(Coord(1,Vertex(iel,2)));
-            vectmp.push_back(Vertex(iel,1));   // ghost node 0 coincident with a physical node 1
-            vectmp.push_back(NNodes()+inod);   // equates to vertex number of ghost node 1
-            vectmp.push_back(Vertex(iel,3));   // ghost node 2 coincident with a physical node 3
-            vectmp.push_back(NNodes()+inod+1); // equates to vertex number of ghost node 3
+            vectmp1.push_back(Vertex(iel,1));   // ghost node 0 coincident with a physical node 1
+            vectmp1.push_back(inod);   // equates to vertex number of ghost node 1
+            vectmp1.push_back(Vertex(iel,3));   // ghost node 2 coincident with a physical node 3
+            vectmp1.push_back(inod+1); // equates to vertex number of ghost node 3
+
+ // last ghost on edge so skip corner node
+
+            if(ielg==(NCells()+cells_on_edge[0]+cells_on_edge[1]-1)){
+              mCoord.at(0).push_back(Coord(0,Vertex(iel,3))+(Coord(0,Vertex(iel,3))-Coord(0,Vertex(iel,2))));
+              mCoord.at(1).push_back(Coord(1,Vertex(iel,2)));
+              inod++;
+            }
+
           break;
         }
 
 // store the ghost vertices
 
-        mVertex.push_back(vectmp);
+        mVertex.push_back(vectmp1);
 
 // store the address reached
 
@@ -489,13 +518,7 @@ void Mesh::set_E2E(){
   cout<<"There are "<<NNodes()<<" nodes."<<endl;
   cout<<"There are "<<NGNodes()<<" ghost nodes."<<endl;
 
-  for(int ielg=NCells();ielg<NCells()+NGCells();ielg++){
-    cout<<" ielg "<<ielg<<" vertices are ";
-    for(int ivert=0;ivert<NVertices(ielg);ivert++){
-      cout<<Vertex(ielg,ivert)<<" ";
-    }
-    cout<<endl;
-  }
+
   exit(1);
 // debug
 
