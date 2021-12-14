@@ -299,6 +299,11 @@ Mesh::Mesh(char* meshfile){
 
 void Mesh::set_E2E(){
 
+// initialise ghost size
+
+  mNGCells=0;
+  mNGNodes=0;
+
 // opposing faces
 
   int oface[4]={2,3,0,1};
@@ -396,6 +401,7 @@ void Mesh::set_E2E(){
             vector<int> ib_neighbours={-1,-1,-1,-1}; // vector address space for neighbours
             mE2E.push_back(ib_neighbours); // append vector address space for neighbours
             mE2E.at(NCells()+ib).at(oface[iface])=iel; // connect iel to boundary segment ib
+            mNGCells++; // create space for a ghost cell
           }
 
         }
@@ -405,13 +411,6 @@ void Mesh::set_E2E(){
     }
 
   }
-
-// set ghost cell count
-
-  mNGCells=mE2E.size()-NCells();
-  mNGNodes=0;
-
-  cout<<"There are "<<NGCells()<<" ghost cells."<<endl;
 
 // now construct ghost cells around perimeter of the mesh
 
@@ -439,12 +438,14 @@ void Mesh::set_E2E(){
             vectmp1.push_back(Vertex(iel,3));   // ghost node 1 coincident with a physical node 3
             vectmp1.push_back(inod+1);   // equates to vertex number of ghost node 2
             vectmp1.push_back(inod); // equates to vertex number of ghost node 3
+            mNGNodes++;
 
 // last ghost on edge so skip corner node
 
             if(ielg==(NCells()+cells_on_edge[0]+cells_on_edge[1]+cells_on_edge[2]-1)){
               mCoord.at(0).push_back(Coord(0,Vertex(iel,0)));
               mCoord.at(1).push_back(Coord(1,Vertex(iel,2))+(Coord(1,Vertex(iel,2))-Coord(1,Vertex(iel,0))));
+              mNGNodes++;
               inod++;
             }
 
@@ -456,12 +457,14 @@ void Mesh::set_E2E(){
             vectmp1.push_back(Vertex(iel,0));   // ghost node 1 coincident with a physical node 0
             vectmp1.push_back(inod);   // equates to vertex number of ghost node 2
             vectmp1.push_back(Vertex(iel,2));   // ghost node 3 coincident with a physical node 2
+            mNGNodes++;
 
 // last ghost on edge so skip corner node
 
             if(ielg==(NCells()+cells_on_edge[0]+cells_on_edge[1]+cells_on_edge[2]+cells_on_edge[3]-1)){
               mCoord.at(0).push_back(Coord(0,Vertex(iel,0))-(Coord(0,Vertex(iel,1))-Coord(0,Vertex(iel,0))));
               mCoord.at(1).push_back(Coord(1,Vertex(iel,1)));
+              mNGNodes++;
             }
 
           break;
@@ -472,12 +475,14 @@ void Mesh::set_E2E(){
             vectmp1.push_back(inod+1); // equates to vertex number of ghost node 1
             vectmp1.push_back(Vertex(iel,0));   // ghost node 2 coincident with a physical node 0
             vectmp1.push_back(Vertex(iel,1));   // ghost node 3 coincident with a physical node 1
+            mNGNodes++;
 
 // last ghost on edge so skip corner node
 
             if(ielg==(NCells()+cells_on_edge[0]-1)){
               mCoord.at(0).push_back(Coord(0,Vertex(iel,3)));
-              mCoord.at(1).push_back(Coord(1,Vertex(iel,1))-(Coord(1,Vertex(iel,3))-Coord(1,Vertex(iel,2))));
+              mCoord.at(1).push_back(Coord(1,Vertex(iel,1))-(Coord(1,Vertex(iel,3))-Coord(1,Vertex(iel,1))));
+              mNGNodes++;
               inod++;
             }
 
@@ -489,12 +494,14 @@ void Mesh::set_E2E(){
             vectmp1.push_back(inod);   // equates to vertex number of ghost node 1
             vectmp1.push_back(Vertex(iel,3));   // ghost node 2 coincident with a physical node 3
             vectmp1.push_back(inod+1); // equates to vertex number of ghost node 3
+            mNGNodes++;
 
  // last ghost on edge so skip corner node
 
             if(ielg==(NCells()+cells_on_edge[0]+cells_on_edge[1]-1)){
               mCoord.at(0).push_back(Coord(0,Vertex(iel,3))+(Coord(0,Vertex(iel,3))-Coord(0,Vertex(iel,2))));
               mCoord.at(1).push_back(Coord(1,Vertex(iel,2)));
+              mNGNodes++;
               inod++;
             }
 
@@ -505,24 +512,113 @@ void Mesh::set_E2E(){
 
         mVertex.push_back(vectmp1);
 
-// store the address reached
-
-        mNGNodes=inod+1;
-
       }
     }
   }
 
+// add a ghost cell to each corner of the mesh
 
-// debug
-  cout<<"There are "<<NNodes()<<" nodes."<<endl;
-  cout<<"There are "<<NGNodes()<<" ghost nodes."<<endl;
+  int v1(NNodes()),v2(NNodes()+1); // vertex addresses either side of each corner ghost, used to find coordinates of the corner
+  vector<int> vectmp1(4),neighbours={-1,-1,-1,-1};
+
+  for(int iface=0;iface<4;iface++){
+    switch(iface){
+      case(0):
+        v1+=cells_on_edge[0];v2=v1+1; // vertices at end of face/start of next face
+        mCoord.at(0).push_back(Coord(0,v2)); // set coordinate of corner ghost
+        mCoord.at(1).push_back(Coord(1,v1)); // set coordinate of corner ghost
+        vectmp1.at(0)=v1;
+        vectmp1.at(1)=NNodes()+NGNodes();
+        vectmp1.at(2)=cells_on_edge[0];
+        vectmp1.at(3)=v2;
+      break;
+      case(1):
+        v1+=cells_on_edge[1]+1;v2=v1+1; // vertices at end of face/start of next face
+        mCoord.at(0).push_back(Coord(0,v1)); // set coordinate of corner ghost
+        mCoord.at(1).push_back(Coord(1,v2)); // set coordinate of corner ghost
+        vectmp1.at(0)=NNodes()-1;
+        vectmp1.at(1)=v1;
+        vectmp1.at(2)=v2;
+        vectmp1.at(3)=NNodes()+NGNodes();
+      break;
+      case(2):
+        v1+=cells_on_edge[2]+1;v2=v1+1; // vertices at end of face/start of next face
+        mCoord.at(0).push_back(Coord(0,v2)); // set coordinate of corner ghost
+        mCoord.at(1).push_back(Coord(1,v1)); // set coordinate of corner ghost
+        vectmp1.at(0)=v2;
+        vectmp1.at(1)=NNodes()-cells_on_edge[2]-1;
+        vectmp1.at(2)=NNodes()+NGNodes();
+        vectmp1.at(3)=v1;
+      break;
+      case(3):
+        v1+=cells_on_edge[3]+1;v2=NNodes(); // vertices at end of face/start of next face
+        mCoord.at(0).push_back(Coord(0,v1)); // set coordinate of corner ghost
+        mCoord.at(1).push_back(Coord(1,v2)); // set coordinate of corner ghost
+        vectmp1.at(0)=NNodes()+NGNodes();
+        vectmp1.at(1)=v2;
+        vectmp1.at(2)=v1;
+        vectmp1.at(3)=0;
+      break;
+    }
+
+// add the ghost cell
+
+    mNGCells++;
+    mNGNodes++;
+    mVertex.push_back(vectmp1);
+    mE2E.push_back(neighbours);
+
+  }
+
+// connect ghost cells
+
+  for(int ielg=NCells();ielg<NCells()+NGCells();ielg++){
+
+// vertices of current ghost
+
+    int n[5]={Vertex(ielg,0),Vertex(ielg,1),Vertex(ielg,3),Vertex(ielg,2),Vertex(ielg,0)};
+
+// loop over faces of ghost ielg
+
+    for(int ifaceg=0;ifaceg<NVertices(ielg);ifaceg++){
+
+// search for a neighbour ghost on face ifaceg of ielg
+
+      for(int ieln=NCells();ieln<NCells()+NGCells();ieln++){
 
 
-  exit(1);
-// debug
+        if(ielg==ieln){continue;}
+
+// vertices of element ieln
+
+        int nn[5]={Vertex(ieln,0),Vertex(ieln,1),Vertex(ieln,3),Vertex(ieln,2),Vertex(ieln,0)};
+
+// loop over faces of element ieln
+
+        for(int ifacen=0;ifacen<NVertices(ieln);ifacen++){
+
+// check if faces ifaceg and ifacen are coincident
+
+          bool z1(n[ifaceg]==nn[ifacen] || n[ifaceg]==nn[ifacen+1]);
+          bool z2(n[ifaceg+1]==nn[ifacen] || n[ifaceg+1]==nn[ifacen+1]);
+
+          if(z1&&z2){mE2E.at(ielg).at(ifaceg)=ieln;} // ieln on face ifaceg of ielg
+
+        }
+
+      }
 
 
+    }
+
+  }
+
+  cout<<" mE2E.size() "<<mE2E.size()<<endl;
+  cout<<" mVertex.size() "<<mVertex.size()<<endl;
+  cout<<" NGCells() "<<NGCells()<<endl;
+  cout<<" NCells() "<<NCells()<<endl;
+  cout<<" NGNodes() "<<NGNodes()<<endl;
+  cout<<" NNodes() "<<NNodes()<<endl;
 
   return;
 
@@ -598,7 +694,7 @@ double Mesh::Coord(int idim, int i) const {return mCoord[idim][i];}
 
 // member function to initialise a vector with the mesh coordinates
 
-void Mesh::InitCoords(vector<vector<double> > &v){
+void Mesh::InitCoords(vector<vector<double> > &v,int const flag){
 
 // first resize the first stride
 
@@ -606,8 +702,22 @@ void Mesh::InitCoords(vector<vector<double> > &v){
 
 // replace each dimension with the vector of coordinates
 
-  for(int i=0;i<NDims();i++){
-    v.at(i)=mCoord.at(i);
+  switch(flag){
+
+    case(EXCLUDE_GHOSTS):
+
+      for(int i=0;i<NDims();i++){for(long j=0;j<NNodes();j++){v.at(i).push_back(Coord(i,j));}}
+
+    break;
+
+    case(INCLUDE_GHOSTS):
+
+// set initial coordinates including the ghost nodes
+
+      for(int i=0;i<NDims();i++){v.at(i)=mCoord.at(i);}
+
+    break;
+
   }
 
   return;

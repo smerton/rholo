@@ -27,7 +27,7 @@
 //
 
 #define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.5       // insert a macro for the end time
+#define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -45,16 +45,19 @@
 #define NCOLS nnodes      // number of columns in the global matrix
 #define ROW M.Vertex(i,iloc)  // row address in global matrix
 #define COL M.Vertex(i,jloc)  // column address in global matrix
+
 #define VACUUM 1              // vacuum boundary
 #define REFLECTIVE 2          // reflective boundary
 #define VELOCITY 3            // velocity v.n applied to boundary
 #define FLUID 4               // fluid on the boundary
 #define ACCELERATION 5        // velocity a.n applied to boundary
+
 #define TAYLOR 1              // Taylor-Green vortex problem
 #define RAYLEIGH 2            // Rayleigh-Taylor instability problem
 #define NOH 3                 // Noh stagnation shock problem
 #define SEDOV 4               // Sedov expanding shock problem
 #define TRIPLE 5              // Triple point problem
+#define SOD 6                 // Sod's shock tube problem
 
 #include <iostream>
 #include <vector>
@@ -94,7 +97,7 @@ void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD co
 void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat);   // input overides for the Taylor-Green vortex
 void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Rayleigh-Taylor instability
 void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Noh stagnation shock
-void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Sedov stagnation shock
+void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Sedov explosion
 
 using namespace std;
 
@@ -181,8 +184,8 @@ int main(){
 
 // initialise the problem
 
-  M.InitCoords(x0);                                                 // set initial coordinates
-  M.InitCoords(x1);                                                 // set initial coordinates
+  M.InitCoords(x0,EXCLUDE_GHOSTS); // set initial coordinates
+  M.InitCoords(x1,EXCLUDE_GHOSTS); // set initial coordinates
 
   for(int i=0;i<n;i++){mat.at(i)=M.Material(i);}
   for(int i=0;i<n;i++){V0.at(i)=M.Volume(i);}

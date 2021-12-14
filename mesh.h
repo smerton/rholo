@@ -1,5 +1,8 @@
 // Export the signature of the mesh class
 
+#define INCLUDE_GHOSTS 1 // used in ghost updates to update ghost data as well as physical data
+#define EXCLUDE_GHOSTS 0 // used in ghost updates to update physical data only
+
 #include <vector>
 
 using namespace std;
@@ -29,7 +32,7 @@ class Mesh{
   int NSideNodes(int i) const; // returns the numnber of nodes on side i on edge of mesh
   int SideNode(int i,int j) const; // returns the node number of node j on side i on edge of mesh
   double Coord(int idim,int i) const; // returns coordinate idim of node i
-  void InitCoords(vector<vector<double> > &v); // initialise the mesh coordinates
+  void InitCoords(vector<vector<double> > &v,int const flag); // initialise the mesh coordinates and include ghosts with flag=INCLUDE_GHOSTS
   double Volume(int i) const; // returns the volume of the element
   void bc_set(int iedge,int bc); // push new boundary condition bc on to mesh edge iedge
   void bc_set(int iedge,int bc,double bcvalue); // push new boundary condition bc and value bcvalue on to mesh edge iedge

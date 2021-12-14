@@ -79,8 +79,8 @@ void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const 
 
 // store coordinates in correct format for silo and repeat for each mesh
 
-  double xcoordsk[nnodesk];for(int i=0;i<x.at(0).size();i++){xcoordsk[i]=x.at(0).at(i);}
-  double ycoordsk[nnodesk];for(int i=0;i<x.at(1).size();i++){ycoordsk[i]=x.at(1).at(i);}
+  double xcoordsk[nnodesk];for(int i=0;i<M.NNodes();i++){xcoordsk[i]=x.at(0).at(i);}
+  double ycoordsk[nnodesk];for(int i=0;i<M.NNodes();i++){ycoordsk[i]=x.at(1).at(i);}
   double *coordsk[]={xcoordsk,ycoordsk};
 
 // connectivities
