@@ -2,6 +2,8 @@
 
 // Author S. R. Merton
 
+#define VVD vector<vector<double> > // laziness
+
 #include "mesh.h"
 #include "shape.h"
 #include <vector>
@@ -692,7 +694,7 @@ int Mesh::SideNode(int i, int j) const {return mSideNode[i][j];}
 
 double Mesh::Coord(int idim, int i) const {return mCoord[idim][i];}
 
-// member function to initialise a vector with the mesh coordinates
+// member function to initialise vector x to the mesh coordinates
 
 void Mesh::InitCoords(vector<vector<double> > &v,int const flag){
 
@@ -717,6 +719,26 @@ void Mesh::InitCoords(vector<vector<double> > &v,int const flag){
       for(int i=0;i<NDims();i++){v.at(i)=mCoord.at(i);}
 
     break;
+
+  }
+
+  return;
+
+}
+
+// member function to advect coordinate x with velocity u a distance u*dt
+
+void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt){
+
+// loop over dimension and advect nodes a distance u*dt
+
+  for(int idim=0;idim<NDims();idim++){
+
+    for(long i=0;i<x.at(idim).size();i++){
+
+      x.at(idim).at(i)=x.at(idim)[i]+u.at(idim)[i]*dt;
+
+    }
 
   }
 

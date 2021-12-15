@@ -26,7 +26,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
+#define DTSTART 0.00001     // insert a macro for the first time step
 #define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -359,11 +359,7 @@ int main(){
 
 // move the nodes to their full-step position
 
-    for(int idim=0;idim<ndims;idim++){
-      for(int i=0;i<nnodes;i++){
-        x1.at(idim).at(i)=x0.at(idim)[i]+u0.at(idim)[i]*dt;
-      }
-    }
+    M.UpdateCoords(x1,u0,dt);
 
 // update cell volumes at the full-step
 

@@ -1,5 +1,6 @@
 // Export the signature of the mesh class
 
+#define VVD vector<vector<double> > // laziness
 #define INCLUDE_GHOSTS 1 // used in ghost updates to update ghost data as well as physical data
 #define EXCLUDE_GHOSTS 0 // used in ghost updates to update physical data only
 
@@ -42,6 +43,7 @@ class Mesh{
   int E2E(int iel,int iface) const; // returns the element on face iface of element iel
   double Min(int idim) const; // returns mesh boundary minimum in dimension idim
   double Max(int idim) const; // returns mesh boundary maximum in dimension idim
+  void UpdateCoords(VVD &x, VVD const &u, double const dt); // advect coordinate x a distance u*dt with velocity u
 
   private:
 
