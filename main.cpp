@@ -26,8 +26,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0002     // insert a macro for the first time step
-#define ENDTIME 0.6       // insert a macro for the end time
+#define DTSTART 0.001     // insert a macro for the first time step
+#define ENDTIME 0.5       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -362,25 +362,7 @@ int main(){
 
 // update cell volumes at the full-step
 
-//    M.UpdateVolume(V1,x1,S.order());
-
-// old code:
-    for(int i=0;i<n;i++){
-//
-// update the jacobian
-
-      jacobian(i,x1,M,S,detJ,detDJ);
-
-// reset the cell volume
-
-      V1.at(i)=0.0;
-      for(int gi=0;gi<S.ngi();gi++){
-        V1.at(i)+=detJ[gi]*S.wgt(gi);
-      }
-
-      if(V1.at(i)<VTOL){cout<<"-'ve volume detected in cell "<<i<<endl;lineouts(M,S,d1,p,e1,q,x1,u1);exit(1);}
-
-    }
+    M.UpdateVolume(V1,x1,S.order());
 
 // update cell density at the full-step
 

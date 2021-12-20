@@ -750,7 +750,7 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const {
 
 // update cell volumes
 
-void Mesh::UpdateVolume(vector<double> V,VVD const &x, int const &p) const{
+void Mesh::UpdateVolume(vector<double> &V,VVD const &x, int const &p) const{
 
 // declare a shape function
 

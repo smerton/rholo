@@ -44,7 +44,7 @@ class Mesh{
   double Min(int idim) const; // returns mesh boundary minimum in dimension idim
   double Max(int idim) const; // returns mesh boundary maximum in dimension idim
   void UpdateCoords(VVD &x,VVD const &u,double const dt) const; // advect coordinate x a distance u*dt with velocity u
-  void UpdateVolume(vector<double> V,VVD const &x, int const &p) const; // update cell volume V given coordinate x on order p elements
+  void UpdateVolume(vector<double> &V,VVD const &x, int const &p) const; // update cell volume V given coordinate x on order p elements
 
   private:
 
