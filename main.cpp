@@ -26,7 +26,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.00001     // insert a macro for the first time step
+#define DTSTART 0.0002     // insert a macro for the first time step
 #define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -107,7 +107,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/taylor-green-10x10.mesh");                        // load a new mesh from file
+  Mesh M("mesh/taylor-green-10x10.mesh");                               // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -159,12 +159,11 @@ int main(){
   test_problem=TAYLOR;                                                 // set overides needed to run this problem
   vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-
 //  test_problem=NOH;                                                    // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Noh problem
 
-//  test_problem=SEDOV;                                                    // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};       // initial flux state in each material for Sedov problem
+//  test_problem=SEDOV;                                                  // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
 
 //  test_problem=TRIPLE;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
@@ -363,8 +362,11 @@ int main(){
 
 // update cell volumes at the full-step
 
-    for(int i=0;i<n;i++){
+//    M.UpdateVolume(V1,x1,S.order());
 
+// old code:
+    for(int i=0;i<n;i++){
+//
 // update the jacobian
 
       jacobian(i,x1,M,S,detJ,detDJ);
@@ -472,6 +474,7 @@ int main(){
   vector<double> b=vector<double> (M.NDims()*nnodes);for(int i=0;i<M.NDims()*nnodes;i++){b.at(i)=-b1[i];}
   for(int idim=0;idim<M.NDims();idim++){
     for(int i=0;i<n;i++){
+      jacobian(i,x1,M,S,detJ,detDJ);
       for(int iloc=0;iloc<S.nloc();iloc++){
         for(int gi=0;gi<S.ngi();gi++){
           b.at(idim*NROWS+ROW)+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
