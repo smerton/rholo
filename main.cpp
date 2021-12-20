@@ -73,7 +73,6 @@
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "q.h"       // q forms
 
 // function signatures
 
@@ -126,6 +125,7 @@ int main(){
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
   vector<double> b0(2*NROWS),b1(2*NROWS);                        // vectors for boundary conditions (b0=value, b1=eliminated row)
+  vector<double> l(n);                                           // length of each element
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
@@ -359,6 +359,10 @@ int main(){
 // move the nodes to their full-step position
 
     M.UpdateCoords(x1,u0,dt);
+
+// update element length scale
+
+    M.UpdateLength(l,S.order());
 
 // update volume field at the full-step
 

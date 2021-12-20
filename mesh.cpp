@@ -16,6 +16,7 @@
 #include <string>
 #include <algorithm>
 #include <iomanip>
+#include <cmath>     // sqrt
 
 using namespace std;
 
@@ -731,7 +732,7 @@ void Mesh::InitCoords(vector<vector<double> > &v,int const flag){
 
 // member function to advect coordinate x with velocity u a distance u*dt
 
-void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const {
+void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const{
 
 // loop over dimension and advect nodes a distance u*dt
 
@@ -742,6 +743,60 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const {
       x.at(idim).at(i)=x.at(idim)[i]+u.at(idim)[i]*dt;
 
     }
+
+  }
+
+  return;
+
+}
+
+// update element length scale
+
+void Mesh::UpdateLength(VD &l,int const &p) const{
+
+// shape of polyhedral order p
+
+  Shape S(p);
+
+// distance between mid-points
+
+  VD xydist;
+
+// midpoint coordinates for each side
+
+  VVD xymid(NDims());
+
+// resize mid-point coordinate vector to hold information for 4 sides
+
+  for(int idim=0;idim<NDims();idim++){xymid.at(idim).resize(4);}
+
+
+  for(int i=0;i<l.size();i++){
+
+// side mid-points using the finite element method
+
+    for(int idim=0;idim<NDims();idim++){
+      for(int j=0;j<S.nloc();j++){
+        xymid[idim][0]+=S.value(j,0.0,-1.0)*Coord(idim,Vertex(i,j)); // bottom face
+        xymid[idim][1]+=S.value(j,1.0,0.0)*Coord(idim,Vertex(i,j)); // right face
+        xymid[idim][2]+=S.value(j,0.0,1.0)*Coord(idim,Vertex(i,j)); // top face
+        xymid[idim][3]+=S.value(j,-1.0,0.0)*Coord(idim,Vertex(i,j)); // left face
+      }
+    }
+
+// distances between the mid-points
+
+    for(int iside=0;iside<3;iside++){
+      for(int jside=iside+1;jside<4;jside++){
+        double dx(abs(xymid[0][iside]-xymid[0][jside]));
+        double dy(abs(xymid[1][iside]-xymid[1][jside]));
+        xydist.push_back(sqrt(dx*dx+dy*dy));
+      }
+    }
+
+// compute minimum distance between the mid-points
+
+    l.at(i)=*min_element(xydist.begin(),xydist.end());
 
   }
 
