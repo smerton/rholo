@@ -28,7 +28,7 @@
 
 #define DTSTART 0.001     // insert a macro for the first time step
 #define ENDTIME 0.5       // insert a macro for the end time
-#define ECUT 1.0e-8       // cut-off on the energy field
+//#define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
@@ -38,7 +38,6 @@
 #define VVD vector<VD>    // vector of VD
 #define VVVD vector<VVD>  // vector of VVD
 #define VI vector<int>    // vector of ints
-#define VTOL 1.0e-10      // threshold for volume errors
 #define COURANT 0.333     // Courant number for CFL condition
 #define DTSFACTOR 0.5     // safety factor on time-step control
 #define NROWS nnodes      // number of rows in the global matrix
@@ -370,7 +369,7 @@ int main(){
 
 // update cell energy at the full-step
 
-    for(int i=0;i<n;i++){e1.at(i)=max(ECUT,e0[i]-((p[i]+q[i])*(V1[i]-V0[i]))/m[i]);}
+    M.UpdateEnergy(e0,e1,p,q,V0,V1,m);
 
 // update cell pressure at the full-step
 

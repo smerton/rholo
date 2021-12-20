@@ -48,6 +48,7 @@ class Mesh{
   void UpdateCoords(VVD &x,VVD const &u,double const dt) const; // advect coordinate x a distance u*dt with velocity u
   void UpdateVolume(VD &V,VVD const &x, int const &p) const; // update volume field V given coordinate x and polyhedral element order p
   void UpdateDensity(VD &d,VD const &V,VD const &m) const; // update denisty field d given a volume field V and a mass field m
+  void UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0,VD const &V1,VD const &m) const ; // update mesh energy field
 
   private:
 

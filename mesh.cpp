@@ -4,6 +4,7 @@
 
 #define VVD vector<vector<double> > // laziness
 #define VTOL 1.0e-10                // threshold for volume errors
+#define ECUT 1.0e-8                 // cut-off on the energy field
 
 #include "mesh.h"
 #include "shape.h"
@@ -805,6 +806,18 @@ void Mesh::UpdateDensity(VD &d,VD const &V,VD const &m) const{
 
   for(int i=0;i<d.size();i++){
     d.at(i)=m.at(i)/V.at(i);
+  }
+
+  return;
+
+}
+
+// update internal energy field
+
+void Mesh::UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0,VD const &V1,VD const &m) const{
+
+  for(int i=0;i<e0.size();i++){
+    e1.at(i)=max(ECUT,e0.at(i)-((p.at(i)+q.at(i))*(V1.at(i)-V0.at(i)))/m.at(i));
   }
 
   return;
