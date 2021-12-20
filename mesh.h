@@ -33,7 +33,7 @@ class Mesh{
   int NSideNodes(int i) const; // returns the numnber of nodes on side i on edge of mesh
   int SideNode(int i,int j) const; // returns the node number of node j on side i on edge of mesh
   double Coord(int idim,int i) const; // returns coordinate idim of node i
-  void InitCoords(vector<vector<double> > &v,int const flag); // initialise the mesh coordinates and include ghosts with flag=INCLUDE_GHOSTS
+  void InitCoords(VVD &v,int const flag); // initialise the mesh coordinates and include ghosts with flag=INCLUDE_GHOSTS
   double Volume(int i) const; // returns the volume of the element
   void bc_set(int iedge,int bc); // push new boundary condition bc on to mesh edge iedge
   void bc_set(int iedge,int bc,double bcvalue); // push new boundary condition bc and value bcvalue on to mesh edge iedge
@@ -43,7 +43,8 @@ class Mesh{
   int E2E(int iel,int iface) const; // returns the element on face iface of element iel
   double Min(int idim) const; // returns mesh boundary minimum in dimension idim
   double Max(int idim) const; // returns mesh boundary maximum in dimension idim
-  void UpdateCoords(VVD &x, VVD const &u, double const dt); // advect coordinate x a distance u*dt with velocity u
+  void UpdateCoords(VVD &x,VVD const &u,double const dt) const; // advect coordinate x a distance u*dt with velocity u
+  void UpdateVolume(vector<double> V,VVD const &x, int const &p) const; // update cell volume V given coordinate x on order p elements
 
   private:
 

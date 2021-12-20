@@ -3,6 +3,7 @@
 // Author S. R. Merton
 
 #define VVD vector<vector<double> > // laziness
+#define VTOL 1.0e-10                // threshold for volume errors
 
 #include "mesh.h"
 #include "shape.h"
@@ -728,7 +729,7 @@ void Mesh::InitCoords(vector<vector<double> > &v,int const flag){
 
 // member function to advect coordinate x with velocity u a distance u*dt
 
-void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt){
+void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const {
 
 // loop over dimension and advect nodes a distance u*dt
 
@@ -739,6 +740,59 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt){
       x.at(idim).at(i)=x.at(idim)[i]+u.at(idim)[i]*dt;
 
     }
+
+  }
+
+  return;
+
+}
+
+
+// update cell volumes
+
+void Mesh::UpdateVolume(vector<double> V,VVD const &x, int const &p) const{
+
+// declare a shape function
+
+  Shape S(1);
+
+// initialise a Jacobian
+
+  vector<double> detJ(S.ngi());
+
+// loop over the mesh and update volume in each cell
+
+  for(int i=0;i<V.size();i++){
+
+// loop over quadrature points and calculate the jacobian
+
+    for(int gi=0;gi<S.ngi();gi++){
+
+      double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+
+// derivatives of the physical coordinates at the quadrature points
+
+      for(int j=0;j<S.nloc();j++){
+        dxdu+=x.at(0).at(Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
+        dxdv+=x.at(0).at(Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
+        dydu+=x.at(1).at(Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
+        dydv+=x.at(1).at(Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
+      }
+
+// calculate the determinant at the quadrature point and commit to the vector
+
+      detJ.at(gi)=dxdu*dydv-dxdv*dydu;
+
+    }
+
+// integrate the jacobian and reset the cell volume
+
+    V.at(i)=0.0;
+    for(int gi=0;gi<S.ngi();gi++){
+      V.at(i)+=detJ[gi]*S.wgt(gi);
+    }
+
+    if(V.at(i)<VTOL){cout<<"Mesh::UpdateVolume(): -'ve volume detected in cell "<<i<<endl;exit(1);}
 
   }
 
