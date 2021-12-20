@@ -8,6 +8,7 @@
 
 #include "mesh.h"
 #include "shape.h"
+#include "eos.h"     // eos lookups
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -818,6 +819,19 @@ void Mesh::UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0
 
   for(int i=0;i<e0.size();i++){
     e1.at(i)=max(ECUT,e0.at(i)-((p.at(i)+q.at(i))*(V1.at(i)-V0.at(i)))/m.at(i));
+  }
+
+  return;
+
+}
+
+// load pressure field
+
+void Mesh::UpdatePressure(VD &p,VD const &d,VD const &e,VD const &gamma,vector<int> const &mat){
+
+  for(int i=0;i<p.size();i++){
+    p.at(i)=P(d[i],e[i],gamma[mat[i]-1]);
+    if(p[i]<0.0){cout<<"Mesh::UpdatePressure(): -'ve pressure detected in cell "<<i<<" e= "<<e[i]<<endl;exit(1);}
   }
 
   return;

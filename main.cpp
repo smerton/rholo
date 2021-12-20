@@ -359,21 +359,21 @@ int main(){
 
     M.UpdateCoords(x1,u0,dt);
 
-// update cell volumes at the full-step
+// update volume field at the full-step
 
     M.UpdateVolume(V1,x1,S.order());
 
-// update cell density at the full-step
+// update density field at the full-step
 
     M.UpdateDensity(d1,V1,m);
 
-// update cell energy at the full-step
+// update internal energy field at the full-step
 
     M.UpdateEnergy(e0,e1,p,q,V0,V1,m);
 
-// update cell pressure at the full-step
+// update cell pressures at the full-step
 
-    for(int i=0;i<n;i++){p.at(i)=P(d1[i],e1[i],gamma[mat[i]-1]);if(p[i]<0.0){cout<<"-'ve pressure detected in cell "<<i<<" e1= "<<e1[i]<<endl;exit(1);}}
+    M.UpdatePressure(p,d1,e1,gamma,mat);
 
 // bulk q
 
