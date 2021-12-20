@@ -380,13 +380,16 @@ int main(){
 
     M.UpdatePressure(p,d1,e1,gamma,mat);
 
+// load new sound speeds
+
+    M.UpdateSoundSpeed(c,gamma,mat,p,d1);
+
 // bulk q
 
     for(int i=0;i<q.size();i++){
-      c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d1[i]);
-      double l(length(M,S,i)),divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
+      double divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
       if(divu<0.0){
-        q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
+        q.at(i)=d1[i]*l[i]*divu*((cq*l[i]*divu)-cl*c[i]);
       }else{
         q.at(i)=0.0; // turn off q as cell divergence indicates expansion
       }

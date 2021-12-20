@@ -51,6 +51,7 @@ class Mesh{
   void UpdateDensity(VD &d,VD const &V,VD const &m) const; // update denisty field d given a volume field V and a mass field m
   void UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0,VD const &V1,VD const &m) const ; // update mesh energy field
   void UpdatePressure(VD &p,VD const &d,VD const &e,VD const &gamma,vector<int> const &mat); // load pressure field
+  void UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p,VD const &d) const; // load new sound speeds
 
   private:
 

@@ -893,6 +893,18 @@ void Mesh::UpdatePressure(VD &p,VD const &d,VD const &e,VD const &gamma,vector<i
 
 }
 
+// load new sound speeds
+
+void Mesh::UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p,VD const &d) const{
+
+  for(int i=0;i<c.size();i++){
+    c.at(i)=C(d.at(i),p.at(i),g[mat[i]-1]);
+  }
+
+  return;
+
+}
+
 // member function to return the element volume
 
 double Mesh::Volume(int i) const {return mVolume.at(i);}
