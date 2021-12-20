@@ -73,6 +73,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "q.h"       // q forms
 
 // function signatures
 
@@ -377,7 +378,7 @@ int main(){
 
 // bulk q
 
-    for(int i=0;i<n;i++){
+    for(int i=0;i<q.size();i++){
       c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d1[i]);
       double l(length(M,S,i)),divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
       if(divu<0.0){
