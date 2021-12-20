@@ -1,6 +1,8 @@
 // Export the signature of the mesh class
 
+#define VD vector<double>           // laziness
 #define VVD vector<vector<double> > // laziness
+
 #define INCLUDE_GHOSTS 1 // used in ghost updates to update ghost data as well as physical data
 #define EXCLUDE_GHOSTS 0 // used in ghost updates to update physical data only
 
@@ -44,7 +46,8 @@ class Mesh{
   double Min(int idim) const; // returns mesh boundary minimum in dimension idim
   double Max(int idim) const; // returns mesh boundary maximum in dimension idim
   void UpdateCoords(VVD &x,VVD const &u,double const dt) const; // advect coordinate x a distance u*dt with velocity u
-  void UpdateVolume(vector<double> &V,VVD const &x, int const &p) const; // update cell volume V given coordinate x on order p elements
+  void UpdateVolume(VD &V,VVD const &x, int const &p) const; // update volume field V given coordinate x and polyhedral element order p
+  void UpdateDensity(VD &d,VD const &V,VD const &m) const; // update denisty field d given a volume field V and a mass field m
 
   private:
 
@@ -63,10 +66,10 @@ class Mesh{
   vector<int> mSideAttr; // cell side boundary attribute
   vector<int> mSideType; // cell side boundary type
   vector<vector<int> > mSideNode; // node numbers on each cell side coincident with the mesh edge
-  vector<vector<double> > mCoord; // coordinates of each node
-  vector<double > mVolume; // element volume
+  VVD mCoord; // coordinates of each node
+  VD mVolume; // element volume
   vector<int> mbc_edge=vector<int>(4); // boundary condition on each edge of the mesh
-  vector<double > mbc_value=vector<double>(4); // boundary value on each edge of mesh
+  VD mbc_value=vector<double>(4); // boundary value on each edge of mesh
   vector<vector<int> > mE2E; // element->element connectivities
 
 // member function signatures

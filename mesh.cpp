@@ -747,10 +747,9 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const {
 
 }
 
+// update volume field
 
-// update cell volumes
-
-void Mesh::UpdateVolume(vector<double> &V,VVD const &x, int const &p) const{
+void Mesh::UpdateVolume(VD &V,VVD const &x, int const &p) const{
 
 // declare a shape function
 
@@ -794,6 +793,18 @@ void Mesh::UpdateVolume(vector<double> &V,VVD const &x, int const &p) const{
 
     if(V.at(i)<VTOL){cout<<"Mesh::UpdateVolume(): -'ve volume detected in cell "<<i<<endl;exit(1);}
 
+  }
+
+  return;
+
+}
+
+// update density field
+
+void Mesh::UpdateDensity(VD &d,VD const &V,VD const &m) const{
+
+  for(int i=0;i<d.size();i++){
+    d.at(i)=m.at(i)/V.at(i);
   }
 
   return;

@@ -366,7 +366,7 @@ int main(){
 
 // update cell density at the full-step
 
-    for(int i=0;i<n;i++){d1.at(i)=m[i]/V1[i];}
+    M.UpdateDensity(d1,V1,m);
 
 // update cell energy at the full-step
 
