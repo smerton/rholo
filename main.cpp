@@ -28,12 +28,12 @@
 
 #define DTSTART 0.001     // insert a macro for the first time step
 #define ENDTIME 0.5       // insert a macro for the end time
-//#define ECUT 1.0e-8       // cut-off on the energy field
+//#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
-#define VISFREQ 0.01       // frequency of the graphics dump times
-#define OUTFREQ 0.01       // frequency of the output print times
+#define VISFREQ 0.01      // frequency of the graphics dump times
+#define OUTFREQ 0.01      // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
 #define VVVD vector<VVD>  // vector of VVD
@@ -106,7 +106,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/taylor-green-10x10.mesh");                               // load a new mesh from file
+  Mesh M("mesh/taylor-green-10x10.mesh");                        // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -186,17 +186,17 @@ int main(){
   M.InitCoords(x0,EXCLUDE_GHOSTS); // set initial coordinates
   M.InitCoords(x1,EXCLUDE_GHOSTS); // set initial coordinates
 
-  for(int i=0;i<n;i++){mat.at(i)=M.Material(i);}
-  for(int i=0;i<n;i++){V0.at(i)=M.Volume(i);}
-  for(int i=0;i<n;i++){V1.at(i)=M.Volume(i);}
-  for(int i=0;i<n;i++){int imat(mat[i]);p.at(i)=state[imat-1][3];}  // load pressure field from initial flux state
-  for(int i=0;i<n;i++){int imat(mat[i]);d0.at(i)=state[imat-1][0];} // load density field from initial flux state
-  for(int i=0;i<n;i++){int imat(mat[i]);d1.at(i)=state[imat-1][0];}
-  for(int i=0;i<n;i++){m.at(i)=d0[i]*V0[i];}                        // calculate the initial mass field
-  for(int i=0;i<n;i++){e0.at(i)=E(d0[i],p[i],gamma[mat[i]-1]);}     // invert the eos to start the energy field
-  for(int i=0;i<n;i++){e1.at(i)=E(d1[i],p[i],gamma[mat[i]-1]);}
-  for(int i=0;i<n;i++){q.at(i)=0.0;}
-  for(int i=0;i<n;i++){c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d0[i]);}
+  for(int i=0;i<mat.size();i++){mat.at(i)=M.Material(i);}
+  for(int i=0;i<V0.size();i++){V0.at(i)=M.Volume(i);}
+  for(int i=0;i<V1.size();i++){V1.at(i)=M.Volume(i);}
+  for(int i=0;i<p.size();i++){int imat(mat[i]);p.at(i)=state[imat-1][3];}   // load pressure field from initial flux state
+  for(int i=0;i<d0.size();i++){int imat(mat[i]);d0.at(i)=state[imat-1][0];} // load density field from initial flux state
+  for(int i=0;i<d1.size();i++){int imat(mat[i]);d1.at(i)=state[imat-1][0];}
+  for(int i=0;i<m.size();i++){m.at(i)=d0[i]*V0[i];}                         // calculate the initial mass field
+  for(int i=0;i<e0.size();i++){e0.at(i)=E(d0[i],p[i],gamma[mat[i]-1]);}     // invert the eos to start the energy field
+  for(int i=0;i<e1.size();i++){e1.at(i)=E(d1[i],p[i],gamma[mat[i]-1]);}
+  for(int i=0;i<q.size();i++){q.at(i)=0.0;}
+  for(int i=0;i<c.size();i++){c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d0[i]);}
 
 // allocate a determinant for each derivative
 
@@ -213,7 +213,7 @@ int main(){
 
     vector<double> vtmp(x0.at(idim).size());
 
-    for(int i=0;i<n;i++){
+    for(int i=0;i<mat.size();i++){
       for(int iloc=0;iloc<S.nloc();iloc++){
         long j(M.Vertex(i,iloc));
         vtmp.at(j)=(vtmp[j]==0.0)?(state[mat[i]-1][1+idim]):((vtmp[j]!=(state[mat[i]-1][1+idim]))?0.0:(state[mat[i]-1][1+idim]));
@@ -226,6 +226,8 @@ int main(){
     u1.at(idim)=vtmp;
 
   }
+
+// got to here with ghost cell stuff
 
 // input overides needed to initialise certain test problems
 
@@ -505,7 +507,7 @@ int main(){
 // advance the states for the new time step
 
     u0=u1;x0=x1;e0=e1;V0=V1;d0=d1;
-    for(int i=0;i<n;i++){c.at(i)=sqrt(gamma[mat[i]-1]*(p[i]+q[i])/d1[i]);}
+    M.UpdateSoundSpeed(c,gamma,mat,p,d1);
 
 // debug
 //  if(step==1){
@@ -1219,28 +1221,28 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 
 // start x component of velocity field
 
-  for(long i=0;i<M.NNodes();i++){
+  for(long i=0;i<u0.at(0).size();i++){
     u0.at(0).at(i)=sin(dpi*M.Coord(0,i))*cos(dpi*M.Coord(1,i));
     u1.at(0).at(i)=u0.at(0).at(i);
   }
 
 // start y component of velocity field
 
-  for(long i=0;i<M.NNodes();i++){
+  for(long i=0;i<u1.at(0).size();i++){
     u0.at(1).at(i)=-cos(dpi*M.Coord(0,i))*sin(dpi*M.Coord(1,i));
     u1.at(1).at(i)=u0.at(1).at(i);
   }
 
 // load density field
 
-  for(long i=0;i<M.NCells();i++){
+  for(long i=0;i<d0.size();i++){
     d0.at(i)=1.0;
     d1.at(i)=d0.at(i);
   }
 
 // load pressure field
 
-  for(long i=0;i<M.NCells();i++){
+  for(long i=0;i<p.size();i++){
     double xc[2];xc[0]=0.0;xc[1]=0.0;
     for(int iloc=0;iloc<S.nloc();iloc++){
       xc[0]+=S.value(iloc,0.0,0.0)*M.Coord(0,M.Vertex(i,iloc));
@@ -1253,7 +1255,7 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 // energy should = (3.0*dpi/8.0)*cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])
 // so we can use this as a check
 
-  for(int i=0;i<M.NCells();i++){
+  for(int i=0;i<e0.size();i++){
     double xc[2];xc[0]=0.0;xc[1]=0.0;
     for(int iloc=0;iloc<S.nloc();iloc++){
       xc[0]+=S.value(iloc,0.0,0.0)*M.Coord(0,M.Vertex(i,iloc));
@@ -1288,7 +1290,7 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
 // start x component of velocity field
 
-  for(long i=0;i<M.NNodes();i++){
+  for(long i=0;i<u0.at(0).size();i++){
 
     double origin[2]={0.0,0.0};            // origin coordinates assuming we are on the domain [-1,1]
     double rx(M.Coord(0,i)-origin[0]);     // radial vector component from domain origin to node
@@ -1307,20 +1309,20 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
 // load density field
 
-  for(long i=0;i<M.NCells();i++){
+  for(long i=0;i<d0.size();i++){
     d0.at(i)=1.0;
     d1.at(i)=d0.at(i);
   }
 
 // load pressure field
 
-  for(long i=0;i<M.NCells();i++){
+  for(long i=0;i<p.size();i++){
     p.at(i)=0.0;
   }
 
 // start the energy field
 
-  for(int i=0;i<M.NCells();i++){
+  for(int i=0;i<e0.size();i++){
     e0.at(i)=0.0;
     e1.at(i)=e0.at(i);
   }
@@ -1337,14 +1339,14 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
 
 // load density field
 
-  for(long i=0;i<M.NCells();i++){
+  for(long i=0;i<d0.size();i++){
     d0.at(i)=1.0;
     d1.at(i)=d0.at(i);
   }
 
 // load energy field
 
-  for(long i=0;i<M.NCells();i++){
+  for(long i=0;i<e0.size();i++){
 
     e0.at(i)=0.0;
     e1.at(i)=e0.at(i);
@@ -1364,7 +1366,7 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
 
 // load pressure field
 
-  for(long i=0;i<M.NCells();i++){
+  for(long i=0;i<p.size();i++){
     p.at(i)=P(d0[i],e0[i],gamma[mat[i]-1]);
   }
 
