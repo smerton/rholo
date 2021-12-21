@@ -463,6 +463,7 @@ void Mesh::set_E2E(){
             vectmp1.push_back(Vertex(iel,0));   // ghost node 1 coincident with a physical node 0
             vectmp1.push_back(inod);   // equates to vertex number of ghost node 2
             vectmp1.push_back(Vertex(iel,2));   // ghost node 3 coincident with a physical node 2
+
             mNGNodes++;
 
 // last ghost on edge so skip corner node
@@ -517,6 +518,10 @@ void Mesh::set_E2E(){
 // store the ghost vertices
 
         mVertex.push_back(vectmp1);
+
+// assign material number of the physical element iel to the ghost element ielg
+
+        mMaterial.push_back(mMaterial.at(iel));
 
       }
     }
@@ -614,10 +619,23 @@ void Mesh::set_E2E(){
 
       }
 
-
     }
 
   }
+
+// add material to corner ghosts
+
+  int iel1(cells_on_edge[0]-1);         // bottom right corner
+  mMaterial.push_back(mMaterial.at(iel1));
+
+  int iel2(NCells()-1);                 // top right corner
+  mMaterial.push_back(mMaterial.at(iel2));
+
+  int iel3(NCells()-cells_on_edge[2]);  // top left corner
+  mMaterial.push_back(mMaterial.at(iel3));
+
+  int iel4(0);                          // bottom left corner
+  mMaterial.push_back(mMaterial.at(iel4));
 
   cout<<" mE2E.size() "<<mE2E.size()<<endl;
   cout<<" mVertex.size() "<<mVertex.size()<<endl;
