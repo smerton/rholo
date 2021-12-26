@@ -916,7 +916,7 @@ void Mesh::UpdatePressure(VD &p,VD const &d,VD const &e,VD const &gamma,vector<i
 void Mesh::UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p,VD const &d) const{
 
   for(int i=0;i<c.size();i++){
-    c.at(i)=C(d.at(i),p.at(i),g[mat[i]-1]);
+    c.at(i)=C(p.at(i),d.at(i),g[mat[i]-1]);
   }
 
   return;
