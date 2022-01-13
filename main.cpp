@@ -27,12 +27,12 @@
 //
 
 #define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.5       // insert a macro for the end time
+#define ENDTIME 1.0       // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
-#define VISFREQ 0.01      // frequency of the graphics dump times
+#define VISFREQ 0.05      // frequency of the graphics dump times
 #define OUTFREQ 0.01      // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
@@ -84,7 +84,7 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 void initial_data(int const n, int const nnodes, int const ndims, int const nmats,          // echo some initial information
                   Mesh const &M);
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
-              VD const &q, VVD const &x, VVD const &u);
+              VD const &q, VVD const &x, VVD const &u, int const &test_problem);
 void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
@@ -106,7 +106,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/taylor-green-10x10.mesh");                        // load a new mesh from file
+  Mesh M("mesh/sedov-24x24.mesh");                        // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -156,14 +156,14 @@ int main(){
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4},      // initial flux state in each material for vacuum boundary test
 //                                 {1.000, 0.000,0.000, 1.000,1.4}};
 
-  test_problem=TAYLOR;                                                 // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
+//  test_problem=TAYLOR;                                                 // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-//  test_problem=NOH;                                                    // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Noh problem
+//  test_problem=NOH;                                                      // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};   // initial flux state in each material for Noh problem
 
-//  test_problem=SEDOV;                                                  // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
+  test_problem=SEDOV;                                                  // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
 
 //  test_problem=TRIPLE;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
@@ -180,6 +180,10 @@ int main(){
   M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
   M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
   M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -463,9 +467,9 @@ int main(){
 // assemble acceleration field
 
   vector<double> b=vector<double> (M.NDims()*nnodes);for(int i=0;i<M.NDims()*nnodes;i++){b.at(i)=-b1[i];}
-  for(int idim=0;idim<M.NDims();idim++){
-    for(int i=0;i<n;i++){
-      jacobian(i,x1,M,S,detJ,detDJ);
+  for(int i=0;i<n;i++){
+    jacobian(i,x1,M,S,detJ,detDJ);
+    for(int idim=0;idim<M.NDims();idim++){
       for(int iloc=0;iloc<S.nloc();iloc++){
         for(int gi=0;gi<S.ngi();gi++){
           b.at(idim*NROWS+ROW)+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
@@ -521,7 +525,7 @@ int main(){
 
 // some output
 
-  lineouts(M,S,d1,p,e1,q,x1,u1);
+  lineouts(M,S,d1,p,e1,q,x1,u1,test_problem);
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
 
@@ -565,9 +569,9 @@ int main(){
   return 0;
 }
 
-// this function codes for some line-outs intended for use in the pseudo-1D tests
+// this function codes for some line-outs
 
-void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,VD const &q,VVD const &x,VVD const &u){
+void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,VD const &q,VVD const &x,VVD const &u, int const &test_problem){
 
 // some output
 
@@ -575,8 +579,89 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
   f1.open("dpe.dat");f2.open("q.dat");f3.open("u.dat");
 
-// set up line-outs
+// allow different line-outs for different problems
 
+  switch(test_problem){
+
+    case(TAYLOR):
+
+// Taylor Green vortex
+
+      break;
+
+    case(RAYLEIGH):
+
+// Rayleigh-Taylor instability
+
+      break;
+
+    case(NOH):
+
+// Noh stagnation shock
+
+    case(SEDOV):
+
+// Sedov expanding shock
+
+      {
+
+// establish the mesh limits
+
+        double xmin(*min_element(x.at(0).begin(),x.at(0).end()));
+        double xmax(*max_element(x.at(0).begin(),x.at(0).end()));
+        double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
+        double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
+
+// set up each line
+
+        int n(100); // sample points along each line
+        double ox(0.0),oy(0.0); // coordinates of origin of each line (they all start at the centre)
+        double endx[4]={xmax,xmin,xmin,xmax}; // coordinates of the end of each line (mesh corners)
+        double endy[4]={ymax,ymax,ymin,ymin};
+
+// loop over each line
+
+        for(int iline=0;iline<4;iline++){
+
+// length and gradient of iline
+
+          double l[2]={(endx[iline]-ox),endy[iline]-oy},m(l[1]/l[0]);
+          vector<double> xx,yy; // sample point coordinates
+
+// split iline into n sample points starting at the origin
+
+          for(int i=0;i<=n;i++){
+            xx.push_back(i*l[0]/n);
+            yy.push_back(m*xx.at(i)+oy);
+          }
+
+// find intersecting cell and interpolate data onto sample point
+
+          for(int i=0;i<M.NCells();i++){
+            double xcell[4]={x.at(0).at(M.Vertex(i,0)),x.at(0).at(M.Vertex(i,1)),x.at(0).at(M.Vertex(i,2)),x.at(0).at(M.Vertex(i,3))};
+            double ycell[4]={x.at(1).at(M.Vertex(i,0)),x.at(1).at(M.Vertex(i,1)),x.at(1).at(M.Vertex(i,2)),x.at(1).at(M.Vertex(i,3))};
+            for(int isample=0;isample<n+1;isample++){
+
+            }
+
+          }
+
+        }
+
+
+      }
+
+      break;
+
+    case(SOD):
+
+// Sod's shock tube
+
+
+
+
+// set up line-outs
+{
   vector<int> plotdim={0}; // dimension to plot against (0 for x, 1 for y)
   vector<int> linedim={1}; // dimension in which the line-out is located (0 for x, 1 for y)
   vector<double> posline={0.5*(M.Min(1)+M.Max(1))}; // datum on dimension linedim
@@ -637,6 +722,22 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
       }
 
     }
+
+  }
+
+
+}
+
+
+
+
+
+
+
+
+
+
+      break;
 
   }
 
@@ -833,8 +934,10 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 // determinants for the deriavtives at the quadrature points
 
     for(int j=0;j<S.nloc();j++){
-      detDJ.at(0).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dydu*S.dvalue(1,j,gi))/detJ[gi];
-      detDJ.at(1).at(j).at(gi)=(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi];
+//      detDJ.at(0).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dydu*S.dvalue(1,j,gi))/detJ[gi]; // original, Taylor runs better ??
+      detDJ.at(0).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dxdv*S.dvalue(1,j,gi))/detJ[gi]; // Noh/triple run better ??
+//      detDJ.at(1).at(j).at(gi)=(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi]; // original, Taylor runs better ??
+      detDJ.at(1).at(j).at(gi)=(-dydu*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi];// Noh/triple run better ??
     }
 
   }
@@ -1182,6 +1285,9 @@ void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD co
 
         bcname="fluid";
 
+        cout<<"ERROR: Attempting to use detDJ when it is out of date - stopping."<<endl;
+        exit(1);
+
         for(int jdim=0;jdim<M.NDims();jdim++){
           for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
             double nn(0.0);
@@ -1272,7 +1378,7 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 
 // input overides for the Rayleigh-Taylor instability
 
-void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD const &gamma,vector<int> const &mat){
+void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &gamma,vector<int> const &mat){
 
   cout<<"init_TAYLOR(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
