@@ -97,6 +97,7 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Rayleigh-Taylor instability
 void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Noh stagnation shock
 void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Sedov explosion
+template <typename T> int sgn(T val); // return type safe sign of the argument
 
 using namespace std;
 
@@ -106,7 +107,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sedov-24x24.mesh");                        // load a new mesh from file
+  Mesh M("mesh/noh-9x9.mesh");                        // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -361,7 +362,10 @@ int main(){
         silo(x0,d0,p,e0,q,c,u0,mat,step,time,M,gamma);
       }
     }
-
+// debug
+  lineouts(M,S,d1,p,e1,q,x1,u1,test_problem);
+  exit(1);
+// debug
 // move the nodes to their full-step position
 
     M.UpdateCoords(x1,u0,dt);
@@ -614,10 +618,14 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
 // set up each line
 
-        int n(100); // sample points along each line
+        int n(20); // number of sample points along each line
         double ox(0.0),oy(0.0); // coordinates of origin of each line (they all start at the centre)
+//        double ox(-1.0+0.5/6.0),oy(-1.0+0.5/6.0); // coordinates of origin of each line (they all start at the centre)
         double endx[4]={xmax,xmin,xmin,xmax}; // coordinates of the end of each line (mesh corners)
+//        double endx[4]={ox+1.0/3.0,ox+1.0/3.0,ox+1.0/3.0,ox+1.0/3.0}; // coordinates of the end of each line (mesh corners)
+//        double endx[4]={xmax,xmax,xmax,xmax}; // coordinates of the end of each line (mesh corners)
         double endy[4]={ymax,ymax,ymin,ymin};
+//        double endy[4]={ymax,oy,oy,oy};
 
 // loop over each line
 
@@ -625,22 +633,190 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
 // length and gradient of iline
 
-          double l[2]={(endx[iline]-ox),endy[iline]-oy},m(l[1]/l[0]);
+          double l[2]={(endx[iline]-ox),endy[iline]-oy},mline(l[1]/(sgn(l[0])*max(1.0e-10,l[0])));
           vector<double> xx,yy; // sample point coordinates
 
 // split iline into n sample points starting at the origin
 
-          for(int i=0;i<=n;i++){
-            xx.push_back(i*l[0]/n);
-            yy.push_back(m*xx.at(i)+oy);
+          if(abs(mline)>1.0e10){ // as good as vertical
+            for(int i=0;i<=n;i++){
+              yy.push_back((i*l[1]/n)+oy);
+              xx.push_back(((yy.at(i)-oy)/mline)+ox);
+            }
+          }else if(abs(mline)<1.0e-10){ // as good as horizontal
+            for(int i=0;i<=n;i++){
+              xx.push_back((i*l[0]/n)+ox);
+              yy.push_back(mline*xx.at(i)+oy);
+            }
+          }else{
+            for(int i=0;i<=n;i++){
+              xx.push_back((i*l[0]/n)+ox);
+              yy.push_back(mline*xx.at(i));
+            }
           }
 
-// find intersecting cell and interpolate data onto sample point
+// find intersecting cells and interpolate their data onto the sample points
 
           for(int i=0;i<M.NCells();i++){
+
+// cell corner coordinates
+
             double xcell[4]={x.at(0).at(M.Vertex(i,0)),x.at(0).at(M.Vertex(i,1)),x.at(0).at(M.Vertex(i,2)),x.at(0).at(M.Vertex(i,3))};
             double ycell[4]={x.at(1).at(M.Vertex(i,0)),x.at(1).at(M.Vertex(i,1)),x.at(1).at(M.Vertex(i,2)),x.at(1).at(M.Vertex(i,3))};
+
+// set end point of each cell side based on orientation
+
+            double xl[4],xr[4]; // left and right end points of cell edge
+            double yb[4],yt[4]; // bottom and top end points of cell edge
+            double m[4],c[4]; // gradient of edge and y-intercept
+
+            if(xcell[0]<xcell[1]){
+              xl[0]=xcell[0];
+              xr[0]=xcell[1];
+            }else{
+              xl[0]=xcell[1];
+              xr[0]=xcell[0];
+            }
+
+            if(xcell[1]<xcell[3]){
+              xl[1]=xcell[1];
+              xr[1]=xcell[3];
+            }else{
+              xl[1]=xcell[3];
+              xr[1]=xcell[1];
+            }
+
+            if(xcell[2]<xcell[3]){
+              xl[2]=xcell[2];
+              xr[2]=xcell[3];
+            }else{
+              xl[2]=xcell[3];
+              xr[2]=xcell[2];
+            }
+
+            if(xcell[2]<xcell[0]){
+              xl[3]=xcell[2];
+              xr[3]=xcell[0];
+            }else{
+              xl[3]=xcell[0];
+              xr[3]=xcell[2];
+            }
+
+            if(ycell[0]<ycell[1]){
+              yb[0]=ycell[0];
+              yt[0]=ycell[1];
+            }else{
+              yb[0]=ycell[1];
+              yt[0]=ycell[0];
+            }
+
+            if(ycell[1]<ycell[3]){
+              yb[1]=ycell[1];
+              yt[1]=ycell[3];
+            }else{
+              yb[1]=ycell[3];
+              yt[1]=ycell[1];
+            }
+
+            if(ycell[2]<ycell[3]){
+              yb[2]=ycell[2];
+              yt[2]=ycell[3];
+            }else{
+              yb[2]=ycell[3];
+              yt[2]=ycell[2];
+            }
+
+            if(ycell[0]<ycell[2]){
+              yb[3]=ycell[0];
+              yt[3]=ycell[2];
+            }else{
+              yb[3]=ycell[2];
+              yt[3]=ycell[0];
+            }
+
+// gradients
+
+            m[0]=(yt[0]-yb[0])/max(1.0e-10,abs(xr[0]-xl[0]));
+            m[1]=(yt[1]-yb[1])/max(1.0e-10,abs(xr[1]-xl[1]));
+            m[2]=(yt[2]-yb[2])/max(1.0e-10,abs(xr[2]-xl[2]));
+            m[3]=(yt[3]-yb[1])/max(1.0e-10,abs(xr[3]-xl[3]));
+
+// y-intercept
+
+            c[0]=yb[0];
+            c[1]=yb[1];
+            c[2]=yb[2];
+            c[3]=yb[3];
+
+// find all sample points coincident with cell i by adding up how many sides were crossed to reach the sample point
+
             for(int isample=0;isample<n+1;isample++){
+
+              bool z0((xx.at(isample)>=xl[0])&&(xx.at(isample)<=xr[0])); // between edge 0 end-points
+              bool z1((xx.at(isample)>=xl[1])&&(xx.at(isample)<=xr[1])); // between edge 1 end-points
+              bool z2((xx.at(isample)>=xl[2])&&(xx.at(isample)<=xr[2])); // between edge 2 end-points
+              bool z3((xx.at(isample)>=xl[3])&&(xx.at(isample)<=xr[3])); // between edge 3 end-points
+
+// find intercept on each edge
+
+              double yint[4]={-1000.0,-1000.0,-1000.0,-1000.0};
+
+              yint[0]=m[0]*xx.at(isample)+c[0];
+              yint[1]=m[1]*xx.at(isample)+c[1];
+              yint[2]=m[2]*xx.at(isample)+c[2];
+              yint[3]=m[3]*xx.at(isample)+c[3];
+
+// add up number of edges crossed
+
+              int nedges=0;
+
+              if(z0&&yy.at(isample)>yint[0]){nedges++;}
+              if(z1&&yy.at(isample)>yint[1]){nedges++;}
+              if(z2&&yy.at(isample)>yint[2]){nedges++;}
+              if(z3&&yy.at(isample)>yint[3]){nedges++;}
+
+
+if(i==0&&isample==-1){
+//  cout<<"CELL "<<i<<" FOUND:"<<endl;
+  cout<<" sample point "<<isample<<" coords= "<<xx.at(isample)<<","<<yy.at(isample)<<endl;
+  cout<<"  line start= "<<ox<<","<<oy<<endl;
+  cout<<"  line end= "<<endx[iline]<<","<<endy[iline]<<endl;
+  cout<<"  l[0]=  "<<l[0]<<endl;
+  cout<<"  l[1]=  "<<l[1]<<endl;
+  cout<<"  mline=  "<<mline<<endl;
+  cout<<"  z0= "<<z0<<endl;
+  cout<<"  z1= "<<z1<<endl;
+  cout<<"  z2= "<<z2<<endl;
+  cout<<"  z3= "<<z3<<endl;
+  cout<<"  edge 0 start "<<xl[0]<<","<<yb[0]<<" end "<<xr[0]<<","<<yt[0]<<endl;
+  cout<<"  edge 1 start "<<xl[1]<<","<<yb[1]<<" end "<<xr[1]<<","<<yt[1]<<endl;
+  cout<<"  edge 2 start "<<xl[2]<<","<<yb[2]<<" end "<<xr[2]<<","<<yt[2]<<endl;
+  cout<<"  edge 3 start "<<xl[3]<<","<<yb[3]<<" end "<<xr[3]<<","<<yt[3]<<endl;
+  cout<<"  m[0]= "<<m[0]<<endl;
+  cout<<"  m[1]= "<<m[1]<<endl;
+  cout<<"  m[2]= "<<m[2]<<endl;
+  cout<<"  m[3]= "<<m[3]<<endl;
+  cout<<"  yint[0]= "<<yint[0]<<endl;
+  cout<<"  yint[1]= "<<yint[1]<<endl;
+  cout<<"  yint[2]= "<<yint[2]<<endl;
+  cout<<"  yint[3]= "<<yint[3]<<endl;
+  cout<<"  nedges= "<<nedges<<endl;
+  cout<<"  sgn(-1.0)= "<<sgn(0.0)<<endl;
+  if(5%2){
+    cout<<"ODD"<<endl;
+  }else{
+    cout<<"EVEN"<<endl;
+  }
+}
+
+
+
+// check if sample point is inside the cell
+
+              if(nedges%2){
+                  cout<<" line "<<iline<<" sample point "<<isample<<" found in cell "<<i<<endl;
+              }
+
 
             }
 
@@ -1479,3 +1655,8 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
   return;
 
 }
+
+// type safe function to return the sign of the argument
+
+//template <typename T> int sgn(T val) {return(T(0)<val)-(val<T(0));} // -1,0 or 1
+template <typename T> int sgn(T val) {return( (val>=T(0))?T(1):T(-1));} // -1 or 1
