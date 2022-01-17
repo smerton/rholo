@@ -93,7 +93,6 @@ void Line::divide(int n){
     double ri(i*length()/nsegments()); // distance from line origin to segment end point
     double theta(atan(m()));
     vtmp.at(0).push_back(start(0)+ri*cos(theta)); // coordinate 0 of the segment end point
-//    cout<<"Line::divide(): theta= "<<theta<<" m()= "<<m()<<endl;
     vtmp.at(1).push_back(start(1)+ri*sin(theta)); // coordinate 1 of the segment end point
   }
 
