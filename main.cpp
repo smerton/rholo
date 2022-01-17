@@ -73,6 +73,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
+#include "line.h"
 
 // function signatures
 
@@ -608,6 +609,51 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 // Sedov expanding shock
 
       {
+
+// set up a shape function in global coordinates to interpolate datato point (x,y)
+
+//debug
+      vector<double> Lstart,Lend;
+      Lstart.push_back(0.0);
+      Lstart.push_back(0.5);
+      Lend.push_back(1.0);
+      Lend.push_back(0.5);
+      Line L(Lstart,Lend);
+      cout<<"L.start()= "<<L.start(0)<<","<<L.start(1)<<endl;
+      cout<<"L.end()= "<<L.end(0)<<","<<L.end(1)<<endl;
+      cout<<"L.m()= "<<L.m()<<endl;
+      cout<<"L.length()= "<<L.length()<<endl;
+      cout<<"L.nsegments()= "<<L.nsegments()<<endl;
+      cout<<"L.coord()= "<<L.coord(0,0)<<endl;
+      cout<<"L.coord()= "<<L.coord(1,0)<<endl;
+
+      L.divide(10);
+      for(int iseg=0;iseg<L.nsegments();iseg++){
+        cout<<"  L.coord()= "<<L.coord(0,iseg)<<endl;
+        cout<<"  L.coord()= "<<L.coord(1,iseg)<<endl;
+      }
+
+
+      vector<double> nodex,nodey;
+      vector<vector<double> > r;
+      for(int iloc=0;iloc<S.nloc();iloc++){nodex.push_back(x.at(0).at(M.Vertex(0,iloc)));}
+      for(int iloc=0;iloc<S.nloc();iloc++){nodey.push_back(x.at(1).at(M.Vertex(0,iloc)));}
+      r.push_back(nodex);
+      r.push_back(nodey);
+      Shape G(1,r);
+      vector<double> centre;
+      centre.push_back(-11.0/12.0);
+      centre.push_back(-5.0/6.0);
+      double xloc(0.0),yloc(0.0);
+      double xnod[4]={0.0,1.0,0.0,1.0},ynod[4]={0.0,0.0,1.0,1.0};
+      for(int iloc=0;iloc<G.nloc();iloc++){
+        xloc+=G.value(iloc,centre)*xnod[iloc];
+        yloc+=G.value(iloc,centre)*ynod[iloc];
+      }
+      cout<<" centre at "<<xloc<<","<<yloc<<endl;
+      exit(1);
+//debug
+
 
 // establish the mesh limits
 
