@@ -50,6 +50,15 @@ Line::Line(vector<double> r1,vector<double> r2){
   mcoord.at(0).push_back(r2.at(0));
   mcoord.at(1).push_back(r2.at(1));
 
+// intercept
+
+  if(start(0)!=0.0){
+    double theta(atan(m())),r(abs(cos(theta)/start(0)));
+    mc=(m()>=0.0)?start(1)-(r*sin(theta)):start(1)+(r*sin(theta));
+  }else{
+    mc=start(1);
+  }
+
 }
 
 
@@ -107,6 +116,10 @@ void Line::divide(int n){
 // function to return the number of segments
 
 int Line::nsegments() const {return mnsegments;}
+
+// function to return the intercept
+
+double Line::c() const {return mc;}
 
 // type safe function to return the sign of the argument
 

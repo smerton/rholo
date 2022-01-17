@@ -23,6 +23,7 @@ class Line{
   double length() const;              // returns the length of the line
   int nsegments() const;              // returns the number of segments
   double coord(int idim,int i) const; // returns segment i end point coordinate idim
+  double c() const;                   // returns the intercept
 
 // a function to divide a line into n segments
 
@@ -35,6 +36,7 @@ class Line{
   vector<double> mstart;          // coordinates of start point
   vector<double> mend;            // coordinates of end point
   vector<double> mm;              // gradient of the line
+  double mc;                      // intercept
   double mlength;                 // length of the line
   int mnsegments;                 // number of segments
   vector<vector<double> > mcoord; // segment end point coordinates
