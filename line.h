@@ -24,10 +24,15 @@ class Line{
   int nsegments() const;              // returns the number of segments
   double coord(int idim,int i) const; // returns segment i end point coordinate idim
   double c() const;                   // returns the intercept
+  int segint() const ;                // returns segment that intersects another line
 
 // a function to divide a line into n segments
 
   void divide(int n);
+
+// a function to determine whether the line intersects another line
+
+  bool intersects(Line l1);
 
   private:
 
@@ -40,5 +45,6 @@ class Line{
   double mlength;                 // length of the line
   int mnsegments;                 // number of segments
   vector<vector<double> > mcoord; // segment end point coordinates
+  int msegint;                    // segment number of intersection
 
 };

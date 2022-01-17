@@ -610,51 +610,6 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
       {
 
-// set up a shape function in global coordinates to interpolate datato point (x,y)
-
-//debug
-      vector<double> Lstart,Lend;
-      Lstart.push_back(0.0);
-      Lstart.push_back(0.5);
-      Lend.push_back(1.0);
-      Lend.push_back(0.5);
-      Line L(Lstart,Lend);
-      cout<<"L.start()= "<<L.start(0)<<","<<L.start(1)<<endl;
-      cout<<"L.end()= "<<L.end(0)<<","<<L.end(1)<<endl;
-      cout<<"L.m()= "<<L.m()<<endl;
-      cout<<"L.length()= "<<L.length()<<endl;
-      cout<<"L.nsegments()= "<<L.nsegments()<<endl;
-      cout<<"L.coord()= "<<L.coord(0,0)<<endl;
-      cout<<"L.coord()= "<<L.coord(1,0)<<endl;
-
-      L.divide(10);
-      for(int iseg=0;iseg<L.nsegments();iseg++){
-        cout<<"  L.coord()= "<<L.coord(0,iseg)<<endl;
-        cout<<"  L.coord()= "<<L.coord(1,iseg)<<endl;
-      }
-
-
-      vector<double> nodex,nodey;
-      vector<vector<double> > r;
-      for(int iloc=0;iloc<S.nloc();iloc++){nodex.push_back(x.at(0).at(M.Vertex(0,iloc)));}
-      for(int iloc=0;iloc<S.nloc();iloc++){nodey.push_back(x.at(1).at(M.Vertex(0,iloc)));}
-      r.push_back(nodex);
-      r.push_back(nodey);
-      Shape G(1,r);
-      vector<double> centre;
-      centre.push_back(-11.0/12.0);
-      centre.push_back(-5.0/6.0);
-      double xloc(0.0),yloc(0.0);
-      double xnod[4]={0.0,1.0,0.0,1.0},ynod[4]={0.0,0.0,1.0,1.0};
-      for(int iloc=0;iloc<G.nloc();iloc++){
-        xloc+=G.value(iloc,centre)*xnod[iloc];
-        yloc+=G.value(iloc,centre)*ynod[iloc];
-      }
-      cout<<" centre at "<<xloc<<","<<yloc<<endl;
-      exit(1);
-//debug
-
-
 // establish the mesh limits
 
         double xmin(*min_element(x.at(0).begin(),x.at(0).end()));
@@ -662,213 +617,105 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
         double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
         double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
 
-// set up each line
+// set up line AB to sample along
 
-        int n(20); // number of sample points along each line
-        double ox(0.0),oy(0.0); // coordinates of origin of each line (they all start at the centre)
-//        double ox(-1.0+0.5/6.0),oy(-1.0+0.5/6.0); // coordinates of origin of each line (they all start at the centre)
-        double endx[4]={xmax,xmin,xmin,xmax}; // coordinates of the end of each line (mesh corners)
-//        double endx[4]={ox+1.0/3.0,ox+1.0/3.0,ox+1.0/3.0,ox+1.0/3.0}; // coordinates of the end of each line (mesh corners)
-//        double endx[4]={xmax,xmax,xmax,xmax}; // coordinates of the end of each line (mesh corners)
-        double endy[4]={ymax,ymax,ymin,ymin};
-//        double endy[4]={ymax,oy,oy,oy};
+        vector<double> A(2),B(2); // A and B are the two end points
+//        A.at(0)=0.5*(xmin+xmax);A.at(1)=0.5*(ymin+ymax);
+//        B.at(0)=xmax;B.at(1)=ymax;
+        A.at(0)=0.5*(xmin+xmax);A.at(1)=0.5*(ymin+ymax);
+        B.at(0)=xmin;B.at(1)=ymax;
+//        A.at(0)=0.5*(xmin+xmax);A.at(1)=0.5*(ymin+ymax);
+//        B.at(0)=xmax;B.at(1)=ymin;
+//        A.at(0)=0.5*(xmin+xmax);A.at(1)=0.5*(ymin+ymax);
+//        B.at(0)=xmin;B.at(1)=ymin;
 
-// loop over each line
+        Line AB(A,B);
+        AB.divide(1);
 
-        for(int iline=0;iline<4;iline++){
+// search for cells that AB intersects
 
-// length and gradient of iline
+        for(int i=0;i<M.NCells();i++){
 
-          double l[2]={(endx[iline]-ox),endy[iline]-oy},mline(l[1]/(sgn(l[0])*max(1.0e-10,l[0])));
-          vector<double> xx,yy; // sample point coordinates
+// set up line CD to represent each cell side in turn
 
-// split iline into n sample points starting at the origin
+          vector<double> C(2),D(2); // C and D are the two end points of a cell side
+          int nend[4]={1,3,0,2}; // node at other end of face
+          int nsides(0); // number of sides of i that are crossed by AB
 
-          if(abs(mline)>1.0e10){ // as good as vertical
-            for(int i=0;i<=n;i++){
-              yy.push_back((i*l[1]/n)+oy);
-              xx.push_back(((yy.at(i)-oy)/mline)+ox);
-            }
-          }else if(abs(mline)<1.0e-10){ // as good as horizontal
-            for(int i=0;i<=n;i++){
-              xx.push_back((i*l[0]/n)+ox);
-              yy.push_back(mline*xx.at(i)+oy);
-            }
-          }else{
-            for(int i=0;i<=n;i++){
-              xx.push_back((i*l[0]/n)+ox);
-              yy.push_back(mline*xx.at(i));
-            }
-          }
+          for(int j=0;j<S.nloc();j++){
+            C.at(0)=x[0].at(M.Vertex(i,j)),C.at(1)=x[1].at(M.Vertex(i,j));
+            D.at(0)=x[0].at(M.Vertex(i,nend[j])),D.at(1)=x[1].at(M.Vertex(i,nend[j]));
 
-// find intersecting cells and interpolate their data onto the sample points
+            Line CD(C,D); // this line is the cell side
 
-          for(int i=0;i<M.NCells();i++){
-
-// cell corner coordinates
-
-            double xcell[4]={x.at(0).at(M.Vertex(i,0)),x.at(0).at(M.Vertex(i,1)),x.at(0).at(M.Vertex(i,2)),x.at(0).at(M.Vertex(i,3))};
-            double ycell[4]={x.at(1).at(M.Vertex(i,0)),x.at(1).at(M.Vertex(i,1)),x.at(1).at(M.Vertex(i,2)),x.at(1).at(M.Vertex(i,3))};
-
-// set end point of each cell side based on orientation
-
-            double xl[4],xr[4]; // left and right end points of cell edge
-            double yb[4],yt[4]; // bottom and top end points of cell edge
-            double m[4],c[4]; // gradient of edge and y-intercept
-
-            if(xcell[0]<xcell[1]){
-              xl[0]=xcell[0];
-              xr[0]=xcell[1];
-            }else{
-              xl[0]=xcell[1];
-              xr[0]=xcell[0];
-            }
-
-            if(xcell[1]<xcell[3]){
-              xl[1]=xcell[1];
-              xr[1]=xcell[3];
-            }else{
-              xl[1]=xcell[3];
-              xr[1]=xcell[1];
-            }
-
-            if(xcell[2]<xcell[3]){
-              xl[2]=xcell[2];
-              xr[2]=xcell[3];
-            }else{
-              xl[2]=xcell[3];
-              xr[2]=xcell[2];
-            }
-
-            if(xcell[2]<xcell[0]){
-              xl[3]=xcell[2];
-              xr[3]=xcell[0];
-            }else{
-              xl[3]=xcell[0];
-              xr[3]=xcell[2];
-            }
-
-            if(ycell[0]<ycell[1]){
-              yb[0]=ycell[0];
-              yt[0]=ycell[1];
-            }else{
-              yb[0]=ycell[1];
-              yt[0]=ycell[0];
-            }
-
-            if(ycell[1]<ycell[3]){
-              yb[1]=ycell[1];
-              yt[1]=ycell[3];
-            }else{
-              yb[1]=ycell[3];
-              yt[1]=ycell[1];
-            }
-
-            if(ycell[2]<ycell[3]){
-              yb[2]=ycell[2];
-              yt[2]=ycell[3];
-            }else{
-              yb[2]=ycell[3];
-              yt[2]=ycell[2];
-            }
-
-            if(ycell[0]<ycell[2]){
-              yb[3]=ycell[0];
-              yt[3]=ycell[2];
-            }else{
-              yb[3]=ycell[2];
-              yt[3]=ycell[0];
-            }
-
-// gradients
-
-            m[0]=(yt[0]-yb[0])/max(1.0e-10,abs(xr[0]-xl[0]));
-            m[1]=(yt[1]-yb[1])/max(1.0e-10,abs(xr[1]-xl[1]));
-            m[2]=(yt[2]-yb[2])/max(1.0e-10,abs(xr[2]-xl[2]));
-            m[3]=(yt[3]-yb[1])/max(1.0e-10,abs(xr[3]-xl[3]));
-
-// y-intercept
-
-            c[0]=yb[0];
-            c[1]=yb[1];
-            c[2]=yb[2];
-            c[3]=yb[3];
-
-// find all sample points coincident with cell i by adding up how many sides were crossed to reach the sample point
-
-            for(int isample=0;isample<n+1;isample++){
-
-              bool z0((xx.at(isample)>=xl[0])&&(xx.at(isample)<=xr[0])); // between edge 0 end-points
-              bool z1((xx.at(isample)>=xl[1])&&(xx.at(isample)<=xr[1])); // between edge 1 end-points
-              bool z2((xx.at(isample)>=xl[2])&&(xx.at(isample)<=xr[2])); // between edge 2 end-points
-              bool z3((xx.at(isample)>=xl[3])&&(xx.at(isample)<=xr[3])); // between edge 3 end-points
-
-// find intercept on each edge
-
-              double yint[4]={-1000.0,-1000.0,-1000.0,-1000.0};
-
-              yint[0]=m[0]*xx.at(isample)+c[0];
-              yint[1]=m[1]*xx.at(isample)+c[1];
-              yint[2]=m[2]*xx.at(isample)+c[2];
-              yint[3]=m[3]*xx.at(isample)+c[3];
-
-// add up number of edges crossed
-
-              int nedges=0;
-
-              if(z0&&yy.at(isample)>yint[0]){nedges++;}
-              if(z1&&yy.at(isample)>yint[1]){nedges++;}
-              if(z2&&yy.at(isample)>yint[2]){nedges++;}
-              if(z3&&yy.at(isample)>yint[3]){nedges++;}
-
-
-if(i==0&&isample==-1){
-//  cout<<"CELL "<<i<<" FOUND:"<<endl;
-  cout<<" sample point "<<isample<<" coords= "<<xx.at(isample)<<","<<yy.at(isample)<<endl;
-  cout<<"  line start= "<<ox<<","<<oy<<endl;
-  cout<<"  line end= "<<endx[iline]<<","<<endy[iline]<<endl;
-  cout<<"  l[0]=  "<<l[0]<<endl;
-  cout<<"  l[1]=  "<<l[1]<<endl;
-  cout<<"  mline=  "<<mline<<endl;
-  cout<<"  z0= "<<z0<<endl;
-  cout<<"  z1= "<<z1<<endl;
-  cout<<"  z2= "<<z2<<endl;
-  cout<<"  z3= "<<z3<<endl;
-  cout<<"  edge 0 start "<<xl[0]<<","<<yb[0]<<" end "<<xr[0]<<","<<yt[0]<<endl;
-  cout<<"  edge 1 start "<<xl[1]<<","<<yb[1]<<" end "<<xr[1]<<","<<yt[1]<<endl;
-  cout<<"  edge 2 start "<<xl[2]<<","<<yb[2]<<" end "<<xr[2]<<","<<yt[2]<<endl;
-  cout<<"  edge 3 start "<<xl[3]<<","<<yb[3]<<" end "<<xr[3]<<","<<yt[3]<<endl;
-  cout<<"  m[0]= "<<m[0]<<endl;
-  cout<<"  m[1]= "<<m[1]<<endl;
-  cout<<"  m[2]= "<<m[2]<<endl;
-  cout<<"  m[3]= "<<m[3]<<endl;
-  cout<<"  yint[0]= "<<yint[0]<<endl;
-  cout<<"  yint[1]= "<<yint[1]<<endl;
-  cout<<"  yint[2]= "<<yint[2]<<endl;
-  cout<<"  yint[3]= "<<yint[3]<<endl;
-  cout<<"  nedges= "<<nedges<<endl;
-  cout<<"  sgn(-1.0)= "<<sgn(0.0)<<endl;
-  if(5%2){
-    cout<<"ODD"<<endl;
-  }else{
-    cout<<"EVEN"<<endl;
-  }
-}
-
-
-
-// check if sample point is inside the cell
-
-              if(nedges%2){
-                  cout<<" line "<<iline<<" sample point "<<isample<<" found in cell "<<i<<endl;
-              }
-
-
-            }
+            if(AB.intersects(CD)) nsides++;
 
           }
+
+          if(nsides!=0){cout<<"Cell "<<i<<" nsides= "<<nsides<<endl;}
 
         }
+
+
+
+
+
+//debug
+//      vector<double> L1start,L1end,L2start,L2end;
+//      L1start.push_back(2.0),L1start.push_back(4.5);
+//      L1end.push_back(3.0),  L1end.push_back(4.5);
+//      Line L1(L1start,L1end);
+
+//      L2start.push_back(3.5),L2start.push_back(4.0);
+//      L2end.push_back(3.5),  L2end.push_back(5.0);
+//      Line L2(L2start,L2end);
+
+//      cout<<"L1.start()= "<<L1.start(0)<<","<<L1.start(1)<<endl;
+//      cout<<"L1.end()= "<<L1.end(0)<<","<<L1.end(1)<<endl;
+//      cout<<"L1.m()= "<<L1.m()<<endl;
+//      cout<<"L1.length()= "<<L1.length()<<endl;
+//      cout<<"L1.nsegments()= "<<L1.nsegments()<<endl;
+//      cout<<"L1.coord()= "<<L1.coord(0,0)<<endl;
+//      cout<<"L1.coord()= "<<L1.coord(1,0)<<endl;
+//      cout<<endl;
+//      cout<<"L2.start()= "<<L2.start(0)<<","<<L2.start(1)<<endl;
+//      cout<<"L2.end()= "<<L2.end(0)<<","<<L2.end(1)<<endl;
+//      cout<<"L2.m()= "<<L2.m()<<endl;
+//      cout<<"L2.length()= "<<L2.length()<<endl;
+//      cout<<"L2.nsegments()= "<<L2.nsegments()<<endl;
+//      cout<<"L2.coord()= "<<L2.coord(0,0)<<endl;
+//      cout<<"L2.coord()= "<<L2.coord(1,0)<<endl;
+//      cout<<endl;
+//      cout<<"L1-L2 intersect ? "<<L1.intersects(L2)<<endl;
+
+
+//      L.divide(10);
+//      for(int iseg=0;iseg<L.nsegments();iseg++){
+//        cout<<"  L.coord()= "<<L.coord(0,iseg)<<endl;
+//        cout<<"  L.coord()= "<<L.coord(1,iseg)<<endl;
+//      }
+
+// set up a shape function in global coordinates to interpolate data to point (x,y)
+//      vector<double> nodex,nodey;
+//      vector<vector<double> > r;
+//      for(int iloc=0;iloc<S.nloc();iloc++){nodex.push_back(x.at(0).at(M.Vertex(0,iloc)));}
+//      for(int iloc=0;iloc<S.nloc();iloc++){nodey.push_back(x.at(1).at(M.Vertex(0,iloc)));}
+//      r.push_back(nodex);
+//      r.push_back(nodey);
+//      Shape G(1,r);
+//      vector<double> centre;
+//      centre.push_back(-11.0/12.0);
+//      centre.push_back(-5.0/6.0);
+//      double xloc(0.0),yloc(0.0);
+//      double xnod[4]={0.0,1.0,0.0,1.0},ynod[4]={0.0,0.0,1.0,1.0};
+//      for(int iloc=0;iloc<G.nloc();iloc++){
+//        xloc+=G.value(iloc,centre)*xnod[iloc];
+//        yloc+=G.value(iloc,centre)*ynod[iloc];
+//      }
+//      cout<<" centre at "<<xloc<<","<<yloc<<endl;
+      exit(1);
+//debug
+
 
 
       }
