@@ -364,8 +364,8 @@ int main(){
       }
     }
 // debug
-  lineouts(M,S,d1,p,e1,q,x1,u1,test_problem);
-  exit(1);
+//  lineouts(M,S,d1,p,e1,q,x1,u1,test_problem);
+//  exit(1);
 // debug
 // move the nodes to their full-step position
 
@@ -578,13 +578,30 @@ int main(){
 
 void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,VD const &q,VVD const &x,VVD const &u, int const &test_problem){
 
-// some output
+// file handle for output
 
-  ofstream f1,f2,f3; // file handles for output
+  ofstream f1;
 
-  f1.open("dpe.dat");f2.open("q.dat");f3.open("u.dat");
+// establish the mesh limits
 
-// allow different line-outs for different problems
+  double xmin(*min_element(x.at(0).begin(),x.at(0).end()));
+  double xmax(*max_element(x.at(0).begin(),x.at(0).end()));
+  double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
+  double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
+
+// decalre the line-out structure
+
+  struct lineout_type {
+    double x1,y1; // start point of each line
+    double x2,y2; // end point of each line
+    string filename; //filename to output
+    string filehead; // file header
+    int nsamples; // number of sample points on each line
+  } lineout;
+
+  vector<lineout_type> Lineout;
+
+// set up different line-outs for different problems
 
   switch(test_problem){
 
@@ -592,13 +609,13 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
 // Taylor Green vortex
 
-      break;
+      return;;
 
     case(RAYLEIGH):
 
 // Rayleigh-Taylor instability
 
-      break;
+      return;
 
     case(NOH):
 
@@ -608,115 +625,64 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
 // Sedov expanding shock
 
-      {
+      for(int iline=0;iline<4;iline++){
 
-// establish the mesh limits
+        switch(iline){
 
-        double xmin(*min_element(x.at(0).begin(),x.at(0).end()));
-        double xmax(*max_element(x.at(0).begin(),x.at(0).end()));
-        double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
-        double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
+          case(0):
 
-// set up line AB to sample along
+            lineout.x1=0.5*(xmin+xmax);
+            lineout.x2=xmax;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=ymax;
+            lineout.filename="lineout_1.dat";
+            lineout.filehead="# Sedov lineout from (0.0,0.0) to (1.2,1.2) : Columns are x d p e q u";
+            lineout.nsamples=100;
 
-        vector<double> A(2),B(2); // A and B are the two end points
-//        A.at(0)=0.5*(xmin+xmax);A.at(1)=0.5*(ymin+ymax);
-//        B.at(0)=xmax;B.at(1)=ymax;
-        A.at(0)=0.5*(xmin+xmax);A.at(1)=0.5*(ymin+ymax);
-        B.at(0)=xmin;B.at(1)=ymax;
-//        A.at(0)=0.5*(xmin+xmax);A.at(1)=0.5*(ymin+ymax);
-//        B.at(0)=xmax;B.at(1)=ymin;
-//        A.at(0)=0.5*(xmin+xmax);A.at(1)=0.5*(ymin+ymax);
-//        B.at(0)=xmin;B.at(1)=ymin;
+            break;
 
-        Line AB(A,B);
-        AB.divide(1);
+          case(1):
 
-// search for cells that AB intersects
+            lineout.x1=0.5*(xmin+xmax);
+            lineout.x2=xmin;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=ymax;
+            lineout.filename="lineout_2.dat";
+            lineout.filehead="# Sedov lineout from (0.0,0.0) to (-1.2,1.2) : Columns are x d p e q u";
+            lineout.nsamples=100;
 
-        for(int i=0;i<M.NCells();i++){
+          break;
 
-// set up line CD to represent each cell side in turn
+          case(2):
 
-          vector<double> C(2),D(2); // C and D are the two end points of a cell side
-          int nend[4]={1,3,0,2}; // node at other end of face
-          int nsides(0); // number of sides of i that are crossed by AB
+            lineout.x1=0.5*(xmin+xmax);
+            lineout.x2=xmin;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=ymin;
+            lineout.filename="lineout_3.dat";
+            lineout.filehead="# Sedov lineout from (0.0,0.0) to (-1.2,-1.2) : Columns are x d p e q u";
+            lineout.nsamples=100;
 
-          for(int j=0;j<S.nloc();j++){
-            C.at(0)=x[0].at(M.Vertex(i,j)),C.at(1)=x[1].at(M.Vertex(i,j));
-            D.at(0)=x[0].at(M.Vertex(i,nend[j])),D.at(1)=x[1].at(M.Vertex(i,nend[j]));
 
-            Line CD(C,D); // this line is the cell side
+          break;
 
-            if(AB.intersects(CD)) nsides++;
+          case(3):
 
-          }
+            lineout.x1=0.5*(xmin+xmax);
+            lineout.x2=xmax;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=ymin;
+            lineout.filename="lineout_4.dat";
+            lineout.filehead="# Sedov lineout from (0.0,0.0) to (1.2,-1.2) : Columns are x d p e q u";
+            lineout.nsamples=100;
 
-          if(nsides!=0){cout<<"Cell "<<i<<" nsides= "<<nsides<<endl;}
+          break;
 
         }
 
+// append to the data structure
 
-
-
-
-//debug
-//      vector<double> L1start,L1end,L2start,L2end;
-//      L1start.push_back(2.0),L1start.push_back(4.5);
-//      L1end.push_back(3.0),  L1end.push_back(4.5);
-//      Line L1(L1start,L1end);
-
-//      L2start.push_back(3.5),L2start.push_back(4.0);
-//      L2end.push_back(3.5),  L2end.push_back(5.0);
-//      Line L2(L2start,L2end);
-
-//      cout<<"L1.start()= "<<L1.start(0)<<","<<L1.start(1)<<endl;
-//      cout<<"L1.end()= "<<L1.end(0)<<","<<L1.end(1)<<endl;
-//      cout<<"L1.m()= "<<L1.m()<<endl;
-//      cout<<"L1.length()= "<<L1.length()<<endl;
-//      cout<<"L1.nsegments()= "<<L1.nsegments()<<endl;
-//      cout<<"L1.coord()= "<<L1.coord(0,0)<<endl;
-//      cout<<"L1.coord()= "<<L1.coord(1,0)<<endl;
-//      cout<<endl;
-//      cout<<"L2.start()= "<<L2.start(0)<<","<<L2.start(1)<<endl;
-//      cout<<"L2.end()= "<<L2.end(0)<<","<<L2.end(1)<<endl;
-//      cout<<"L2.m()= "<<L2.m()<<endl;
-//      cout<<"L2.length()= "<<L2.length()<<endl;
-//      cout<<"L2.nsegments()= "<<L2.nsegments()<<endl;
-//      cout<<"L2.coord()= "<<L2.coord(0,0)<<endl;
-//      cout<<"L2.coord()= "<<L2.coord(1,0)<<endl;
-//      cout<<endl;
-//      cout<<"L1-L2 intersect ? "<<L1.intersects(L2)<<endl;
-
-
-//      L.divide(10);
-//      for(int iseg=0;iseg<L.nsegments();iseg++){
-//        cout<<"  L.coord()= "<<L.coord(0,iseg)<<endl;
-//        cout<<"  L.coord()= "<<L.coord(1,iseg)<<endl;
-//      }
-
-// set up a shape function in global coordinates to interpolate data to point (x,y)
-//      vector<double> nodex,nodey;
-//      vector<vector<double> > r;
-//      for(int iloc=0;iloc<S.nloc();iloc++){nodex.push_back(x.at(0).at(M.Vertex(0,iloc)));}
-//      for(int iloc=0;iloc<S.nloc();iloc++){nodey.push_back(x.at(1).at(M.Vertex(0,iloc)));}
-//      r.push_back(nodex);
-//      r.push_back(nodey);
-//      Shape G(1,r);
-//      vector<double> centre;
-//      centre.push_back(-11.0/12.0);
-//      centre.push_back(-5.0/6.0);
-//      double xloc(0.0),yloc(0.0);
-//      double xnod[4]={0.0,1.0,0.0,1.0},ynod[4]={0.0,0.0,1.0,1.0};
-//      for(int iloc=0;iloc<G.nloc();iloc++){
-//        xloc+=G.value(iloc,centre)*xnod[iloc];
-//        yloc+=G.value(iloc,centre)*ynod[iloc];
-//      }
-//      cout<<" centre at "<<xloc<<","<<yloc<<endl;
-      exit(1);
-//debug
-
-
+        Lineout.push_back(lineout);
 
       }
 
@@ -726,93 +692,154 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
 // Sod's shock tube
 
-
-
-
-// set up line-outs
-{
-  vector<int> plotdim={0}; // dimension to plot against (0 for x, 1 for y)
-  vector<int> linedim={1}; // dimension in which the line-out is located (0 for x, 1 for y)
-  vector<double> posline={0.5*(M.Min(1)+M.Max(1))}; // datum on dimension linedim
-  vector<string> label={"YMID"}; // label for the line-out
-
-// loop over line-outs
-
-  for(int line=0;line<plotdim.size();line++){
-
-// set the output precision
-
-    f1<<fixed<<setprecision(10);
-    f2<<fixed<<setprecision(10);
-    f3<<fixed<<setprecision(10);
-
-// write out a header so we know what each file contains
-
-    f1<<"# "<<label[line]<<" line-out at "<<((linedim[line]==0)?"X=":"Y=")<<posline[line]<<": Coord Density Pressure Energy"<<endl;
-    f2<<"# "<<label[line]<<" line-out at "<<((linedim[line]==0)?"X=":"Y=")<<posline[line]<<": Coord q"<<endl;
-    f3<<"# "<<label[line]<<" line-out at "<<((linedim[line]==0)?"X=":"Y=")<<posline[line]<<": Coord velocity"<<endl;
-
-// sweep mesh and use centroid to find cells along the line-out
-
-    for(int i=0;i<M.NCells();i++){
-    
-// vertex coordinates of cell i
-
-      double xpos[4],ypos[4],xc[2]={0.0,0.0};
-      for(int j=0;j<S.nloc();j++){
-        xpos[j]=x[0].at(M.Vertex(i,j));
-        ypos[j]=x[1].at(M.Vertex(i,j));
-      }
-
-// get cell centroid
-
-      for(int j=0;j<S.nloc();j++){
-        xc[0]+=S.value(j,0.0,0.0)*xpos[j];
-        xc[1]+=S.value(j,0.0,0.0)*ypos[j];
-      }
-
-// check cell coincides with the line-out
-
-      if(abs(xc[linedim[line]]-posline[line])<1.0e-8){
-
-        f1<<xc[plotdim[line]]<<" "<<d.at(i)<<" "<<p.at(i)<<" "<<e.at(i)<<endl;
-        f2<<xc[plotdim[line]]<<" "<<q.at(i)<<endl;
-
-// output velocity through the two nodes parallel to the line-out
-
-        if(plotdim[line]==0){
-          f3<<x.at(plotdim[line]).at(M.Vertex(i,0))<<" "<<u.at(plotdim[line]).at(M.Vertex(i,0))<<endl;
-          f3<<x.at(plotdim[line]).at(M.Vertex(i,1))<<" "<<u.at(plotdim[line]).at(M.Vertex(i,1))<<endl;
-        }else{
-          f3<<x.at(plotdim[line]).at(M.Vertex(i,0))<<" "<<u.at(plotdim[line]).at(M.Vertex(i,0))<<endl;
-          f3<<x.at(plotdim[line]).at(M.Vertex(i,2))<<" "<<u.at(plotdim[line]).at(M.Vertex(i,2))<<endl;
-        }
-
-      }
-
-    }
-
-  }
-
-
-}
-
-
-
-
-
-
-
-
-
+      return;;
 
       break;
 
   }
 
-// close the output files
+// loop over the lineouts and produce the output
 
-  f1.close();f2.close();f3.close();
+  for(int iline=0;iline<Lineout.size();iline++){
+
+    cout<<"lineouts(): Lineout "<<iline<<" writing to file "<<Lineout.at(iline).filename<<"..."<<endl;
+
+// open the output file for the lineout and write the header part
+
+    f1.open(Lineout.at(iline).filename);
+    f1<<Lineout.at(iline).filehead<<endl;
+
+// set up line AB to sample along
+
+    vector<double> A(2),B(2); // A and B are the two end points of the line
+    vector<double> E(2),F(2); // E and F are the two end points of a segment on the line AB
+
+    A.at(0)=Lineout.at(iline).x1;A.at(1)=Lineout.at(iline).y1;
+    B.at(0)=Lineout.at(iline).x2;A.at(1)=Lineout.at(iline).y2;
+
+    Line AB(A,B);
+    AB.divide(Lineout.at(iline).nsamples);
+
+// search for cells that AB intersects
+
+    E.at(0)=A.at(0);E.at(1)=A.at(1); // start of segment 1 is origin of AB
+    int celllist[AB.nsegments()];fill_n(celllist,AB.nsegments(),-1); // cell transit list
+
+    for(int iseg=0;iseg<AB.nsegments();iseg++){
+
+// create a line to represent this segment
+
+      F.at(0)=AB.coord(0,iseg);F.at(1)=AB.coord(1,iseg); // segment end point
+      Line EF(E,F); // this line is the segment
+
+      for(int i=0;i<M.NCells();i++){
+
+// set up line CD to represent each cell side in turn
+
+        vector<double> C(2),D(2); // C and D are the two end points of a cell side
+        int nend[4]={1,3,0,2}; // node at other end of face
+        int nsides(0); // number of sides of i that are crossed by AB
+
+        for(int j=0;j<S.nloc();j++){
+          C.at(0)=x[0].at(M.Vertex(i,j)),C.at(1)=x[1].at(M.Vertex(i,j));
+          D.at(0)=x[0].at(M.Vertex(i,nend[j])),D.at(1)=x[1].at(M.Vertex(i,nend[j]));
+
+// create a line CD that is coincident with the cell side and check if it is intersected by the segment EF on the line AB
+
+          Line CD(C,D);
+
+          if(EF.intersects(CD)) {nsides++;}
+
+        }
+
+// if at least 1 side was crossed store the cell number against this segment
+
+        if(nsides!=0){celllist[iseg]=i;}
+
+      }
+
+// update start of next segment
+
+      E.at(0)=F.at(0);E.at(1)=F.at(1);
+
+    }
+
+// traverse the mesh along the line AB and interpolate data onto each segment end point
+
+    int i(0);
+    for(int iseg=0;iseg<AB.nsegments();iseg++){
+
+      if(celllist[iseg]>=0){i=celllist[iseg];} // update cell number, <0 means iseg is fully contained within the cell
+
+// cell vertices
+
+      vector<vector<double> > r(2);
+      for(int j=0;j<S.nloc();j++){
+        r.at(0).push_back(x.at(0).at(M.Vertex(i,j)));
+        r.at(1).push_back(x.at(1).at(M.Vertex(i,j)));
+      }
+
+// instantiate a shape function in global coordinates
+
+      Shape G(1,r);
+
+// global coordinates of interpolation r(x,y)
+
+      vector<double> ri;
+      ri.push_back(AB.coord(0,iseg));
+      ri.push_back(AB.coord(1,iseg));
+
+// interpolate using a global finite element method
+
+      vector<double> nodal_value(G.nloc()); // values at node j
+      double interpolated_value[6]={0.0,0.0,0.0,0.0,0.0,0.0}; // values interpolated at point r(x,y)
+
+// evaluate density field at global coordinate r(x,y)
+
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=d.at(i);}
+      for(int j=0;j<G.nloc();j++){interpolated_value[0]+=G.value(j,ri)*nodal_value.at(j);}
+
+// evaluate pressure field at global coordinate r(x,y)
+
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=p.at(i);}
+      for(int j=0;j<G.nloc();j++){interpolated_value[1]+=G.value(j,ri)*nodal_value.at(j);}
+
+// evaluate energy field at global coordinate r(x,y)
+
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=e.at(i);}
+      for(int j=0;j<G.nloc();j++){interpolated_value[2]+=G.value(j,ri)*nodal_value.at(j);}
+
+// evaluate artificial viscosity field at global coordinate r(x,y)
+
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=q.at(i);}
+      for(int j=0;j<G.nloc();j++){interpolated_value[3]+=G.value(j,ri)*nodal_value.at(j);}
+
+// evaluate velocity field at global coordinate r(x,y)
+
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=u.at(0).at(M.Vertex(i,j));}
+      for(int j=0;j<G.nloc();j++){interpolated_value[4]+=G.value(j,ri)*nodal_value.at(j);}
+
+// evaluate velocity field at global coordinate r(x,y)
+
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=u.at(1).at(M.Vertex(i,j));}
+      for(int j=0;j<G.nloc();j++){interpolated_value[5]+=G.value(j,ri)*nodal_value.at(j);}
+
+// output the interpolated values along the line AB
+
+      double xx(sqrt(ri.at(0)*ri.at(0)+ri.at(1)*ri.at(1))); // distance along line-out
+      f1<<fixed<<setprecision(10)<<xx<<" ";
+      for(int j=0;j<6;j++){
+        f1<<interpolated_value[j]<<" ";
+      }
+      f1<<endl;
+
+    }
+
+// close the output file
+
+    f1.close();
+
+  }
 
   return;
 

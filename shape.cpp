@@ -156,10 +156,10 @@ Shape::Shape(int n,vector<vector<double> > x){
     }
   }
 
-  cout<<"Setting up a shape in global coordinates:"<<endl;
-  for(int iloc=0;iloc<mnloc;iloc++){
-    cout<<" node "<<iloc<<" x,y= "<<x.at(0).at(iloc)<<","<<x.at(1).at(iloc)<<endl;
-  }
+//  cout<<"Setting up a shape in global coordinates:"<<endl;
+//  for(int iloc=0;iloc<mnloc;iloc++){
+//    cout<<" node "<<iloc<<" x,y= "<<x.at(0).at(iloc)<<","<<x.at(1).at(iloc)<<endl;
+//  }
 
 // assemble a matrix equation for the coefficients
 
