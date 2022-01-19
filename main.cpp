@@ -27,7 +27,7 @@
 //
 
 #define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 1.0       // insert a macro for the end time
+#define ENDTIME 1.01       // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -94,10 +94,10 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
                VVD &u0,VVD &u1,VD &b0,VD &b1);
 void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,VVVD const &detDJ,VD const &detJ); // insert boundary conditions on acceleration field
-void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat);   // input overides for the Taylor-Green vortex
-void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Rayleigh-Taylor instability
-void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Noh stagnation shock
-void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &g,vector<int> const &mat); // input overides for the Sedov explosion
+void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m);   // input overides for the Taylor-Green vortex
+void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Rayleigh-Taylor instability
+void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Noh stagnation shock
+void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Sedov explosion
 template <typename T> int sgn(T val); // return type safe sign of the argument
 
 using namespace std;
@@ -108,7 +108,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-9x9.mesh");                        // load a new mesh from file
+  Mesh M("mesh/sedov-48x48.mesh");                               // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -162,7 +162,7 @@ int main(){
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
 //  test_problem=NOH;                                                      // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};   // initial flux state in each material for Noh problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
 
   test_problem=SEDOV;                                                  // set overides needed to run this problem
   vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
@@ -243,7 +243,7 @@ int main(){
 
 // Taylor Green vortex
 
-      init_TAYLOR(M,S,dpi,d0,d1,u0,u1,p,e0,e1,gamma,mat);
+      init_TAYLOR(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
 
       break;
 
@@ -251,7 +251,7 @@ int main(){
 
 // Rayleigh-Taylor instability
 
-      init_RAYLEIGH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,gamma,mat);
+      init_RAYLEIGH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
 
       break;
 
@@ -259,13 +259,13 @@ int main(){
 
 // Noh stagnation shock
 
-      init_NOH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,gamma,mat);
+      init_NOH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
 
     case(SEDOV):
 
 // Sedov expanding shock
 
-      init_SEDOV(M,S,dpi,d0,d1,u0,u1,p,e0,e1,gamma,mat);
+      init_SEDOV(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
 
       break;
 
@@ -1417,7 +1417,7 @@ void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD co
 
 // input overides for the Taylor-Green vortex
 
-void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &gamma,vector<int> const &mat){
+void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_TAYLOR(): Input overides for Taylor-Green..."<<endl;
 
@@ -1433,13 +1433,6 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
   for(long i=0;i<u1.at(0).size();i++){
     u0.at(1).at(i)=-cos(dpi*M.Coord(0,i))*sin(dpi*M.Coord(1,i));
     u1.at(1).at(i)=u0.at(1).at(i);
-  }
-
-// load density field
-
-  for(long i=0;i<d0.size();i++){
-    d0.at(i)=1.0;
-    d1.at(i)=d0.at(i);
   }
 
 // load pressure field
@@ -1474,9 +1467,9 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 
 // input overides for the Rayleigh-Taylor instability
 
-void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &gamma,vector<int> const &mat){
+void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
 
-  cout<<"init_TAYLOR(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
+  cout<<"init_RAYLEIGH(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
   exit(1);
 
@@ -1486,7 +1479,7 @@ void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,
 
 // input overides for the Noh stagnation shock
 
-void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &gamma,vector<int> const &mat){
+void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_NOH(): Input overides for Noh..."<<endl;
 
@@ -1509,42 +1502,15 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
   }
 
-// load density field
-
-  for(long i=0;i<d0.size();i++){
-    d0.at(i)=1.0;
-    d1.at(i)=d0.at(i);
-  }
-
-// load pressure field
-
-  for(long i=0;i<p.size();i++){
-    p.at(i)=0.0;
-  }
-
-// start the energy field
-
-  for(int i=0;i<e0.size();i++){
-    e0.at(i)=0.0;
-    e1.at(i)=e0.at(i);
-  }
-
   return;
 
 }
 
 // input overides for the Sedov explosion
 
-void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VD const &gamma,vector<int> const &mat){
+void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_SEDOV(): Input overides for Sedov..."<<endl;
-
-// load density field
-
-  for(long i=0;i<d0.size();i++){
-    d0.at(i)=1.0;
-    d1.at(i)=d0.at(i);
-  }
 
 // load energy field
 
@@ -1558,8 +1524,9 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
 // delta function at domain origin
 
       if( abs(M.Coord(0,M.Vertex(i,iloc)))<1.0e-7 && abs(M.Coord(1,M.Vertex(i,iloc)))<1.0e-7  ){
-        e0.at(i)=1.0;
-        e1.at(i)=e0.at(i); 
+//        e0.at(i)=0.3014676/0.025; // drive ~ 12.058704, from another code see ref. paper for numbers
+        e0.at(i)=0.25/m[i]; // place 1/4 of the drive in each of the 4 cells at the origin per unit mass
+        e1.at(i)=e0.at(i);
       }
 
     }
