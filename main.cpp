@@ -27,7 +27,7 @@
 //
 
 #define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 1.01       // insert a macro for the end time
+#define ENDTIME 0.601       // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -108,7 +108,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sedov-48x48.mesh");                               // load a new mesh from file
+  Mesh M("mesh/noh-48x48.mesh");                               // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -161,11 +161,11 @@ int main(){
 //  test_problem=TAYLOR;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-//  test_problem=NOH;                                                      // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
+  test_problem=NOH;                                                      // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
 
-  test_problem=SEDOV;                                                  // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
+//  test_problem=SEDOV;                                                  // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
 
 //  test_problem=TRIPLE;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
@@ -178,14 +178,14 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -236,6 +236,7 @@ int main(){
 // got to here with ghost cell stuff
 
 // input overides needed to initialise certain test problems
+// move the nodes to their full-step position
 
   switch(test_problem){
 
@@ -260,6 +261,8 @@ int main(){
 // Noh stagnation shock
 
       init_NOH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
+
+      break;
 
     case(SEDOV):
 
@@ -1483,7 +1486,7 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
   cout<<"init_NOH(): Input overides for Noh..."<<endl;
 
-// start x component of velocity field
+// start velocity field
 
   for(long i=0;i<u0.at(0).size();i++){
 
