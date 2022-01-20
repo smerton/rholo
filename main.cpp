@@ -108,7 +108,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-48x48.mesh");                               // load a new mesh from file
+  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -614,15 +614,23 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
       return;;
 
+      break;
+
     case(RAYLEIGH):
 
 // Rayleigh-Taylor instability
 
       return;
 
+      break;
+
     case(NOH):
 
 // Noh stagnation shock
+
+      return;;
+
+      break;
 
     case(SEDOV):
 
@@ -654,7 +662,7 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
             lineout.filehead="# Sedov lineout from (0.0,0.0) to (-1.2,1.2) : Columns are x d p e q u";
             lineout.nsamples=100;
 
-          break;
+            break;
 
           case(2):
 
@@ -666,8 +674,7 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
             lineout.filehead="# Sedov lineout from (0.0,0.0) to (-1.2,-1.2) : Columns are x d p e q u";
             lineout.nsamples=100;
 
-
-          break;
+            break;
 
           case(3):
 
@@ -679,7 +686,7 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
             lineout.filehead="# Sedov lineout from (0.0,0.0) to (1.2,-1.2) : Columns are x d p e q u";
             lineout.nsamples=100;
 
-          break;
+            break;
 
         }
 
@@ -705,7 +712,7 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
   for(int iline=0;iline<Lineout.size();iline++){
 
-    cout<<"lineouts(): Lineout "<<iline<<" writing to file "<<Lineout.at(iline).filename<<"..."<<endl;
+    cout<<"lineouts(): Lineout "<<iline<<" writing to file "<<Lineout.at(iline).filename<<" ..."<<endl;
 
 // open the output file for the lineout and write the header part
 
@@ -715,10 +722,10 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 // set up line AB to sample along
 
     vector<double> A(2),B(2); // A and B are the two end points of the line
-    vector<double> E(2),F(2); // E and F are the two end points of a segment on the line AB
+    vector<double> E(2),F(2); // E and F are the two end points of a segment EF on the line AB
 
     A.at(0)=Lineout.at(iline).x1;A.at(1)=Lineout.at(iline).y1;
-    B.at(0)=Lineout.at(iline).x2;A.at(1)=Lineout.at(iline).y2;
+    B.at(0)=Lineout.at(iline).x2;B.at(1)=Lineout.at(iline).y2;
 
     Line AB(A,B);
     AB.divide(Lineout.at(iline).nsamples);
