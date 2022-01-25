@@ -770,7 +770,7 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const{
 
 // update element length scale
 
-void Mesh::UpdateLength(VD &l,int const &p) const{
+void Mesh::UpdateLength(VD &l,int const &p,VVD const &x) const{
 
 // shape of polyhedral order p
 
@@ -795,10 +795,10 @@ void Mesh::UpdateLength(VD &l,int const &p) const{
 
     for(int idim=0;idim<NDims();idim++){
       for(int j=0;j<S.nloc();j++){
-        xymid[idim][0]+=S.value(j,0.0,-1.0)*Coord(idim,Vertex(i,j)); // bottom face
-        xymid[idim][1]+=S.value(j,1.0,0.0)*Coord(idim,Vertex(i,j)); // right face
-        xymid[idim][2]+=S.value(j,0.0,1.0)*Coord(idim,Vertex(i,j)); // top face
-        xymid[idim][3]+=S.value(j,-1.0,0.0)*Coord(idim,Vertex(i,j)); // left face
+        xymid[idim][0]+=S.value(j,0.0,-1.0)*x.at(idim).at(Vertex(i,j)); // bottom face
+        xymid[idim][1]+=S.value(j,1.0,0.0)*x.at(idim).at(Vertex(i,j)); // right face
+        xymid[idim][2]+=S.value(j,0.0,1.0)*x.at(idim).at(Vertex(i,j)); // top face
+        xymid[idim][3]+=S.value(j,-1.0,0.0)*x.at(idim).at(Vertex(i,j)); // left face
       }
     }
 

@@ -27,7 +27,7 @@
 //
 
 #define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.601       // insert a macro for the end time
+#define ENDTIME 0.601     // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -80,7 +80,7 @@
 string date();                                                                              // function to return the date and time
 void header();                                                                              // header part
 void vempty(vector<double>&v);                                                              // empty a vector
-double length(Mesh const &M,Shape const &S,int const i);                                    // element i length scale
+double length(Mesh const &M,Shape const &S,int const i,VVD const &x);                       // element i length scale
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
 void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ); // sum the global kinetic energy field
 void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M);                                                   // sum the global internal energy field
@@ -124,7 +124,7 @@ int main(){
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // node coordinates
   vector<double> detJ(S.ngi());                                  // determinant of jacobian at each integration point
-  vector<vector<vector<double> > > detDJ(2*ndims);                 // determinant of jacobian for each derivative
+  vector<vector<vector<double> > > detDJ(2*ndims);               // determinant of jacobian for each derivative
   vector<double> dt_cfl(n);                                      // element time-step
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
@@ -329,7 +329,7 @@ int main(){
 
 // calculate a new stable time-step
 
-    for(int i=0;i<n;i++){double l(length(M,S,i));dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
+    for(int i=0;i<n;i++){double l(length(M,S,i,x1));dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
 
 // reduce across element and apply a saftey factor
 
@@ -383,7 +383,7 @@ int main(){
 
 // update element length scale
 
-    M.UpdateLength(l,S.order());
+    M.UpdateLength(l,S.order(),x1);
 
 // update volume field at the full-step
 
@@ -414,6 +414,7 @@ int main(){
       }else{
         q.at(i)=0.0; // turn off q as cell divergence indicates expansion
       }
+      q.at(i)=0.0;
     }
 
 //  for(int i=0;i<n;i++){
@@ -1051,7 +1052,6 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
       detDJ.at(0).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dxdv*S.dvalue(1,j,gi))/detJ[gi]; // Noh/triple run better ??
 //      detDJ.at(1).at(j).at(gi)=(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi]; // original, Taylor runs better ??
       detDJ.at(1).at(j).at(gi)=(-dydu*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi];// Noh/triple run better ??
-
       detDJ.at(2).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dydu*S.dvalue(1,j,gi))/detJ[gi]; // original
       detDJ.at(3).at(j).at(gi)=(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi]; // original
     }
@@ -1241,7 +1241,7 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 // compute the shortest distance a signal can take to cross element i
 
-double length(Mesh const &M,Shape const &S,int const i){
+double length(Mesh const &M,Shape const &S,int const i,VVD const &x){
 
   VD xydist; // distance between mid-points
   VVD xymid(M.NDims()); // midpoint coordinates for each side
@@ -1254,10 +1254,10 @@ double length(Mesh const &M,Shape const &S,int const i){
 
   for(int idim=0;idim<M.NDims();idim++){
     for(int j=0;j<S.nloc();j++){
-      xymid[idim][0]+=S.value(j,0.0,-1.0)*M.Coord(idim,M.Vertex(i,j)); // bottom face
-      xymid[idim][1]+=S.value(j,1.0,0.0)*M.Coord(idim,M.Vertex(i,j)); // right face
-      xymid[idim][2]+=S.value(j,0.0,1.0)*M.Coord(idim,M.Vertex(i,j)); // top face
-      xymid[idim][3]+=S.value(j,-1.0,0.0)*M.Coord(idim,M.Vertex(i,j)); // left face
+      xymid[idim][0]+=S.value(j,0.0,-1.0)*x.at(idim).at(M.Vertex(i,j)); // bottom face
+      xymid[idim][1]+=S.value(j,1.0,0.0)*x.at(idim).at(M.Vertex(i,j)); // right face
+      xymid[idim][2]+=S.value(j,0.0,1.0)*x.at(idim).at(M.Vertex(i,j)); // top face
+      xymid[idim][3]+=S.value(j,-1.0,0.0)*x.at(idim).at(M.Vertex(i,j)); // left face
     }
   }
 
@@ -1621,14 +1621,14 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 // start x component of velocity field
 
   for(long i=0;i<u0.at(0).size();i++){
-    u0.at(0).at(i)=sin(dpi*M.Coord(0,i))*cos(dpi*M.Coord(1,i));
+    u0.at(0).at(i)=sin(dpi*x.at(0).at(i))*cos(dpi*x.at(1).at(i));
     u1.at(0).at(i)=u0.at(0).at(i);
   }
 
 // start y component of velocity field
 
   for(long i=0;i<u1.at(0).size();i++){
-    u0.at(1).at(i)=-cos(dpi*M.Coord(0,i))*sin(dpi*M.Coord(1,i));
+    u0.at(1).at(i)=-cos(dpi*x.at(0).at(i))*sin(dpi*x.at(1).at(i));
     u1.at(1).at(i)=u0.at(1).at(i);
   }
 
@@ -1637,8 +1637,8 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
   for(long i=0;i<p.size();i++){
     double xc[2];xc[0]=0.0;xc[1]=0.0;
     for(int iloc=0;iloc<S.nloc();iloc++){
-      xc[0]+=S.value(iloc,0.0,0.0)*M.Coord(0,M.Vertex(i,iloc));
-      xc[1]+=S.value(iloc,0.0,0.0)*M.Coord(1,M.Vertex(i,iloc));
+      xc[0]+=S.value(iloc,0.0,0.0)*x.at(0).at(M.Vertex(i,iloc));
+      xc[1]+=S.value(iloc,0.0,0.0)*x.at(1).at(M.Vertex(i,iloc));
     }
     p.at(i)=0.25*d0.at(i)*(cos(2.0*dpi*xc[0])+cos(2.0*dpi*xc[1]))+1.0;
   }
@@ -1650,8 +1650,8 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
   for(int i=0;i<e0.size();i++){
     double xc[2];xc[0]=0.0;xc[1]=0.0;
     for(int iloc=0;iloc<S.nloc();iloc++){
-      xc[0]+=S.value(iloc,0.0,0.0)*M.Coord(0,M.Vertex(i,iloc));
-      xc[1]+=S.value(iloc,0.0,0.0)*M.Coord(1,M.Vertex(i,iloc));
+      xc[0]+=S.value(iloc,0.0,0.0)*x.at(0).at(M.Vertex(i,iloc));
+      xc[1]+=S.value(iloc,0.0,0.0)*x.at(1).at(M.Vertex(i,iloc));
     }
     double echeck((3.0*dpi/8.0)*(cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])));
     e0.at(i)=E(d0[i],p[i],gamma[mat[i]-1]);
@@ -1685,8 +1685,8 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
   for(long i=0;i<u0.at(0).size();i++){
 
     double origin[2]={0.5*(M.Min(0)+M.Max(0)),0.5*(M.Min(1)+M.Max(1))}; // origin coordinates
-    double rx(M.Coord(0,i)-origin[0]);     // radial vector component from domain origin to node
-    double ry(M.Coord(1,i)-origin[1]);     // radial vector component from domain origin to node
+    double rx(x.at(0).at(i)-origin[0]);     // radial vector component from domain origin to node
+    double ry(x.at(1).at(i)-origin[1]);     // radial vector component from domain origin to node
     double rnorm(sqrt(rx*rx+ry*ry));       // length of radial vector from domain origin to node
 
 // velocity is a radial vector from degree of freedom towards the domain origin
@@ -1720,7 +1720,7 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
 
 // delta function at domain origin
 
-      if( abs(M.Coord(0,M.Vertex(i,iloc)))<1.0e-7 && abs(M.Coord(1,M.Vertex(i,iloc)))<1.0e-7  ){
+      if( abs(x.at(0).at(M.Vertex(i,iloc)))<1.0e-7 && abs(x.at(1).at(M.Vertex(i,iloc)))<1.0e-7  ){
 //        e0.at(i)=0.3014676/0.025; // drive ~ 12.058704, from another code see ref. paper for numbers
         e0.at(i)=0.25/m[i]; // place 1/4 of the drive in each of the 4 cells at the origin per unit mass
         e1.at(i)=e0.at(i);
