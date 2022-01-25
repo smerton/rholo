@@ -82,6 +82,8 @@ void header();                                                                  
 void vempty(vector<double>&v);                                                              // empty a vector
 double length(Mesh const &M,Shape const &S,int const i);                                    // element i length scale
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
+void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ); // sum the global kinetic energy field
+void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M);                                                   // sum the global internal energy field
 void initial_data(int const n, int const nnodes, int const ndims, int const nmats,          // echo some initial information
                   Mesh const &M);
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
@@ -352,6 +354,11 @@ int main(){
 
 //    dt=(*min_element(dts.begin(), dts.end()));
     dt=DTSTART;cout<<"DT HARDWIRED !! "<<endl;
+
+// sum kinetic/internal energy fields for conservation checks
+
+    sum_ke(ke,d1,M,u1,x1,S,detJ,detDJ);
+    sum_ie(ie,e1,m,M);
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
@@ -1073,8 +1080,8 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 //      detDJ.at(1).at(j).at(gi)=G.dvalue(1,j,xval);
 //    }
 
-  if(i==300){
-//  if(false){
+//  if(i==300){
+  if(false){
 //  if(abs(dydu)>1.0e-8 || abs(dxdv)>1.0e-8){
 //  if(abs(dydu)-abs(dxdv)>1.0e-8){
 //    double eta(1.0/sqrt(3.0));
@@ -1169,8 +1176,8 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
   }
 
 // debug
-  if(i==300){
-//  if(false){
+//  if(i==300){
+  if(false){
     cout<<"integral check:"<<endl;
     cout<<" i "<<i<<endl;
     vector<double> xnod(S.nloc()),ynod(S.nloc()),xval(2);
@@ -1727,6 +1734,66 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
 
   for(long i=0;i<p.size();i++){
     p.at(i)=P(d0[i],e0[i],gamma[mat[i]-1]);
+  }
+
+  return;
+
+}
+
+// sum the global kinetic energy field
+
+void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ){
+
+// sum global kinetic field field
+
+  ke=0.0;
+
+  for(int i=0;i<M.NCells();i++){
+
+// update jacobian
+
+    jacobian(i,x,M,S,detJ,detDJ);
+
+    for(int iloc=0;iloc<S.nloc();iloc++){
+
+// update node volume
+
+      double nvol(0.0);
+      for(int gi=0;gi<S.ngi();gi++){
+        nvol+=S.value(iloc,gi)*detJ.at(gi)*S.wgt(gi);
+      }
+
+// update node mass
+
+      double nmass(d.at(i)*nvol);
+      for(int idim=0;idim<M.NDims();idim++){
+        ke+=nmass*u.at(idim).at(M.Vertex(i,iloc))*u.at(idim).at(M.Vertex(i,iloc));
+      }
+
+    }
+
+  }
+
+  ke=0.5*ke;
+
+  return;
+
+}
+
+// sum the global internal energy field
+
+void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M){
+
+// sum global kinetic field field
+
+  ie=0.0;
+
+  for(int i=0;i<M.NCells();i++){
+
+// element mass should not change during the calculation
+
+    ie+=m.at(i)*e.at(i);
+
   }
 
   return;
