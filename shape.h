@@ -33,6 +33,10 @@ class Shape{
     double value(int i,vector<double> x) const;                    // shape i value at global coordinate x
     double dvalue(int idim,int i,double u,double v) const;         // shape i derivative idim at local coordinates u,v
     double dvalue(int idim,int i,vector<double> x) const;          // shape i derivative idim at global coordinate x
+    double coeff(int i,int j) const;                               // coefficient j in the polynomial expansion of shape i
+    double integrate(int i,double x1,double x2,double y1,double y2) const; // integrate shape i on the range (x1,x2),(y1,y2)
+    double integrate(int i,int j, double x1,double x2,double y1,double y2) const; // integrate derivative i of shape j on the range (x1,x2),(y1,y2)
+    double integrate(int i) const;                                  // integrate shape i on the range r
 
 // accessor function to prolongation operator
 
@@ -49,12 +53,11 @@ class Shape{
     int mngi;                                           // number of Gauss points
     int mnfaces;                                        // number of faces
     vector<int> mpos[3];                                // node number in each dimension
-
     vector<vector<int> > mreflect;                      // reflection across a face
-
     vector<double> mwgt;                                // quadrature weights
     vector<vector<double> > mvalue;                     // shape values
     vector<vector<double > > mdvalue[3];                // derivative values
-    vector<vector<double> > mcoeff;                     // coefficients of teh polynomial
+    vector<vector<double> > mcoeff;                     // coefficients of the polynomial
+    vector<vector<double> > mr;                         // coordinates of the shape function nodes
 
 };
