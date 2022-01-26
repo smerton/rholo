@@ -1176,8 +1176,8 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
   }
 
 // debug
-//  if(i==300){
-  if(false){
+  if(i==300){
+//  if(false){
     cout<<"integral check:"<<endl;
     cout<<" i "<<i<<endl;
     vector<double> xnod(S.nloc()),ynod(S.nloc()),xval(2);
@@ -1218,7 +1218,6 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
         I1y+=detDJ.at(1).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
         I2x+=detDJ.at(2).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
         I2y+=detDJ.at(3).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
-        IG+=G.value(j,xval)*S.wgt(gi);
         IS+=S.value(j,gi)*detJ.at(gi)*S.wgt(gi);
         V+=detJ.at(gi)*S.wgt(gi);
       }
@@ -1226,12 +1225,13 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
       cout<<fixed<<setprecision(10)<<"       I2x= "<<I2x<<" I2y= "<<I2y<<endl;
       cout<<fixed<<setprecision(10)<<"       Gx= "<<G.integrate(0,j,xnod.at(0),xnod.at(1),ynod.at(0),ynod.at(2))<<endl;
       cout<<fixed<<setprecision(10)<<"       IS= "<<IS<<endl;
-//      cout<<fixed<<setprecision(10)<<"       IG= "<<G.integrate(j,xmin,xmax,ymin,ymax)<<endl;
-      cout<<fixed<<setprecision(10)<<"       IG= "<<G.integrate(j)<<endl;
-      cout<<fixed<<setprecision(10)<<"       V ratio=   "<<V/(abs(xmax-xmin)*abs(ymax-ymin))<<endl;
+      G.integrate(j);
+//      cout<<fixed<<setprecision(10)<<"       IG= "<<G.integrate(j)<<endl;
+//      cout<<fixed<<setprecision(10)<<"       V ratio=   "<<V/(abs(xmax-xmin)*abs(ymax-ymin))<<endl;
+      cout<<fixed<<setprecision(10)<<"       V=   "<<V<<endl;
     }
 
-    exit(1);
+//    exit(1);
   }
 // debug
 

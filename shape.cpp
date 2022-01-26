@@ -306,29 +306,30 @@ double Shape::integrate(int i,int j,double x1,double x2,double y1,double y2) con
 
 double Shape::integrate(int i) const {
 
-// this function will integrate the shape function i global coordinates
-// without having to use isoparametrics
+// this function will integrate the shape function i in global coordinates
+// without having to use isoparametrics or quadrature rules.
 
-// rtmp.at(0) is a vector containing the x-coordiates of the 4 nodes in physical space
-// rtmp.at(1) is a vector containing the y-coordiates of the 4 nodes in physical space
-
-// In global coordinates the integral is calcualted by dividing the element x1,y1,x2,y2,x3,y3,x4,y4
-// into three domains comprising a left triangle (I1), middle trapezium (I2) and right triangle (I3).
+// The integral is calculated by dividing the element ABDC into
+// three domains comprising a first-range triangle (I1), mid-range 
+// trapezium (I2) and third-range triangle (I3).
+// Each range is integrated separately and the resulting integrals
+// I1,I2 and I3 and summed to obtain the total integral.
 // The contribution from each component is determined using functions of x for
-// the limits of the inner integration (on y) and summed to get total
-// for example:
+// the limits of the inner integration on y, which will lie along two sides of
+// the cell.
+// For example:
 
 //                       (x2,y2)
-//
+//                         C
 //                         o   .
 //                      .  .     .
 //                   .     .      o.
 //                .        .      .  .
 //             .           .      .    .
 //          .              .      .      .
-//(x1,y1).                 .      .        . (x4,y4)
-//    o                    .      .         o
-//                         .      .        .
+//(x0,y0).                 .      .        . (x3,y3)
+//    o                    .      .         oD
+//   A                     .      .        .
 //       .                 .      .       .
 //                I1       .  I2  .  I3  .
 //                         .      .     .
@@ -339,248 +340,257 @@ double Shape::integrate(int i) const {
 //                         .      ..
 //                         o      .
 //                             .  o
-//
-//                             (x3,y3)
+//                                B
+//                             (x1,y1)
 
-  vector<vector<double> > rtmp=mr;
+// test case
+// node 0 x,y= -0.0000010400,-0.0000010400
+// node 1 x,y= 0.0703333333,0.0000000000
+// node 2 x,y= 0.0000000000,0.0703333333
+// node 3 x,y= 0.0741409452,0.0741409452
+// node 0 I1x= -0.0354838810 I1y= -0.0354838810
+//       I2x= -0.0351666667 I2y= -0.0351666667
+//       Gx= -0.0352599367
+//       IS= 0.0012813525
+//       IG= -0.1079455423
 
-  int imin,imax;
-  double x1,x2,x3,x4;
-  double y1,y2,y3,y4;
+// integation limits
 
-// acquire x1,y1
+  double xl,xu;
 
-  imin=(distance(begin(rtmp.at(0)),min_element(begin(rtmp.at(0)),end(rtmp.at(0)))));
+// coefficients in the shape function polynomial N_i(x,y)=a+bx+cy+dxy
 
-  x1=rtmp.at(0).at(imin);
-  y1=rtmp.at(1).at(imin);
+//  double a(coeff(i,0)),b(coeff(i,1)),c(coeff(i,2)),d(coeff(i,3));
+  double a(1.0),b(0.0),c(0.0),d(0.0); // should recover the element volume
 
-// remove from coordinate vector so we don't find it again when looking for x4,y4
+// terms in the integral of the polynomial a+bx+cy+dxy
 
-  rtmp.at(0).erase(rtmp.at(0).begin()+imin);
-  rtmp.at(1).erase(rtmp.at(1).begin()+imin);
+  double t1; // axy
+  double t2; // 0.5*bx^2y
+  double t3; // 0.5*cy^2x
+  double t4; // 0.25*dx^2y^2
+  double xuxl2,xuxl3,xuxl4;     // extra terms used to make up t1,t2,t3,t4
 
-// acquire x4,y4
+// parameters of the two lines that make the lower and upper limits of the y integral
 
-  imax=(distance(begin(rtmp.at(0)),max_element(begin(rtmp.at(0)),end(rtmp.at(0)))));
+  double ml,mu; // gradients
+  double cl,cu; // y intercepts
 
-  x4=rtmp.at(0).at(imax);
-  y4=rtmp.at(1).at(imax);
+// coordinates of the nodes
 
-// remove from coordinate vector so we don't find it again when looking for x2,y2
+  double x0(mr.at(0).at(0));
+  double x1(mr.at(0).at(1));
+  double x2(mr.at(0).at(2));
+  double x3(mr.at(0).at(3));
 
-  rtmp.at(0).erase(rtmp.at(0).begin()+imax);
-  rtmp.at(1).erase(rtmp.at(1).begin()+imax);
-
-// acquire x2,y2
-
-  imin=(distance(begin(rtmp.at(0)),min_element(begin(rtmp.at(0)),end(rtmp.at(0)))));
-
-  x2=rtmp.at(0).at(imin);
-  y2=rtmp.at(1).at(imin);
-
-// acquire x3,y3
-
-  imax=(distance(begin(rtmp.at(0)),max_element(begin(rtmp.at(0)),end(rtmp.at(0)))));
-
-  x3=rtmp.at(0).at(imax);
-  y3=rtmp.at(1).at(imax);
+  double y0(mr.at(1).at(0));
+  double y1(mr.at(1).at(1));
+  double y2(mr.at(1).at(2));
+  double y3(mr.at(1).at(3));
 
 // split the element into 3 integration domains
 
-  double m1,m2,m3,m4,m5,m6; // gradients of cell sides on each division
-  double c1,c2,c3,c4,c5,c6; // y intercept for each cell side on each division
-  double o1,o2,o3,o4,o5,o6; // x off-sets for each division
+// acquire integration limits for I1 triangle
 
-// set parameters for the functions that form the integration limits of the inner integral on each domain
+  if(abs(x1-x0)<=abs(x2-x0)){
 
-  if(y2>y3){
-     cout<<"y2>y3"<<endl;
-//    m1=(y3-y1)/(x3-x1); // gradient in function f1(x) for lower integration limit
-    m1=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // gradient in function f1(x) for lower integration limit
-//    m2=(y2-y1)/(x2-x1); // gradient in function f2(x) for upper integration limit
-    m2=(y2-y1)/(sgn(x2-x1)*max(1.0e-10,abs(x2-x1))); // gradient in function f2(x) for upper integration limit
-//    m3=(y4-y2)/(x4-x2); // gradient in function g1(x) for lower integration limit
-    m3=(y4-y2)/(sgn(x4-x2)*max(1.0e-10,abs(x4-x2))); // gradient in function g1(x) for lower integration limit
-//    m4=(y4-y2)/(x4-x2); // gradient in function g2(x) for upper integration limit
-    m4=(y4-y2)/(sgn(x4-x2)*max(1.0e-10,abs(x4-x2))); // gradient in function g2(x) for upper integration limit
-//    m5=(y4-y3)/(x4-x3); // gradient in function h1(x) for lower integration limit
-    m5=(y4-y3)/(sgn(x4-x3)*max(1.0e-10,abs(x4-x3))); // gradient in function h1(x) for lower integration limit
-//    m6=(y4-y2)/(x4-x2); // gradient in function h2(x) for upper integration limit
-    m6=(y4-y2)/(sgn(x4-x2)*max(1.0e-10,abs(x4-x2))); // gradient in function h2(x) for upper integration limit
-    c1=y1; // intercept on y-axis in function f1(x) for lower integration limit
-    c2=y1; // intercept on y-axis in function f2(x) for upper integration limit
-    c3=y2; // intercept on y-axis in function g1(x) for lower integration limit
-    c4=y2; // intercept on y-axis in function g2(x) for upper integration limit
-    c5=y3; // intercept on y-axis in function h1(x) for lower integration limit
-    c6=y2; // intercept on y-axis in function h2(x) for upper integration limit
-    o1=x1; // off-set along x-axis in function f1(x) for lower integration limit
-    o2=x1; // off-set along x-axis in function f2(x) for upper integration limit
-    o3=x2; // off-set along x-axis in function g1(x) for lower integration limit
-    o4=x2; // off-set along x-axis in function g2(x) for upper integration limit
-    o5=x3; // off-set along x-axis in function h1(x) for lower integration limit
-    o6=x2; // off-set along x-axis in function h2(x) for upper integration limit
+// x integral is along x0<=x<=x1, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x0;
+    ml=(y1-y0)/(sgn(x1-x0)*max(1.0e-10,abs(x1-x0))); // line AB is the lower limit of the integration
+    cl=y0-ml*x0;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x1;
+    mu=(y2-y0)/(sgn(x2-x0)*max(1.0e-10,abs(x2-x0))); // line AC is the upper limit of the integration
+    cu=y0-mu*x0;
+
   }else{
-     cout<<"y2<=y3"<<endl;
-//    m1=(y2-y1)/(x2-x1); // gradient in function f1(x) for lower integration limit
-    m1=(y2-y1)/(sgn(x2-x1)*max(1.0e-10,abs(x2-x1))); // gradient in function f1(x) for lower integration limit
-//    m2=(y3-y1)/(x3-x1); // gradient in function f2(x) for upper integration limit
-    m2=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // gradient in function f2(x) for upper integration limit
-//    m3=(y3-y1)/(x3-x1); // gradient in function g1(x) for lower integration limit
-    m3=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // gradient in function g1(x) for lower integration limit
-//    m4=(y3-y1)/(x3-x1); // gradient in function g2(x) for upper integration limit
-    m4=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // gradient in function g2(x) for upper integration limit
-//    m5=(y4-y2)/(x4-x2); // gradient in function h1(x) for lower integration limit
-    m5=(y4-y2)/(sgn(x4-x2)*max(1.0e-10,abs(x4-x2))); // gradient in function h1(x) for lower integration limit
-//    m6=(y4-y3)/(x4-x3); // gradient in function h2(x) for upper integration limit
-    m6=(y4-y3)/(sgn(x4-x3)*max(1.0e-10,abs(x4-x3))); // gradient in function h2(x) for upper integration limit
-    c1=y1; // intercept on y-axis in function f1(x) for lower integration limit
-    c2=y1; // intercept on y-axis in function f2(x) for upper integration limit
-    c3=y1; // intercept on y-axis in function g1(x) for lower integration limit
-    c4=y1; // intercept on y-axis in function g2(x) for upper integration limit
-    c5=y2; // intercept on y-axis in function h1(x) for lower integration limit
-    c6=y3; // intercept on y-axis in function h2(x) for upper integration limit
-    o1=x1; // off-set along x-axis in function f1(x) for lower integration limit
-    o2=x1; // off-set along x-axis in function f2(x) for upper integration limit
-    o3=x1; // off-set along x-axis in function g1(x) for lower integration limit
-    o4=x1; // off-set along x-axis in function g2(x) for upper integration limit
-    o5=x2; // off-set along x-axis in function h1(x) for lower integration limit
-    o6=x3; // off-set along x-axis in function g2(x) for upper integration limit
+
+// x integral is along x0<=x<=x2, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x0;
+    ml=(y1-y0)/(sgn(x1-x0)*max(1.0e-10,abs(x1-x0))); // line AB is the lower limit of the integration
+    cl=y0-ml*x0;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x2;
+    mu=(y2-y0)/(sgn(x2-x0)*max(1.0e-10,abs(x2-x0))); // line AC is the upper limit of the integration
+    cu=y0-mu*x0;
+
   }
+
 // debug
   cout<<endl;
-  cout<<" x1,y1= "<<x1<<" "<<y1<<endl;
-  cout<<" x2,y2= "<<x2<<" "<<y2<<endl;
-  cout<<" x3,y3= "<<x3<<" "<<y3<<endl;
-  cout<<" x4,y4= "<<x4<<" "<<y4<<endl;
-  cout<<" m1,m2= "<<m1<<" "<<m2<<endl;
-  cout<<" m3,m4= "<<m3<<" "<<m4<<endl;
-  cout<<" m5,m6= "<<m5<<" "<<m6<<endl;
-  cout<<" c1,c2= "<<c1<<" "<<c2<<endl;
-  cout<<" c3,c4= "<<c3<<" "<<c4<<endl;
-  cout<<" c5,c6= "<<c5<<" "<<c6<<endl;
-  cout<<" o1,o2= "<<o1<<" "<<o2<<endl;
-  cout<<" o3,o4= "<<o3<<" "<<o4<<endl;
-  cout<<" o5,o6= "<<o5<<" "<<o6<<endl;
-  cout<<" a0= "<<coeff(i,0)<<endl;
-  cout<<" a1= "<<coeff(i,1)<<endl;
-  cout<<" a2= "<<coeff(i,2)<<endl;
-  cout<<" a3= "<<coeff(i,3)<<endl;
-
-
-
-// node 0, cartesian element
-x1=0.0000000000;
-x2=0.0833333333;
-x3=0.0000000000;
-x4=0.0833333333;
-
-y1=0.0000000000;
-y2=0.0000000000;
-y3=0.0833333333;
-y4=0.0833333333;
-
-m1=(y2-y1)/(sgn(x2-x1)*max(1.0e-10,abs(x2-x1)));
-m2=(y4-y3)/(sgn(x4-x3)*max(1.0e-10,abs(x4-x3)));
-c1=y1;
-c2=y3;
-o1=0.0;
-o2=0.0;
-
-  cout<<endl;
-  cout<<" x1,y1 should be = "<<x1<<" "<<y1<<endl;
-  cout<<" x2,y2 should be = "<<x2<<" "<<y2<<endl;
-  cout<<" x3,y3 should be = "<<x3<<" "<<y3<<endl;
-  cout<<" x4,y4 should be = "<<x4<<" "<<y4<<endl;
-  cout<<" m1,m2 should be = "<<m1<<" "<<m2<<endl;
-  cout<<" c1,c2 should be = "<<c1<<" "<<c2<<endl;
-  cout<<" o1,o2 should be = "<<o1<<" "<<o2<<endl;
-  cout<<" a0 should be = "<<coeff(i,0)<<endl;
-  cout<<" a1 should be = "<<coeff(i,1)<<endl;
-  cout<<" a2 should be = "<<coeff(i,2)<<endl;
-  cout<<" a3 should be = "<<coeff(i,3)<<endl;
+  cout<<"Shape::integrate(): coefficients:"<<endl;
+  cout<<"Shape::integrate():   a= "<<a<<endl;
+  cout<<"Shape::integrate():   b= "<<b<<endl;
+  cout<<"Shape::integrate():   c= "<<c<<endl;
+  cout<<"Shape::integrate():   d= "<<d<<endl;
+  cout<<"Shape::integrate(): coords:"<<endl;
+  cout<<"Shape::integrate():   x0 y0= "<<x0<<" "<<y0<<endl;
+  cout<<"Shape::integrate():   x1 y2= "<<x1<<" "<<y1<<endl;
+  cout<<"Shape::integrate():   x2 y3= "<<x2<<" "<<y2<<endl;
+  cout<<"Shape::integrate():   x3 y4= "<<x3<<" "<<y3<<endl;
 // debug
 
-// evaluate integral on first range triangle (x1,y1) -> (x2,y2)
+// compute I1 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
-  double a(coeff(i,0)),b(coeff(i,1)),c(coeff(i,2)),d(coeff(i,3));
+  xuxl2=xu*xu-xl*xl;
+  xuxl3=xu*xu*xu-xl*xl*xl;
+  xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
 
-  double term1((x2*x2-x1*x1)*(a*m2-a*m1)+(x2-x1)*(-a*m2*o2+a*c2+a*m1*o1+a*c1));
-  double term2((x2*x2*x2-x1*x1*x1)*(0.5*b*m2-0.5*b*m1)+(x2*x2-x1*x1)*(-0.5*b*m2*o2+0.5*b*c2+0.5*b*m1*o1-0.5*b*c1));
-  double term31((x2*x2*x2-x1*x1*x1)*(m2*m2-m1*m1)/3.0);
-  double term32((x2*x2-x1*x1)*(-m2*m2*o2+m2*c2-m1*c1-m1*m1*o1));
-  double term33((x2-x1)*(m2*m2*o2*o2-2.0*m2*o2*c2+c2*c2+m1*m1*o1*o1+2.0*m1*c1*o1+c1*c1));
-  double term3(0.5*c*(term31+term32+term33));
-  double term41(0.25*(x2*x2*x2*x2-x1*x1*x1*x1)*m2*m2);
-  double term42((x2*x2*x2-x1*x1*x1)*(2.0*m2*m2*o2+2.0*m2*c2)/3.0);
-  double term43(0.5*(x2*x2-x1*x1)*(m2*m2*o2*o2+c2*c2-2.0*m2*o2*c2));
-  double term44(0.25*(x2*x2*x2*x2-x1*x1*x1*x1)*m1*m1);
-  double term45((x2*x2*x2-x1*x1*x1)*(2.0*m1*m1*o1+2.0*m1*c1)/3.0);
-  double term46(0.5*(x2*x2-x1*x1)*(m1*m1*o1*o1+c1*c1-2.0*m1*o1*c1));
-  double term4(0.5*d*(term41+term42+term43-term44-term45-term46));
+  t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
+  t2=0.5*b*(xuxl3*(mu-ml)+xuxl2*(cu-cl));
+  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu+cl*cl));
+  t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
 
-// contribution to the integral from first range triangle
-cout<<"term1 "<<term1<<endl;
-cout<<"term2 "<<term2<<endl;
-cout<<"term3 "<<term3<<endl;
-cout<<"term4 "<<term4<<endl;
+  cout<<"Shape::integrate(): terms in I1= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
 
-//term1=a*(x2-x1)*(y3-y1);
-//term2=0.5*b*(x2*x2-x1*x1)*(y3-y1);
-//term3=0.5*c*(x2-x1)*(y3*y3-y1*y1);
-//term4=0.25*d*(x2*x2-x1*x1)*(y3*y3-y1*y1);
+// contribution to element from first range triangle
 
-cout<<"term1 should be "<<term1<<endl;
-cout<<"term2 should be "<<term2<<endl;
-cout<<"term3 should be "<<term3<<endl;
-cout<<"term4 should be "<<term4<<endl;
+  double I1(t1+t2+t3+t4);
 
-  double I1(term1+term2+term3+term4);
+// debug
+  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I1:"<<endl;
+  cout<<"Shape::integrate():   ml= "<<ml<<endl;
+  cout<<"Shape::integrate():   mu= "<<mu<<endl;
+  cout<<"Shape::integrate():   xl= "<<xl<<endl;
+  cout<<"Shape::integrate():   xu= "<<xu<<endl;
+  cout<<"Shape::integrate():   cl= "<<cl<<endl;
+  cout<<"Shape::integrate():   cu= "<<cu<<endl;
+  cout<<"Shape::integrate(): I1= "<<I1<<endl;
+// debug
 
-//  I1=a*(x2-x1)*(y2-y1)+b*(x2-x1)*(y2-y1)+0.5*c*(x2-x1)*(y2*y2-y1*y1)+0.25*d*(x2*x2-x1*x1)*(y2*y2-y1*y1);
-  cout<<" I1= "<<I1<<endl;
+// acquire integration limits for I2 trapezium
 
-// evaluate integral on middle range trapezium (x2,y2) -> (x3,x3)
+  if(abs(x3-x1)<=abs(x3-x2)){
 
-  double term5((x3*x3-x2*x2)*(a*m3-a*m2)+(x3-x2)*(-a*m3*o3+a*c3+a*m2*o2+a*c2));
-  double term6((x3*x3*x3-x2*x2*x2)*(0.5*b*m3-0.5*b*m2)+(x3*x3-x2*x2)*(-0.5*b*m3*o3+0.5*b*c3+0.5*b*m2*o2-0.5*b*c2));
-  double term71((x3*x3*x3-x2*x2*x2)*(m3*m3-m2*m2)/3.0);
-  double term72((x3*x3-x2*x2)*(-m3*m3*o3+m3*c3-m2*c2-m2*m2*o2));
-  double term73((x3-x2)*(m3*m3*o3*o3-2.0*m3*o3*c3+c3*c3+m2*m2*o2*o2+2.0*m2*c2*o2+c2*c2));
-  double term7(0.5*c*(term71+term72+term73));
-  double term81(0.25*(x3*x3*x3*x3-x2*x2*x2*x2)*m3*m3);
-  double term82((x3*x3*x3-x2*x2*x2)*(2.0*m3*m3*o3+2.0*m3*c3)/3.0);
-  double term83(0.5*(x3*x3-x2*x2)*(m3*m3*o3*o3+c3*c3-2.0*m3*o3*c3));
-  double term84(0.25*(x3*x3*x3*x3-x2*x2*x2*x2)*m2*m2);
-  double term85((x3*x3*x3-x2*x2*x2)*(2.0*m2*m2*o2+2.0*m2*c2)/3.0);
-  double term86(0.5*(x3*x3-x2*x2)*(m2*m2*o2*o2+c2*c2-2.0*m2*o2*c2));
-  double term8(0.5*d*(term81+term82+term83-term84-term85-term86));
+// x integral is along x2<=x<=x1, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
 
-// contribution to the integral from middle range trapezium
+    xl=x2;
+    ml=(y1-y0)/(sgn(x1-x0)*max(1.0e-10,abs(x1-x0))); // line AB is the lower limit of the integration
+    cl=y0-ml*x0;
 
-  double I2(term5+term6+term7+term8);
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
 
-// evaluate integral on third range triangle (x3,y3) -> (x4,x4)
+    xu=x1;
+    mu=(y3-y2)/(sgn(x3-x2)*max(1.0e-10,abs(x3-x2))); // line CD is the upper limit of the integration
+    cu=y2-mu*x2;
 
-  double term9((x4*x4-x3*x3)*(a*m4-a*m3)+(x4-x3)*(-a*m4*o4+a*c4+a*m3*o3+a*c3));
-  double term10((x4*x4*x4-x3*x3*x3)*(0.5*b*m4-0.5*b*m3)+(x4*x4-x3*x3)*(-0.5*b*m4*o4+0.5*b*c4+0.5*b*m3*o3-0.5*b*c3));
-  double term111((x4*x4*x4-x3*x3*x3)*(m4*m4-m3*m3)/3.0);
-  double term112((x4*x4-x3*x3)*(-m4*m4*o4+m4*c4-m3*c3-m3*m3*o3));
-  double term113((x4-x3)*(m4*m4*o4*o4-2.0*m4*o4*c4+c4*c4+m3*m3*o3*o3+2.0*m3*c3*o3+c3*c3));
-  double term11(0.5*c*(term111+term112+term113));
-  double term121(0.25*(x4*x4*x4*x4-x3*x3*x3*x3)*m4*m4);
-  double term122((x4*x4*x4-x3*x3*x3)*(2.0*m4*m4*o4+2.0*m4*c4)/3.0);
-  double term123(0.5*(x4*x4-x3*x3)*(m4*m4*o4*o4+c4*c4-2.0*m4*o4*c4));
-  double term124(0.25*(x4*x4*x4*x4-x3*x3*x3*x3)*m3*m3);
-  double term125((x4*x4*x4-x3*x3*x3)*(2.0*m3*m3*o3+2.0*m3*c3)/3.0);
-  double term126(0.5*(x4*x4-x3*x3)*(m3*m3*o3*o3+c3*c3-2.0*m3*o3*c3));
-  double term12(0.5*d*(term121+term122+term123-term124-term125-term126));
+  }else{
 
-// contribution to the integral from third range tiangle
+// x integral is along x1<=x<=x2, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
 
-  double I3(term9+term10+term11+term12);
+    xl=x1;
+    ml=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // line BD is the lower limit of the integration
+    cl=y1-ml*x1;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x2;
+    mu=(y2-y0)/(sgn(x2-x0)*max(1.0e-10,abs(x2-x0))); // line AC is the upper limit of the integration
+    cu=y0-mu*x0;
+
+  }
+
+// compute I2 integral components on the range xl<x<xu, yl(x)<y<yu(x)
+
+  xuxl2=xu*xu-xl*xl;
+  xuxl3=xu*xu*xu-xl*xl*xl;
+  xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
+
+  t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
+  t2=0.5*b*(xuxl3*(mu-ml)+xuxl2*(cu-cl));
+  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu+cl*cl));
+  t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
+
+  cout<<"Shape::integrate(): terms in I2= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
+
+// contribution to element from mid-range trapezium
+
+  double I2(t1+t2+t3+t4);
+
+// debug
+  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I2:"<<endl;
+  cout<<"Shape::integrate():   ml= "<<ml<<endl;
+  cout<<"Shape::integrate():   mu= "<<mu<<endl;
+  cout<<"Shape::integrate():   xl= "<<xl<<endl;
+  cout<<"Shape::integrate():   xu= "<<xu<<endl;
+  cout<<"Shape::integrate():   cl= "<<cl<<endl;
+  cout<<"Shape::integrate():   cu= "<<cu<<endl;
+  cout<<"Shape::integrate(): I2= "<<I2<<endl;
+// debug
+
+// acquire integration limits for I3 triangle
+
+  if(abs(x3-x1)<=abs(x3-x2)){
+
+// x integral is along x1<=x<=x3, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x1;
+    ml=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // line BD is the lower limit of the integration
+    cl=y1-ml*x1;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x3;
+    mu=(y3-y2)/(sgn(x3-x2)*max(1.0e-10,abs(x3-x2))); // line CD is the upper limit of the integration
+    cu=y2-mu*x2;
+
+  }else{
+
+// x integral is along x2<=x<=x3, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x2;
+    ml=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // line BD is the lower limit of the integration
+    cl=y1-ml*x1;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x3;
+    mu=(y3-y2)/(sgn(x3-x2)*max(1.0e-10,abs(x3-x2))); // line CD is the upper limit of the integration
+    cu=y2-mu*x2;
+
+  }
+
+// compute I3 integral components on the range xl<x<xu, yl(x)<y<yu(x)
+
+  xuxl2=xu*xu-xl*xl;
+  xuxl3=xu*xu*xu-xl*xl*xl;
+  xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
+
+  t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
+  t2=0.5*b*(xuxl3*(mu-ml)+xuxl2*(cu-cl));
+  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu+cl*cl));
+  t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
+
+  cout<<"Shape::integrate(): terms in I3= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
+
+// contribution to element from third range triangle
+
+  double I3(t1+t2+t3+t4);
+
+
+// debug
+  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I3:"<<endl;
+  cout<<"Shape::integrate():   ml= "<<ml<<endl;
+  cout<<"Shape::integrate():   mu= "<<mu<<endl;
+  cout<<"Shape::integrate():   xl= "<<xl<<endl;
+  cout<<"Shape::integrate():   xu= "<<xu<<endl;
+  cout<<"Shape::integrate():   cl= "<<cl<<endl;
+  cout<<"Shape::integrate():   cu= "<<cu<<endl;
+  cout<<"Shape::integrate(): I3= "<<I3<<endl;
+// debug
 
 // sum contribution from all 3 ranges to assemble the entire element
+
+// debug
+  cout<<"Shape::integrate():    I1+I2+I3= "<<I1+I2+I3<<endl;
+//  exit(1);
+// debug
 
   return(I1+I2+I3);
 
