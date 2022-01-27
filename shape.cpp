@@ -360,8 +360,8 @@ double Shape::integrate(int i) const {
 
 // coefficients in the shape function polynomial N_i(x,y)=a+bx+cy+dxy
 
-//  double a(coeff(i,0)),b(coeff(i,1)),c(coeff(i,2)),d(coeff(i,3));
-  double a(1.0),b(0.0),c(0.0),d(0.0); // should recover the element volume
+  double a(coeff(i,0)),b(coeff(i,1)),c(coeff(i,2)),d(coeff(i,3));
+//  double a(1.0),b(1.0),c(1.0),d(1.0); // should recover the element volume
 
 // terms in the integral of the polynomial a+bx+cy+dxy
 
@@ -443,8 +443,8 @@ double Shape::integrate(int i) const {
   xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
 
   t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
-  t2=0.5*b*(xuxl3*(mu-ml)+xuxl2*(cu-cl));
-  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu+cl*cl));
+  t2=b*(xuxl3*((mu-ml)/3.0)+xuxl2*0.5*(cu-cl));
+  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu-cl*cl));
   t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
 
   cout<<"Shape::integrate(): terms in I1= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
@@ -503,8 +503,8 @@ double Shape::integrate(int i) const {
   xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
 
   t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
-  t2=0.5*b*(xuxl3*(mu-ml)+xuxl2*(cu-cl));
-  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu+cl*cl));
+  t2=b*(xuxl3*((mu-ml)/3.0)+xuxl2*0.5*(cu-cl));
+  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu-cl*cl));
   t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
 
   cout<<"Shape::integrate(): terms in I2= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
@@ -563,8 +563,8 @@ double Shape::integrate(int i) const {
   xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
 
   t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
-  t2=0.5*b*(xuxl3*(mu-ml)+xuxl2*(cu-cl));
-  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu+cl*cl));
+  t2=b*(xuxl3*((mu-ml)/3.0)+xuxl2*0.5*(cu-cl));
+  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu-cl*cl));
   t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
 
   cout<<"Shape::integrate(): terms in I3= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
