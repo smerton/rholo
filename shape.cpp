@@ -175,7 +175,7 @@ Shape::Shape(int n,vector<vector<double> > x){
     A.write(iloc,0,1.0);
     A.write(iloc,1,mr.at(0).at(iloc));
     A.write(iloc,2,mr.at(1).at(iloc));
-    A.write(iloc,3,mr.at(0).at(iloc)*x.at(1).at(iloc));
+    A.write(iloc,3,mr.at(0).at(iloc)*mr.at(1).at(iloc));
   }
 
 // check for singularities which are expected if x1=x3 and y1=y4
@@ -270,35 +270,257 @@ double Shape::dvalue(int idim,int i,vector<double> x) const {double dx(mcoeff.at
 //double Shape::dvalue(int idim,int i,vector<double> x) const {double dx(mcoeff.at(1).at(i)+mcoeff.at(3).at(i)*x.at(1)),dy(mcoeff.at(2).at(i)+mcoeff.at(3).at(i)*x.at(0));return((idim==0)?dx:dy);} // shape i derivative value at global coordinate x
 double Shape::coeff(int i,int j) const {return mcoeff.at(i).at(j);} // coefficient j in the polynomial expansion of shape i
 
-// integrate shape i on the range (x1,x2),(y1,y2)
+// integrate derivative idim of shape j in global coordinates
 
-//double Shape::integrate(int i,double x1,double x2,double y1,double y2) const {double x(x2-x1),y(y2-y1);return(coeff(i,0)*x*y+0.5*coeff(i,1)*x*x*y+0.5*coeff(i,2)*y*y*x+0.5*coeff(i,3)*x*y*y);}
+double Shape::integrate(int idim,int i) const {
 
-// integrate shape i on the range (x1,x2) (y1,y2)
+// integation limits
 
-double Shape::integrate(int i,double x1,double x2,double y1,double y2) const {
+  double xl,xu;
 
-  double t1(coeff(i,0)*(x2-x1)*(y2-y1));
-  double t2(0.5*coeff(i,1)*(x2*x2-x1*x1)*(y2-y1));
-  double t3(0.5*coeff(i,2)*(y2*y2-y1*y1)*(x2-x1));
-  double t4(0.25*coeff(i,3)*(x2*x2-x1*x1)*(y2*y2-y1*y1));
+// coefficients in the shape function polynomial N_i(x,y)=a+bx+cy+dxy
 
-  return(t1+t2+t3+t4);
+  double a(coeff(i,0)),b(coeff(i,1)),c(coeff(i,2)),d(coeff(i,3));
 
-}
+// integrals of the derivatives
 
-// integrate derivative i of shape j on the range (x1,x2) (y1,y2)
+  double Ix(0.0),Iy(0.0);
 
-double Shape::integrate(int i,int j,double x1,double x2,double y1,double y2) const {
+// terms in the integral of the derivatives of the polynomial a+bx+cy+dxy
 
-  double t1(coeff(j,1)*(x2-x1)*(y2-y1));
-  double t2(0.5*coeff(j,3)*(x2-x1)*(y2*y2-y1*y1));
-  double t3(coeff(j,2)*(x2-x1)*(y2-y1));
-  double t4(0.5*coeff(j,3)*(x2*x2-x1*x1)*(y2-y1));
-  double Idx(t1+t2);
-  double Idy(t3+t4);
+  double t1; // axy
+  double t2; // 0.5*bx^2y
+  double t3; // 0.5*cy^2x
+  double t4; // 0.25*dx^2y^2
+  double xxxu,xxu;                        // extra terms used when inserting the upper integration limits
+  double xxxl,xxl;                        // extra terms used when inserting the lower integration limits
+  double xuxl2,xuxl3;                     // extra terms used to make up t1,t2,t3,t4
+  double tt1,tt2,tt3,tt4,tt5,tt6,tt7,tt8; // extra terms used to make up t1,t2,t3,t4
 
-  return((i==0)?Idx:Idy);
+// parameters of the two lines that make the lower and upper limits of the y integral
+
+  double ml,mu; // gradients
+  double cl,cu; // y intercepts
+
+// coordinates of the nodes
+
+  double x0(mr.at(0).at(0));
+  double x1(mr.at(0).at(1));
+  double x2(mr.at(0).at(2));
+  double x3(mr.at(0).at(3));
+
+  double y0(mr.at(1).at(0));
+  double y1(mr.at(1).at(1));
+  double y2(mr.at(1).at(2));
+  double y3(mr.at(1).at(3));
+
+// split the element into 3 integration domains
+
+// acquire integration limits for I1 triangle
+
+  if(abs(x1-x0)<=abs(x2-x0)){
+
+// x integral is along x0<=x<=x1, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x0;
+    ml=(y1-y0)/(sgn(x1-x0)*max(1.0e-10,abs(x1-x0))); // line AB is the lower limit of the integration
+    cl=y0-ml*x0;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x1;
+    mu=(y2-y0)/(sgn(x2-x0)*max(1.0e-10,abs(x2-x0))); // line AC is the upper limit of the integration
+    cu=y0-mu*x0;
+
+  }else{
+
+// x integral is along x0<=x<=x2, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x0;
+    ml=(y1-y0)/(sgn(x1-x0)*max(1.0e-10,abs(x1-x0))); // line AB is the lower limit of the integration
+    cl=y0-ml*x0;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x2;
+    mu=(y2-y0)/(sgn(x2-x0)*max(1.0e-10,abs(x2-x0))); // line AC is the upper limit of the integration
+    cu=y0-mu*x0;
+
+  }
+
+// compute I1 integral components on the range xl<x<xu, yl(x)<y<yu(x)
+
+  xxu=xu*xu;
+  xxxu=xu*xu*xu;
+  xxl=xl*xl;
+  xxxl=xl*xl*xl;
+
+  xuxl2=xxu-xxl;
+  xuxl3=xxxu-xxxl;
+
+// I1 contributions to the derivatives
+
+  tt1=0.5*xuxl2*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*mu*mu/3.0;
+  tt4=xuxl2*mu*cu;
+  tt5=(xu-xl)*cu*cu;
+  tt6=xuxl3*ml*ml/3.0;
+  tt7=xuxl2*ml*cl;
+  tt8=(xu-xl)*cl*cl;
+
+// sum in I1 contribution to the x derivative
+
+  Ix+=b*(tt1+tt2);
+  Ix+=0.5*d*(tt3+tt4+tt5-tt6-tt7-tt8);
+
+  tt1=xuxl3*0.5*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*(mu-ml)/3.0;
+  tt4=(xu-xl)*(cu-cl);
+
+// sum in I1 contribution to the y derivative
+
+  Iy+=c*(tt1+tt2);
+  Iy+=d*(tt3+tt4);
+
+// acquire integration limits for I2 trapezium
+
+  if(abs(x3-x1)<=abs(x3-x2)){
+
+// x integral is along x2<=x<=x1, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x2;
+    ml=(y1-y0)/(sgn(x1-x0)*max(1.0e-10,abs(x1-x0))); // line AB is the lower limit of the integration
+    cl=y0-ml*x0;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x1;
+    mu=(y3-y2)/(sgn(x3-x2)*max(1.0e-10,abs(x3-x2))); // line CD is the upper limit of the integration
+    cu=y2-mu*x2;
+
+  }else{
+
+// x integral is along x1<=x<=x2, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x1;
+    ml=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // line BD is the lower limit of the integration
+    cl=y1-ml*x1;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x2;
+    mu=(y2-y0)/(sgn(x2-x0)*max(1.0e-10,abs(x2-x0))); // line AC is the upper limit of the integration
+    cu=y0-mu*x0;
+
+  }
+
+// compute I2 integral components on the range xl<x<xu, yl(x)<y<yu(x)
+
+  xxu=xu*xu;
+  xxxu=xu*xu*xu;
+  xxl=xl*xl;
+  xxxl=xl*xl*xl;
+
+  xuxl2=xxu-xxl;
+  xuxl3=xxxu-xxxl;
+
+// I2 contributions to the derivatives
+
+  tt1=0.5*xuxl2*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*mu*mu/3.0;
+  tt4=xuxl2*mu*cu;
+  tt5=(xu-xl)*cu*cu;
+  tt6=xuxl3*ml*ml/3.0;
+  tt7=xuxl2*ml*cl;
+  tt8=(xu-xl)*cl*cl;
+
+// sum in I2 contribution to the x derivative
+
+  Ix+=b*(tt1+tt2);
+  Ix+=0.5*d*(tt3+tt4+tt5-tt6-tt7-tt8);
+
+  tt1=xuxl3*0.5*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*(mu-ml)/3.0;
+  tt4=(xu-xl)*(cu-cl);
+
+// sum in I2 contribution to the y derivative
+
+  Iy+=c*(tt1+tt2);
+  Iy+=d*(tt3+tt4);
+
+// acquire integration limits for I3 triangle
+
+  if(abs(x3-x1)<=abs(x3-x2)){
+
+// x integral is along x1<=x<=x3, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x1;
+    ml=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // line BD is the lower limit of the integration
+    cl=y1-ml*x1;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x3;
+    mu=(y3-y2)/(sgn(x3-x2)*max(1.0e-10,abs(x3-x2))); // line CD is the upper limit of the integration
+    cu=y2-mu*x2;
+
+  }else{
+
+// x integral is along x2<=x<=x3, set curve parameters for lower limit of y integral yl(x) = ml*(x-ol)+cl
+
+    xl=x2;
+    ml=(y3-y1)/(sgn(x3-x1)*max(1.0e-10,abs(x3-x1))); // line BD is the lower limit of the integration
+    cl=y1-ml*x1;
+
+ // set curve parameters for upper limit of y integral yu(x)=mu*(x-ou)+cu
+
+    xu=x3;
+    mu=(y3-y2)/(sgn(x3-x2)*max(1.0e-10,abs(x3-x2))); // line CD is the upper limit of the integration
+    cu=y2-mu*x2;
+
+  }
+
+// compute I3 integral components on the range xl<x<xu, yl(x)<y<yu(x)
+
+  xxu=xu*xu;
+  xxxu=xu*xu*xu;
+  xxl=xl*xl;
+  xxxl=xl*xl*xl;
+
+  xuxl2=xxu-xxl;
+  xuxl3=xxxu-xxxl;
+
+// I3 contributions to the derivatives
+
+  tt1=0.5*xuxl2*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*mu*mu/3.0;
+  tt4=xuxl2*mu*cu;
+  tt5=(xu-xl)*cu*cu;
+  tt6=xuxl3*ml*ml/3.0;
+  tt7=xuxl2*ml*cl;
+  tt8=(xu-xl)*cl*cl;
+
+// sum in I3 contribution to the x derivative
+
+  Ix+=b*(tt1+tt2);
+  Ix+=0.5*d*(tt3+tt4+tt5-tt6-tt7-tt8);
+
+  tt1=xuxl3*0.5*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*(mu-ml)/3.0;
+  tt4=(xu-xl)*(cu-cl);
+
+// sum in I3 contribution to the y derivative
+
+  Iy+=c*(tt1+tt2);
+  Iy+=d*(tt3+tt4);
+
+  return((i==0)?Ix:Iy);
 
 }
 
@@ -369,7 +591,10 @@ double Shape::integrate(int i) const {
   double t2; // 0.5*bx^2y
   double t3; // 0.5*cy^2x
   double t4; // 0.25*dx^2y^2
-  double xuxl2,xuxl3,xuxl4;     // extra terms used to make up t1,t2,t3,t4
+  double xxxxu,xxxu,xxu;            // extra terms used when inserting the upper integration limits
+  double xxxxl,xxxl,xxl;            // extra terms used when inserting the lower integration limits
+  double xuxl2,xuxl3,xuxl4;             // extra terms used to make up t1,t2,t3,t4
+  double tt1,tt2,tt3,tt4,tt5,tt6,tt7,tt8,tt9,tt10,tt11,tt12,tt13; // extra terms used to make up t1,t2,t3,t4
 
 // parameters of the two lines that make the lower and upper limits of the y integral
 
@@ -438,14 +663,35 @@ double Shape::integrate(int i) const {
 
 // compute I1 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
-  xuxl2=xu*xu-xl*xl;
-  xuxl3=xu*xu*xu-xl*xl*xl;
-  xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
+  xxu=xu*xu;
+  xxxu=xu*xu*xu;
+  xxxxu=xu*xu*xu*xu;
+  xxl=xl*xl;
+  xxxl=xl*xl*xl;
+  xxxxl=xl*xl*xl*xl;
 
-  t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
-  t2=b*(xuxl3*((mu-ml)/3.0)+xuxl2*0.5*(cu-cl));
-  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu-cl*cl));
-  t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
+  xuxl2=xxu-xxl;
+  xuxl3=xxxu-xxxl;
+  xuxl4=xxxxu-xxxxl;
+
+  tt1=xuxl2*0.5*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*((mu-ml)/3.0);
+  tt4=xuxl2*0.5*(cu-cl);
+  tt5=(xuxl3*(mu*mu-ml*ml)/3.0);
+  tt6=xuxl2*(mu*cu-ml*cl);
+  tt7=(xu-xl)*(cu*cu-cl*cl);
+  tt8=0.25*xuxl4*mu*mu;
+  tt9=(xuxl3*2.0*mu*cu/3.0);
+  tt10=0.5*xuxl2*cu*cu;
+  tt11=0.25*xuxl4*ml*ml;
+  tt12=(xuxl3*2.0*ml*cl/3.0);
+  tt13=0.5*xuxl2*cl*cl;
+
+  t1=a*(tt1+tt2);
+  t2=b*(tt3+tt4);
+  t3=0.5*c*(tt5+tt6+tt7);
+  t4=0.5*d*(tt8+tt9+tt10-tt11-tt12-tt13);
 
   cout<<"Shape::integrate(): terms in I1= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
 
@@ -498,14 +744,35 @@ double Shape::integrate(int i) const {
 
 // compute I2 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
-  xuxl2=xu*xu-xl*xl;
-  xuxl3=xu*xu*xu-xl*xl*xl;
-  xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
+  xxu=xu*xu;
+  xxxu=xu*xu*xu;
+  xxxxu=xu*xu*xu*xu;
+  xxl=xl*xl;
+  xxxl=xl*xl*xl;
+  xxxxl=xl*xl*xl*xl;
 
-  t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
-  t2=b*(xuxl3*((mu-ml)/3.0)+xuxl2*0.5*(cu-cl));
-  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu-cl*cl));
-  t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
+  xuxl2=xxu-xxl;
+  xuxl3=xxxu-xxxl;
+  xuxl4=xxxxu-xxxxl;
+
+  tt1=xuxl2*0.5*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*((mu-ml)/3.0);
+  tt4=xuxl2*0.5*(cu-cl);
+  tt5=(xuxl3*(mu*mu-ml*ml)/3.0);
+  tt6=xuxl2*(mu*cu-ml*cl);
+  tt7=(xu-xl)*(cu*cu-cl*cl);
+  tt8=0.25*xuxl4*mu*mu;
+  tt9=(xuxl3*2.0*mu*cu/3.0);
+  tt10=0.5*xuxl2*cu*cu;
+  tt11=0.25*xuxl4*ml*ml;
+  tt12=(xuxl3*2.0*ml*cl/3.0);
+  tt13=0.5*xuxl2*cl*cl;
+
+  t1=a*(tt1+tt2);
+  t2=b*(tt3+tt4);
+  t3=0.5*c*(tt5+tt6+tt7);
+  t4=0.5*d*(tt8+tt9+tt10-tt11-tt12-tt13);
 
   cout<<"Shape::integrate(): terms in I2= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
 
@@ -558,14 +825,35 @@ double Shape::integrate(int i) const {
 
 // compute I3 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
-  xuxl2=xu*xu-xl*xl;
-  xuxl3=xu*xu*xu-xl*xl*xl;
-  xuxl4=xu*xu*xu*xu-xl*xl*xl*xl;
+  xxu=xu*xu;
+  xxxu=xu*xu*xu;
+  xxxxu=xu*xu*xu*xu;
+  xxl=xl*xl;
+  xxxl=xl*xl*xl;
+  xxxxl=xl*xl*xl*xl;
 
-  t1=a*(xuxl2*0.5*(mu-ml)+(xu-xl)*(cu-cl));
-  t2=b*(xuxl3*((mu-ml)/3.0)+xuxl2*0.5*(cu-cl));
-  t3=0.5*c*((xuxl3*(mu*mu-ml*ml)/3.0)+xuxl2*(mu*cu-ml*cl)+(xu-xl)*(cu*cu-cl*cl));
-  t4=0.5*d*(0.25*xuxl4*mu*mu+(xuxl3*2.0*mu*cu/3.0)+0.5*xuxl2*cu*cu-0.25*xuxl4*ml*ml-(xuxl3*2.0*ml*cl/3.0)-0.5*xuxl2*cl*cl);
+  xuxl2=xxu-xxl;
+  xuxl3=xxxu-xxxl;
+  xuxl4=xxxxu-xxxxl;
+
+  tt1=xuxl2*0.5*(mu-ml);
+  tt2=(xu-xl)*(cu-cl);
+  tt3=xuxl3*((mu-ml)/3.0);
+  tt4=xuxl2*0.5*(cu-cl);
+  tt5=(xuxl3*(mu*mu-ml*ml)/3.0);
+  tt6=xuxl2*(mu*cu-ml*cl);
+  tt7=(xu-xl)*(cu*cu-cl*cl);
+  tt8=0.25*xuxl4*mu*mu;
+  tt9=(xuxl3*2.0*mu*cu/3.0);
+  tt10=0.5*xuxl2*cu*cu;
+  tt11=0.25*xuxl4*ml*ml;
+  tt12=(xuxl3*2.0*ml*cl/3.0);
+  tt13=0.5*xuxl2*cl*cl;
+
+  t1=a*(tt1+tt2);
+  t2=b*(tt3+tt4);
+  t3=0.5*c*(tt5+tt6+tt7);
+  t4=0.5*d*(tt8+tt9+tt10-tt11-tt12-tt13);
 
   cout<<"Shape::integrate(): terms in I3= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
 

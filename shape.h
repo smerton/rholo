@@ -10,8 +10,8 @@ class Shape{
 
   public:
 
-    Shape(int n);                                                  // constructor function for a new shape of order n
-    Shape(int n,vector<vector<double> > x);                        // constructor function for a new shape of order n in global coordinate x
+    Shape(int n);                                                  // constructor function for a new shape of order n in isoparametric coordinates
+    Shape(int n,vector<vector<double> > x);                        // constructor function for a new shape of order n in global coordinates x
 
     ~Shape();                                                      // destructor to release class storage
 
@@ -34,9 +34,8 @@ class Shape{
     double dvalue(int idim,int i,double u,double v) const;         // shape i derivative idim at local coordinates u,v
     double dvalue(int idim,int i,vector<double> x) const;          // shape i derivative idim at global coordinate x
     double coeff(int i,int j) const;                               // coefficient j in the polynomial expansion of shape i
-    double integrate(int i,double x1,double x2,double y1,double y2) const; // integrate shape i on the range (x1,x2),(y1,y2)
-    double integrate(int i,int j, double x1,double x2,double y1,double y2) const; // integrate derivative i of shape j on the range (x1,x2),(y1,y2)
-    double integrate(int i) const;                                  // integrate shape i on the range r
+    double integrate(int i) const;                                 // integrate shape i in global coordinates
+    double integrate(int idim,int i) const;                        // integrate derivative idim of shape i in global coordinates
 
 // accessor function to prolongation operator
 

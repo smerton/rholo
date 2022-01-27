@@ -414,7 +414,6 @@ int main(){
       }else{
         q.at(i)=0.0; // turn off q as cell divergence indicates expansion
       }
-      q.at(i)=0.0;
     }
 
 //  for(int i=0;i<n;i++){
@@ -1056,123 +1055,6 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
       detDJ.at(3).at(j).at(gi)=(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi]; // original
     }
 
-// debug
-
-    vector<double> xnod(S.nloc()),ynod(S.nloc()),xval(2);
-    vector<vector<double> > r;
-    for(int j=0;j<S.nloc();j++){
-      xnod.at(j)=x.at(0).at(M.Vertex(i,j));
-      ynod.at(j)=x.at(1).at(M.Vertex(i,j));
-    }
-    r.push_back(xnod);
-    r.push_back(ynod);
-    Shape G(1,r); // shape in global coordinates
-    double mu[4]={-1.0/sqrt(3.0),1.0/sqrt(3.0),-1.0/sqrt(3.0),1.0/sqrt(3.0)};
-    double eta[4]={-1.0/sqrt(3.0),-1.0/sqrt(3.0),1.0/sqrt(3.0),1.0/sqrt(3.0)};
-    xval.at(0)=0.0;
-    xval.at(1)=0.0;
-    for(int j=0;j<S.nloc();j++){
-      xval.at(0)+=S.value(j,mu[gi],eta[gi])*xnod.at(j);
-      xval.at(1)+=S.value(j,mu[gi],eta[gi])*ynod.at(j);
-    }
-//    for(int j=0;j<S.nloc();j++){
-//      detDJ.at(0).at(j).at(gi)=G.dvalue(0,j,xval);
-//      detDJ.at(1).at(j).at(gi)=G.dvalue(1,j,xval);
-//    }
-
-//  if(i==300){
-  if(false){
-//  if(abs(dydu)>1.0e-8 || abs(dxdv)>1.0e-8){
-//  if(abs(dydu)-abs(dxdv)>1.0e-8){
-//    double eta(1.0/sqrt(3.0));
-//    double mu(-1.0/sqrt(3.0));
-    vector<double> xnod(S.nloc()),ynod(S.nloc()),xval(2);
-    vector<vector<double> > r;
-    for(int j=0;j<S.nloc();j++){
-      xnod.at(j)=x.at(0).at(M.Vertex(i,j));
-      ynod.at(j)=x.at(1).at(M.Vertex(i,j));
-    }
-    r.push_back(xnod);
-    r.push_back(ynod);
-    Shape G(1,r); // shape in global coordinates
-    double mu[4]={-1.0/sqrt(3.0),1.0/sqrt(3.0),-1.0/sqrt(3.0),1.0/sqrt(3.0)};
-    double eta[4]={-1.0/sqrt(3.0),-1.0/sqrt(3.0),1.0/sqrt(3.0),1.0/sqrt(3.0)};
-    xval.at(0)=0.0;
-    xval.at(1)=0.0;
-    for(int j=0;j<S.nloc();j++){
-      xval.at(0)+=S.value(j,mu[gi],eta[gi])*xnod.at(j);
-      xval.at(1)+=S.value(j,mu[gi],eta[gi])*ynod.at(j);
-    }
-    double nx1(-0.25*(1.0-eta[gi]));
-    double ny1(-0.25*(1.0-mu[gi]));
-    double nx2(0.25*(1.0-eta[gi]));
-    double ny2(-0.25*(1.0+mu[gi]));
-    double nx3(-0.25*(1.0+eta[gi]));
-    double ny3(0.25*(1.0-mu[gi]));
-    double nx4(0.25*(1.0+eta[gi]));
-    double ny4(0.25*(1.0+mu[gi]));
-    double x1(x.at(0).at(M.Vertex(i,0)));
-    double x2(x.at(0).at(M.Vertex(i,1)));
-    double x3(x.at(0).at(M.Vertex(i,2)));
-    double x4(x.at(0).at(M.Vertex(i,3)));
-    double y1(x.at(1).at(M.Vertex(i,0)));
-    double y2(x.at(1).at(M.Vertex(i,1)));
-    double y3(x.at(1).at(M.Vertex(i,2)));
-    double y4(x.at(1).at(M.Vertex(i,3)));
-    double dxdu_test(x1*nx1+x2*nx2+x3*nx3+x4*nx4);
-    double dxdv_test(x1*ny1+x2*ny2+x3*ny3+x4*ny4);
-    double dydu_test(y1*nx1+y2*nx2+y3*nx3+y4*nx4);
-    double dydv_test(y1*ny1+y2*ny2+y3*ny3+y4*ny4);
-
-    cout<<fixed<<setprecision(10)<<"i  "<<i<<endl;
-    cout<<fixed<<setprecision(10)<<"gi "<<gi<<endl;
-    cout<<fixed<<setprecision(10)<<" x0>x3= "<< bool(x1>x4) <<endl;
-    cout<<fixed<<setprecision(10)<<" y1>y2= "<< bool(y2>y3) <<endl;
-    cout<<fixed<<setprecision(10)<<"corner 0  x,y= "<<x.at(0).at(M.Vertex(i,0))<<","<<x.at(1).at(M.Vertex(i,0))<<","<<x1<<","<<y1<<endl;
-    cout<<fixed<<setprecision(10)<<"corner 1  x,y= "<<x.at(0).at(M.Vertex(i,1))<<","<<x.at(1).at(M.Vertex(i,1))<<","<<x2<<","<<y2<<endl;
-    cout<<fixed<<setprecision(10)<<"corner 2  x,y= "<<x.at(0).at(M.Vertex(i,2))<<","<<x.at(1).at(M.Vertex(i,2))<<","<<x3<<","<<y3<<endl;
-    cout<<fixed<<setprecision(10)<<"corner 3  x,y= "<<x.at(0).at(M.Vertex(i,3))<<","<<x.at(1).at(M.Vertex(i,3))<<","<<x4<<","<<y4<<endl;
-    cout<<fixed<<setprecision(10)<<"   mu[gi]= "<<mu[gi]<<endl;
-    cout<<fixed<<setprecision(10)<<"   eta[gi]= "<<eta[gi]<<endl;
-    cout<<fixed<<setprecision(10)<<"   xval.at(0)= "<<xval.at(0)<<endl;
-    cout<<fixed<<setprecision(10)<<"   xval.at(1)= "<<xval.at(1)<<endl;
-    cout<<fixed<<setprecision(10)<<"   dxdu= "<<dxdu<<endl;
-    cout<<fixed<<setprecision(10)<<"   dxdv= "<<dxdv<<endl;
-    cout<<fixed<<setprecision(10)<<"   dydu= "<<dydu<<endl;
-    cout<<fixed<<setprecision(10)<<"   dydv= "<<dydv<<endl;
-    cout<<fixed<<setprecision(10)<<"   dxdu_test= "<<dxdu_test<<endl;
-    cout<<fixed<<setprecision(10)<<"   dxdv_test= "<<dxdv_test<<endl;
-    cout<<fixed<<setprecision(10)<<"   dydu_test= "<<dydu_test<<endl;
-    cout<<fixed<<setprecision(10)<<"   dydv_test= "<<dydv_test<<endl;
-    cout<<fixed<<setprecision(10)<<"   S.dvalue(0,0,gi)= "<<S.dvalue(0,0,gi)<<endl;
-    cout<<fixed<<setprecision(10)<<"   S.dvalue(1,0,gi)= "<<S.dvalue(1,0,gi)<<endl;
-    cout<<fixed<<setprecision(10)<<"   S.dvalue(0,1,gi)= "<<S.dvalue(0,1,gi)<<endl;
-    cout<<fixed<<setprecision(10)<<"   S.dvalue(1,1,gi)= "<<S.dvalue(1,1,gi)<<endl;
-    cout<<fixed<<setprecision(10)<<"   S.dvalue(0,2,gi)= "<<S.dvalue(0,2,gi)<<endl;
-    cout<<fixed<<setprecision(10)<<"   S.dvalue(1,2,gi)= "<<S.dvalue(1,2,gi)<<endl;
-    cout<<fixed<<setprecision(10)<<"   S.dvalue(0,3,gi)= "<<S.dvalue(0,3,gi)<<endl;
-    cout<<fixed<<setprecision(10)<<"   S.dvalue(1,3,gi)= "<<S.dvalue(1,3,gi)<<endl;
-    cout<<fixed<<setprecision(10)<<"   nx1= "<<nx1<<endl;
-    cout<<fixed<<setprecision(10)<<"   ny1= "<<ny1<<endl;
-    cout<<fixed<<setprecision(10)<<"   nx2= "<<nx2<<endl;
-    cout<<fixed<<setprecision(10)<<"   ny2= "<<ny2<<endl;
-    cout<<fixed<<setprecision(10)<<"   nx3= "<<nx3<<endl;
-    cout<<fixed<<setprecision(10)<<"   ny3= "<<ny3<<endl;
-    cout<<fixed<<setprecision(10)<<"   nx4= "<<nx4<<endl;
-    cout<<fixed<<setprecision(10)<<"   ny4= "<<ny4<<endl;
-    for(int j=0;j<S.nloc();j++){
-      cout<<fixed<<setprecision(10)<<"   j= "<<j<<" detDJ.at(0) method 1= "<<(dydv*S.dvalue(0,j,gi)-dydu*S.dvalue(1,j,gi))/detJ[gi]<<endl;
-      cout<<fixed<<setprecision(10)<<"        detDJ.at(0) method 2= "<<(dydv*S.dvalue(0,j,gi)-dxdv*S.dvalue(1,j,gi))/detJ[gi]<<endl;
-      cout<<fixed<<setprecision(10)<<"        detDJ.at(1) method 1= "<<(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi]<<endl;
-      cout<<fixed<<setprecision(10)<<"        detDJ.at(1) method 2= "<<(-dydu*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi]<<endl;
-      cout<<fixed<<setprecision(10)<<"        G.dvalue(0,j,gi)=     "<<G.dvalue(0,j,xval)<<endl;
-      cout<<fixed<<setprecision(10)<<"        G.dvalue(1,j,gi)=     "<<G.dvalue(1,j,xval)<<endl;
-    }
-//    exit(1);
-
-  }
-// debug
-
   }
 
 // debug
@@ -1207,10 +1089,7 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
         xval.at(1)+=S.value(j,mu[gi],eta[gi])*ynod.at(j);
       }
     }
-//    for(int j=0;j<S.nloc();j++){
-//      detDJ.at(0).at(j).at(gi)=G.dvalue(0,j,xval);
-//      detDJ.at(1).at(j).at(gi)=G.dvalue(1,j,xval);
-//    }
+
     for(int j=0;j<S.nloc();j++){
       double I1x(0.0),I1y(0.0),I2x(0.0),I2y(0.0),IS(0.0),IG(0.0),Gx(0.0),Gy(0.0),V(0.0);
       for(int gi=0;gi<S.ngi();gi++){
@@ -1223,7 +1102,8 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
       }
       cout<<fixed<<setprecision(10)<<"node "<<j<<" I1x= "<<I1x<<" I1y= "<<I1y<<endl;
       cout<<fixed<<setprecision(10)<<"       I2x= "<<I2x<<" I2y= "<<I2y<<endl;
-      cout<<fixed<<setprecision(10)<<"       Gx= "<<G.integrate(0,j,xnod.at(0),xnod.at(1),ynod.at(0),ynod.at(2))<<endl;
+      cout<<fixed<<setprecision(10)<<"       Gx= "<<G.integrate(0,j)<<endl;
+      cout<<fixed<<setprecision(10)<<"       Gy= "<<G.integrate(1,j)<<endl;
       cout<<fixed<<setprecision(10)<<"       IS= "<<IS<<endl;
       G.integrate(j);
 //      cout<<fixed<<setprecision(10)<<"       IG= "<<G.integrate(j)<<endl;
@@ -1231,7 +1111,7 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
       cout<<fixed<<setprecision(10)<<"       V=   "<<V<<endl;
     }
 
-//    exit(1);
+    exit(1);
   }
 // debug
 
