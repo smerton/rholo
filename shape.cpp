@@ -367,9 +367,9 @@ double Shape::integrate(int idim,int i) const {
 // compute I1 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
   xxu=xu*xu;
-  xxxu=xu*xu*xu;
+  xxxu=xxu*xu;
   xxl=xl*xl;
-  xxxl=xl*xl*xl;
+  xxxl=xxl*xl;
 
   xuxl2=xxu-xxl;
   xuxl3=xxxu-xxxl;
@@ -453,9 +453,9 @@ double Shape::integrate(int idim,int i) const {
 // compute I2 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
   xxu=xu*xu;
-  xxxu=xu*xu*xu;
+  xxxu=xxu*xu;
   xxl=xl*xl;
-  xxxl=xl*xl*xl;
+  xxxl=xxl*xl;
 
   xuxl2=xxu-xxl;
   xuxl3=xxxu-xxxl;
@@ -539,9 +539,9 @@ double Shape::integrate(int idim,int i) const {
 // compute I3 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
   xxu=xu*xu;
-  xxxu=xu*xu*xu;
+  xxxu=xxu*xu;
   xxl=xl*xl;
-  xxxl=xl*xl*xl;
+  xxxl=xxl*xl;
 
   xuxl2=xxu-xxl;
   xuxl3=xxxu-xxxl;
@@ -579,7 +579,7 @@ double Shape::integrate(int idim,int i) const {
 
 // debug
 //  if(idim==1){
-//    cout<<"Shape::integrate(): yl(x),yu(x) parameters for I2:"<<endl;
+//    cout<<"Shape::integrate(): yl(x),yu(x) parameters for I3:"<<endl;
 //    cout<<"Shape::integrate():   ml= "<<ml<<endl;
 //    cout<<"Shape::integrate():   mu= "<<mu<<endl;
 //    cout<<"Shape::integrate():   xl= "<<xl<<endl;
@@ -734,11 +734,11 @@ double Shape::integrate(int i) const {
 // compute I1 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
   xxu=xu*xu;
-  xxxu=xu*xu*xu;
-  xxxxu=xu*xu*xu*xu;
+  xxxu=xxu*xu;
+  xxxxu=xxxu*xu;
   xxl=xl*xl;
-  xxxl=xl*xl*xl;
-  xxxxl=xl*xl*xl*xl;
+  xxxl=xxl*xl;
+  xxxxl=xxxl*xl;
 
   xuxl2=xxu-xxl;
   xuxl3=xxxu-xxxl;
@@ -815,11 +815,11 @@ double Shape::integrate(int i) const {
 // compute I2 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
   xxu=xu*xu;
-  xxxu=xu*xu*xu;
-  xxxxu=xu*xu*xu*xu;
+  xxxu=xxu*xu;
+  xxxxu=xxxu*xu;
   xxl=xl*xl;
-  xxxl=xl*xl*xl;
-  xxxxl=xl*xl*xl*xl;
+  xxxl=xxl*xl;
+  xxxxl=xxxl*xl;
 
   xuxl2=xxu-xxl;
   xuxl3=xxxu-xxxl;
@@ -896,11 +896,11 @@ double Shape::integrate(int i) const {
 // compute I3 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
   xxu=xu*xu;
-  xxxu=xu*xu*xu;
-  xxxxu=xu*xu*xu*xu;
+  xxxu=xxu*xu;
+  xxxxu=xxxu*xu;
   xxl=xl*xl;
-  xxxl=xl*xl*xl;
-  xxxxl=xl*xl*xl*xl;
+  xxxl=xxl*xl;
+  xxxxl=xxxl*xl;
 
   xuxl2=xxu-xxl;
   xuxl3=xxxu-xxxl;

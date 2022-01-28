@@ -1090,25 +1090,28 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
       }
     }
 
+    double VG(0.0);
     for(int j=0;j<S.nloc();j++){
-      double I1x(0.0),I1y(0.0),I2x(0.0),I2y(0.0),IS(0.0),IG(0.0),Gx(0.0),Gy(0.0),V(0.0);
+      double I1x(0.0),I1y(0.0),I2x(0.0),I2y(0.0),IS(0.0),IG(0.0),Gx(0.0),Gy(0.0),VS(0.0);
       for(int gi=0;gi<S.ngi();gi++){
         I1x+=detDJ.at(0).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
         I1y+=detDJ.at(1).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
         I2x+=detDJ.at(2).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
         I2y+=detDJ.at(3).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
         IS+=S.value(j,gi)*detJ.at(gi)*S.wgt(gi);
-        V+=detJ.at(gi)*S.wgt(gi);
+        VS+=detJ.at(gi)*S.wgt(gi);
       }
-      cout<<fixed<<setprecision(10)<<"node "<<j<<" I1x= "<<I1x<<" I1y= "<<I1y<<endl;
-      cout<<fixed<<setprecision(10)<<"       I2x= "<<I2x<<" I2y= "<<I2y<<endl;
+      VG+=G.integrate(j);
+      cout<<fixed<<setprecision(10)<<"node "<<j<<" I1x= "<<I1x<<endl;
+      cout<<fixed<<setprecision(10)<<"       I1y= "<<I1y<<endl;
+      cout<<fixed<<setprecision(10)<<"       I2x= "<<I2x<<endl;
+      cout<<fixed<<setprecision(10)<<"       I2y= "<<I2y<<endl;
       cout<<fixed<<setprecision(10)<<"       Gx= "<<G.integrate(0,j)<<endl;
       cout<<fixed<<setprecision(10)<<"       Gy= "<<G.integrate(1,j)<<endl;
       cout<<fixed<<setprecision(10)<<"       IS= "<<IS<<endl;
-      G.integrate(j);
-//      cout<<fixed<<setprecision(10)<<"       IG= "<<G.integrate(j)<<endl;
-//      cout<<fixed<<setprecision(10)<<"       V ratio=   "<<V/(abs(xmax-xmin)*abs(ymax-ymin))<<endl;
-      cout<<fixed<<setprecision(10)<<"       V=   "<<V<<endl;
+      cout<<fixed<<setprecision(10)<<"       G= "<<G.integrate(j)<<endl;
+      cout<<fixed<<setprecision(10)<<"       V(S)=   "<<VS<<endl;
+      cout<<fixed<<setprecision(10)<<"       V(G)=   "<<VG<<endl;
     }
 
 //    exit(1);
