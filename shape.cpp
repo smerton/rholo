@@ -284,7 +284,7 @@ double Shape::integrate(int idim,int i) const {
 
 // integrals of the derivatives
 
-  double Ix(0.0),Iy(0.0);
+  double Ix(0.0),Iy(0.0),I1(0.0),I2(0.0),I3(0.0);
 
 // terms in the integral of the derivatives of the polynomial a+bx+cy+dxy
 
@@ -348,6 +348,22 @@ double Shape::integrate(int idim,int i) const {
 
   }
 
+// debug
+//  if(idim==1){
+//    cout<<endl;
+//    cout<<"Shape::integrate(): coefficients:"<<endl;
+//    cout<<"Shape::integrate():   a= "<<a<<endl;
+//    cout<<"Shape::integrate():   b= "<<b<<endl;
+//    cout<<"Shape::integrate():   c= "<<c<<endl;
+//    cout<<"Shape::integrate():   d= "<<d<<endl;
+//    cout<<"Shape::integrate(): coords:"<<endl;
+//    cout<<"Shape::integrate():   x0 y0= "<<x0<<" "<<y0<<endl;
+//    cout<<"Shape::integrate():   x1 y2= "<<x1<<" "<<y1<<endl;
+//    cout<<"Shape::integrate():   x2 y3= "<<x2<<" "<<y2<<endl;
+//    cout<<"Shape::integrate():   x3 y4= "<<x3<<" "<<y3<<endl;
+//  }
+// debug
+
 // compute I1 integral components on the range xl<x<xu, yl(x)<y<yu(x)
 
   xxu=xu*xu;
@@ -374,15 +390,33 @@ double Shape::integrate(int idim,int i) const {
   Ix+=b*(tt1+tt2);
   Ix+=0.5*d*(tt3+tt4+tt5-tt6-tt7-tt8);
 
-  tt1=xuxl3*0.5*(mu-ml);
+  tt1=0.5*xuxl2*(mu-ml);
   tt2=(xu-xl)*(cu-cl);
   tt3=xuxl3*(mu-ml)/3.0;
-  tt4=(xu-xl)*(cu-cl);
+  tt4=0.5*xuxl2*(cu-cl);
 
 // sum in I1 contribution to the y derivative
 
+  I1=c*(tt1+tt2)+d*(tt3+tt4);
   Iy+=c*(tt1+tt2);
   Iy+=d*(tt3+tt4);
+
+//  if(idim==1){
+//    cout<<"Shape::integrate(): terms in I1= "<<tt1<<" "<<tt2<<" "<<tt3<<" "<<tt4<<" "<<tt5<<" "<<tt6<<" "<<tt7<<" "<<tt8<<endl;
+//  }
+
+// debug
+//  if(idim==1){
+//    cout<<"Shape::integrate(): yl(x),yu(x) parameters for I1:"<<endl;
+//    cout<<"Shape::integrate():   ml= "<<ml<<endl;
+//    cout<<"Shape::integrate():   mu= "<<mu<<endl;
+//    cout<<"Shape::integrate():   xl= "<<xl<<endl;
+//    cout<<"Shape::integrate():   xu= "<<xu<<endl;
+//    cout<<"Shape::integrate():   cl= "<<cl<<endl;
+//    cout<<"Shape::integrate():   cu= "<<cu<<endl;
+//    cout<<"Shape::integrate(): Iy(I1)= "<<I1<<endl;
+//  }
+// debug
 
 // acquire integration limits for I2 trapezium
 
@@ -442,15 +476,33 @@ double Shape::integrate(int idim,int i) const {
   Ix+=b*(tt1+tt2);
   Ix+=0.5*d*(tt3+tt4+tt5-tt6-tt7-tt8);
 
-  tt1=xuxl3*0.5*(mu-ml);
+  tt1=0.5*xuxl2*(mu-ml);
   tt2=(xu-xl)*(cu-cl);
   tt3=xuxl3*(mu-ml)/3.0;
-  tt4=(xu-xl)*(cu-cl);
+  tt4=0.5*xuxl2*(cu-cl);
 
 // sum in I2 contribution to the y derivative
 
+  I2=c*(tt1+tt2)+d*(tt3+tt4);
   Iy+=c*(tt1+tt2);
   Iy+=d*(tt3+tt4);
+
+//  if(idim==1){
+//    cout<<"Shape::integrate(): terms in I2= "<<tt1<<" "<<tt2<<" "<<tt3<<" "<<tt4<<" "<<tt5<<" "<<tt6<<" "<<tt7<<" "<<tt8<<endl;
+//  }
+
+// debug
+//  if(idim==1){
+//    cout<<"Shape::integrate(): yl(x),yu(x) parameters for I2:"<<endl;
+//    cout<<"Shape::integrate():   ml= "<<ml<<endl;
+//    cout<<"Shape::integrate():   mu= "<<mu<<endl;
+//    cout<<"Shape::integrate():   xl= "<<xl<<endl;
+//    cout<<"Shape::integrate():   xu= "<<xu<<endl;
+//    cout<<"Shape::integrate():   cl= "<<cl<<endl;
+//    cout<<"Shape::integrate():   cu= "<<cu<<endl;
+//    cout<<"Shape::integrate(): Iy(I2)= "<<Iy<<endl;
+//  }
+// debug
 
 // acquire integration limits for I3 triangle
 
@@ -510,17 +562,35 @@ double Shape::integrate(int idim,int i) const {
   Ix+=b*(tt1+tt2);
   Ix+=0.5*d*(tt3+tt4+tt5-tt6-tt7-tt8);
 
-  tt1=xuxl3*0.5*(mu-ml);
+  tt1=0.5*xuxl2*(mu-ml);
   tt2=(xu-xl)*(cu-cl);
   tt3=xuxl3*(mu-ml)/3.0;
-  tt4=(xu-xl)*(cu-cl);
+  tt4=0.5*xuxl2*(cu-cl);
 
 // sum in I3 contribution to the y derivative
 
+  I3=c*(tt1+tt2)+d*(tt3+tt4);
   Iy+=c*(tt1+tt2);
   Iy+=d*(tt3+tt4);
 
-  return((i==0)?Ix:Iy);
+//  if(idim==1){
+//    cout<<"Shape::integrate(): terms in I3= "<<tt1<<" "<<tt2<<" "<<tt3<<" "<<tt4<<" "<<tt5<<" "<<tt6<<" "<<tt7<<" "<<tt8<<endl;
+//  }
+
+// debug
+//  if(idim==1){
+//    cout<<"Shape::integrate(): yl(x),yu(x) parameters for I2:"<<endl;
+//    cout<<"Shape::integrate():   ml= "<<ml<<endl;
+//    cout<<"Shape::integrate():   mu= "<<mu<<endl;
+//    cout<<"Shape::integrate():   xl= "<<xl<<endl;
+//    cout<<"Shape::integrate():   xu= "<<xu<<endl;
+//    cout<<"Shape::integrate():   cl= "<<cl<<endl;
+//    cout<<"Shape::integrate():   cu= "<<cu<<endl;
+//    cout<<"Shape::integrate(): Iy(I3)= "<<I3<<endl;
+//  }
+// debug
+
+  return((idim==0)?Ix:Iy);
 
 }
 
@@ -648,17 +718,17 @@ double Shape::integrate(int i) const {
   }
 
 // debug
-  cout<<endl;
-  cout<<"Shape::integrate(): coefficients:"<<endl;
-  cout<<"Shape::integrate():   a= "<<a<<endl;
-  cout<<"Shape::integrate():   b= "<<b<<endl;
-  cout<<"Shape::integrate():   c= "<<c<<endl;
-  cout<<"Shape::integrate():   d= "<<d<<endl;
-  cout<<"Shape::integrate(): coords:"<<endl;
-  cout<<"Shape::integrate():   x0 y0= "<<x0<<" "<<y0<<endl;
-  cout<<"Shape::integrate():   x1 y2= "<<x1<<" "<<y1<<endl;
-  cout<<"Shape::integrate():   x2 y3= "<<x2<<" "<<y2<<endl;
-  cout<<"Shape::integrate():   x3 y4= "<<x3<<" "<<y3<<endl;
+//  cout<<endl;
+//  cout<<"Shape::integrate(): coefficients:"<<endl;
+//  cout<<"Shape::integrate():   a= "<<a<<endl;
+//  cout<<"Shape::integrate():   b= "<<b<<endl;
+//  cout<<"Shape::integrate():   c= "<<c<<endl;
+//  cout<<"Shape::integrate():   d= "<<d<<endl;
+//  cout<<"Shape::integrate(): coords:"<<endl;
+//  cout<<"Shape::integrate():   x0 y0= "<<x0<<" "<<y0<<endl;
+//  cout<<"Shape::integrate():   x1 y2= "<<x1<<" "<<y1<<endl;
+//  cout<<"Shape::integrate():   x2 y3= "<<x2<<" "<<y2<<endl;
+//  cout<<"Shape::integrate():   x3 y4= "<<x3<<" "<<y3<<endl;
 // debug
 
 // compute I1 integral components on the range xl<x<xu, yl(x)<y<yu(x)
@@ -693,21 +763,21 @@ double Shape::integrate(int i) const {
   t3=0.5*c*(tt5+tt6+tt7);
   t4=0.5*d*(tt8+tt9+tt10-tt11-tt12-tt13);
 
-  cout<<"Shape::integrate(): terms in I1= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
+//  cout<<"Shape::integrate(): terms in I1= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
 
 // contribution to element from first range triangle
 
   double I1(t1+t2+t3+t4);
 
 // debug
-  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I1:"<<endl;
-  cout<<"Shape::integrate():   ml= "<<ml<<endl;
-  cout<<"Shape::integrate():   mu= "<<mu<<endl;
-  cout<<"Shape::integrate():   xl= "<<xl<<endl;
-  cout<<"Shape::integrate():   xu= "<<xu<<endl;
-  cout<<"Shape::integrate():   cl= "<<cl<<endl;
-  cout<<"Shape::integrate():   cu= "<<cu<<endl;
-  cout<<"Shape::integrate(): I1= "<<I1<<endl;
+//  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I1:"<<endl;
+//  cout<<"Shape::integrate():   ml= "<<ml<<endl;
+//  cout<<"Shape::integrate():   mu= "<<mu<<endl;
+//  cout<<"Shape::integrate():   xl= "<<xl<<endl;
+//  cout<<"Shape::integrate():   xu= "<<xu<<endl;
+//  cout<<"Shape::integrate():   cl= "<<cl<<endl;
+//  cout<<"Shape::integrate():   cu= "<<cu<<endl;
+//  cout<<"Shape::integrate(): I1= "<<I1<<endl;
 // debug
 
 // acquire integration limits for I2 trapezium
@@ -774,21 +844,21 @@ double Shape::integrate(int i) const {
   t3=0.5*c*(tt5+tt6+tt7);
   t4=0.5*d*(tt8+tt9+tt10-tt11-tt12-tt13);
 
-  cout<<"Shape::integrate(): terms in I2= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
+//  cout<<"Shape::integrate(): terms in I2= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
 
 // contribution to element from mid-range trapezium
 
   double I2(t1+t2+t3+t4);
 
 // debug
-  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I2:"<<endl;
-  cout<<"Shape::integrate():   ml= "<<ml<<endl;
-  cout<<"Shape::integrate():   mu= "<<mu<<endl;
-  cout<<"Shape::integrate():   xl= "<<xl<<endl;
-  cout<<"Shape::integrate():   xu= "<<xu<<endl;
-  cout<<"Shape::integrate():   cl= "<<cl<<endl;
-  cout<<"Shape::integrate():   cu= "<<cu<<endl;
-  cout<<"Shape::integrate(): I2= "<<I2<<endl;
+//  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I2:"<<endl;
+//  cout<<"Shape::integrate():   ml= "<<ml<<endl;
+//  cout<<"Shape::integrate():   mu= "<<mu<<endl;
+//  cout<<"Shape::integrate():   xl= "<<xl<<endl;
+//  cout<<"Shape::integrate():   xu= "<<xu<<endl;
+//  cout<<"Shape::integrate():   cl= "<<cl<<endl;
+//  cout<<"Shape::integrate():   cu= "<<cu<<endl;
+//  cout<<"Shape::integrate(): I2= "<<I2<<endl;
 // debug
 
 // acquire integration limits for I3 triangle
@@ -855,7 +925,7 @@ double Shape::integrate(int i) const {
   t3=0.5*c*(tt5+tt6+tt7);
   t4=0.5*d*(tt8+tt9+tt10-tt11-tt12-tt13);
 
-  cout<<"Shape::integrate(): terms in I3= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
+//  cout<<"Shape::integrate(): terms in I3= "<<t1<<" "<<t2<<" "<<t3<<" "<<t4<<endl;
 
 // contribution to element from third range triangle
 
@@ -863,20 +933,20 @@ double Shape::integrate(int i) const {
 
 
 // debug
-  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I3:"<<endl;
-  cout<<"Shape::integrate():   ml= "<<ml<<endl;
-  cout<<"Shape::integrate():   mu= "<<mu<<endl;
-  cout<<"Shape::integrate():   xl= "<<xl<<endl;
-  cout<<"Shape::integrate():   xu= "<<xu<<endl;
-  cout<<"Shape::integrate():   cl= "<<cl<<endl;
-  cout<<"Shape::integrate():   cu= "<<cu<<endl;
-  cout<<"Shape::integrate(): I3= "<<I3<<endl;
+//  cout<<"Shape::integrate(): yl(x),yu(x) parameters for I3:"<<endl;
+//  cout<<"Shape::integrate():   ml= "<<ml<<endl;
+//  cout<<"Shape::integrate():   mu= "<<mu<<endl;
+//  cout<<"Shape::integrate():   xl= "<<xl<<endl;
+//  cout<<"Shape::integrate():   xu= "<<xu<<endl;
+//  cout<<"Shape::integrate():   cl= "<<cl<<endl;
+//  cout<<"Shape::integrate():   cu= "<<cu<<endl;
+//  cout<<"Shape::integrate(): I3= "<<I3<<endl;
 // debug
 
 // sum contribution from all 3 ranges to assemble the entire element
 
 // debug
-  cout<<"Shape::integrate():    I1+I2+I3= "<<I1+I2+I3<<endl;
+//  cout<<"Shape::integrate():    I1+I2+I3= "<<I1+I2+I3<<endl;
 //  exit(1);
 // debug
 

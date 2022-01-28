@@ -1111,7 +1111,7 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
       cout<<fixed<<setprecision(10)<<"       V=   "<<V<<endl;
     }
 
-    exit(1);
+//    exit(1);
   }
 // debug
 
