@@ -10,6 +10,7 @@
 #include "polynomial.h"
 #include "matrix.h"  // matrix operations
 
+int factorial(int n); // factorial function
 double delta(int i,int j); // kronecker delta function
 template <typename T> int sgn(T val); // return type safe sign of the argument
 
@@ -953,6 +954,10 @@ double Shape::integrate(int i) const {
   return(I1+I2+I3);
 
 }
+
+// factorial n
+
+int factorial(int n){return((n>1)?n*factorial(n-1):1);}
 
 // kronecker delta function
 
