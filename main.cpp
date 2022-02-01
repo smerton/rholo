@@ -109,7 +109,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/noh-12x12.mesh");                                 // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -415,7 +415,7 @@ int main(){
 // bulk q
 
     for(int i=0;i<q.size();i++){
-      l.at(i)=sqrt(V1.at(i));
+//      l.at(i)=sqrt(V1.at(i));
       double divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
       if(divu<0.0){
         q.at(i)=d1[i]*l[i]*divu*((cq*l[i]*divu)-cl*c[i]);
@@ -1539,8 +1539,8 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
 // correct origin for reflection
 
-  if((M.bc_edge(0)==VELOCITY)){yorig=x.at(1).at(0);} // ymin reflective
-  if((M.bc_edge(3)==VELOCITY)){xorig=x.at(0).at(0);} // xmin reflective
+  if((M.bc_edge(0)==VELOCITY)){yorig=x.at(1).at(0);} // ymin forced reflective
+  if((M.bc_edge(3)==VELOCITY)){xorig=x.at(0).at(0);} // xmin forced reflective
 
   double origin[2]={xorig,yorig}; // origin coordinates
 
@@ -1549,10 +1549,10 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
   for(long i=0;i<u0.at(0).size();i++){
 
     double rx(x.at(0).at(i)-origin[0]);     // radial vector component from domain origin to node
-    if(abs(rx)<1.0e-12){rx=0.0;}            // cut-off for centre
+//    if(abs(rx)<1.0e-12){rx=0.0;}            // cut-off for centre
 
     double ry(x.at(1).at(i)-origin[1]);     // radial vector component from domain origin to node
-    if(abs(ry)<1.0e-12){ry=0.0;}            // cut-off for centre
+//    if(abs(ry)<1.0e-12){ry=0.0;}            // cut-off for centre
 
 // length of radial vector from domain origin to node
 
