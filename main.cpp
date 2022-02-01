@@ -80,7 +80,6 @@
 string date();                                                                              // function to return the date and time
 void header();                                                                              // header part
 void vempty(vector<double>&v);                                                              // empty a vector
-double length(Mesh const &M,Shape const &S,int const i,VVD const &x);                       // element i length scale
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
 void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ); // sum the global kinetic energy field
 void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M);                                                   // sum the global internal energy field
@@ -188,11 +187,17 @@ int main(){
   M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
   M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
   M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
   M.InitCoords(x0,EXCLUDE_GHOSTS); // set initial coordinates
   M.InitCoords(x1,EXCLUDE_GHOSTS); // set initial coordinates
+
+  M.UpdateLength(l,S.order(),x1);  // initialise element length scale
 
   for(int i=0;i<mat.size();i++){mat.at(i)=M.Material(i);}
   for(int i=0;i<V0.size();i++){V0.at(i)=M.Volume(i);}
@@ -205,6 +210,7 @@ int main(){
   for(int i=0;i<e1.size();i++){e1.at(i)=E(d1[i],p[i],gamma[mat[i]-1]);}
   for(int i=0;i<q.size();i++){q.at(i)=0.0;}
   for(int i=0;i<c.size();i++){c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d0[i]);}
+  for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}
 
 // allocate a determinant for each derivative
 
@@ -329,7 +335,7 @@ int main(){
 
 // calculate a new stable time-step
 
-    for(int i=0;i<n;i++){double l(length(M,S,i,x1));dt_cfl.at(i)=(COURANT*l/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
+    for(int i=0;i<n;i++){dt_cfl.at(i)=(COURANT*l[i]/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
 
 // reduce across element and apply a saftey factor
 
@@ -377,6 +383,7 @@ int main(){
 //  lineouts(M,S,d1,p,e1,q,x1,u1,test_problem);
 //  exit(1);
 // debug
+
 // move the nodes to their full-step position
 
     M.UpdateCoords(x1,u0,dt);
@@ -408,6 +415,7 @@ int main(){
 // bulk q
 
     for(int i=0;i<q.size();i++){
+      l.at(i)=sqrt(V1.at(i));
       double divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
       if(divu<0.0){
         q.at(i)=d1[i]*l[i]*divu*((cq*l[i]*divu)-cl*c[i]);
@@ -1058,8 +1066,8 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
   }
 
 // debug
-  if(i==300){
-//  if(false){
+//  if(i==300){
+  if(false){
     cout<<"integral check:"<<endl;
     cout<<" i "<<i<<endl;
     vector<double> xnod(S.nloc()),ynod(S.nloc()),xval(2);
@@ -1119,44 +1127,6 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 // debug
 
   return;
-
-}
-
-// compute the shortest distance a signal can take to cross element i
-
-double length(Mesh const &M,Shape const &S,int const i,VVD const &x){
-
-  VD xydist; // distance between mid-points
-  VVD xymid(M.NDims()); // midpoint coordinates for each side
-
-// resize mid-point coordinate vector to hold information for 4 sides
-
-  for(int idim=0;idim<M.NDims();idim++){xymid.at(idim).resize(4);}
-
-// side mid-points using the finite element method
-
-  for(int idim=0;idim<M.NDims();idim++){
-    for(int j=0;j<S.nloc();j++){
-      xymid[idim][0]+=S.value(j,0.0,-1.0)*x.at(idim).at(M.Vertex(i,j)); // bottom face
-      xymid[idim][1]+=S.value(j,1.0,0.0)*x.at(idim).at(M.Vertex(i,j)); // right face
-      xymid[idim][2]+=S.value(j,0.0,1.0)*x.at(idim).at(M.Vertex(i,j)); // top face
-      xymid[idim][3]+=S.value(j,-1.0,0.0)*x.at(idim).at(M.Vertex(i,j)); // left face
-    }
-  }
-
-// distances between the mid-points
-
-  for(int iside=0;iside<3;iside++){
-    for(int jside=iside+1;jside<4;jside++){
-      double dx(abs(xymid[0][iside]-xymid[0][jside]));
-      double dy(abs(xymid[1][iside]-xymid[1][jside]));
-      xydist.push_back(sqrt(dx*dx+dy*dy));
-    }
-  }
-
-// return minimum distance between the mid-points
-
-  return (*min_element(xydist.begin(),xydist.end()));
 
 }
 
@@ -1563,14 +1533,30 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
   cout<<"init_NOH(): Input overides for Noh..."<<endl;
 
+// set origin
+
+  double xorig(0.5*(M.Min(0)+M.Max(0))),yorig(0.5*(M.Min(1)+M.Max(1)));
+
+// correct origin for reflection
+
+  if((M.bc_edge(0)==VELOCITY)){yorig=x.at(1).at(0);} // ymin reflective
+  if((M.bc_edge(3)==VELOCITY)){xorig=x.at(0).at(0);} // xmin reflective
+
+  double origin[2]={xorig,yorig}; // origin coordinates
+
 // start velocity field
 
   for(long i=0;i<u0.at(0).size();i++){
 
-    double origin[2]={0.5*(M.Min(0)+M.Max(0)),0.5*(M.Min(1)+M.Max(1))}; // origin coordinates
     double rx(x.at(0).at(i)-origin[0]);     // radial vector component from domain origin to node
+    if(abs(rx)<1.0e-12){rx=0.0;}            // cut-off for centre
+
     double ry(x.at(1).at(i)-origin[1]);     // radial vector component from domain origin to node
-    double rnorm(sqrt(rx*rx+ry*ry));       // length of radial vector from domain origin to node
+    if(abs(ry)<1.0e-12){ry=0.0;}            // cut-off for centre
+
+// length of radial vector from domain origin to node
+
+    double rnorm(sqrt(rx*rx+ry*ry));
 
 // velocity is a radial vector from degree of freedom towards the domain origin
 

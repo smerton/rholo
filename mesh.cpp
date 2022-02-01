@@ -788,21 +788,36 @@ void Mesh::UpdateLength(VD &l,int const &p,VVD const &x) const{
 
   for(int idim=0;idim<NDims();idim++){xymid.at(idim).resize(4);}
 
-
   for(int i=0;i<l.size();i++){
 
 // side mid-points using the finite element method
 
     for(int idim=0;idim<NDims();idim++){
+      double sum0(0.0),sum1(0.0),sum2(0.0),sum3(0.0);
       for(int j=0;j<S.nloc();j++){
-        xymid[idim][0]+=S.value(j,0.0,-1.0)*x.at(idim).at(Vertex(i,j)); // bottom face
-        xymid[idim][1]+=S.value(j,1.0,0.0)*x.at(idim).at(Vertex(i,j)); // right face
-        xymid[idim][2]+=S.value(j,0.0,1.0)*x.at(idim).at(Vertex(i,j)); // top face
-        xymid[idim][3]+=S.value(j,-1.0,0.0)*x.at(idim).at(Vertex(i,j)); // left face
+        sum0+=S.value(j,0.0,-1.0)*x.at(idim).at(Vertex(i,j)); // bottom face
+        sum1+=S.value(j,1.0,0.0)*x.at(idim).at(Vertex(i,j)); // right face
+        sum2+=S.value(j,0.0,1.0)*x.at(idim).at(Vertex(i,j)); // top face
+        sum3+=S.value(j,-1.0,0.0)*x.at(idim).at(Vertex(i,j)); // left face
       }
+      xymid[idim][0]=sum0;
+      xymid[idim][1]=sum1;
+      xymid[idim][2]=sum2;
+      xymid[idim][3]=sum3;
     }
 
 // distances between the mid-points
+
+    double dx02(xymid[0][0]-xymid[0][2]);
+    double dy02(xymid[1][0]-xymid[1][2]);
+
+    double dx13(xymid[0][1]-xymid[0][3]);
+    double dy13(xymid[1][1]-xymid[1][3]);
+
+    double l02(sqrt(dx02*dx02+dy02*dy02));
+    double l12(sqrt(dx13*dx13+dy13*dy13));
+
+// old way
 
     for(int iside=0;iside<3;iside++){
       for(int jside=iside+1;jside<4;jside++){
@@ -814,7 +829,8 @@ void Mesh::UpdateLength(VD &l,int const &p,VVD const &x) const{
 
 // compute minimum distance between the mid-points
 
-    l.at(i)=*min_element(xydist.begin(),xydist.end());
+//    l.at(i)=*min_element(xydist.begin(),xydist.end());
+    l.at(i)=min(l02,l12);
 
   }
 
