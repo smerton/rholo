@@ -770,7 +770,7 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const{
 
 // update element length scale
 
-void Mesh::UpdateLength(VD &l,int const &p,VVD const &x) const{
+void Mesh::UpdateLength(VD &l,int const &p,VVD const &x, VD const &V) const{
 
 // shape of polyhedral order p
 
@@ -817,6 +817,8 @@ void Mesh::UpdateLength(VD &l,int const &p,VVD const &x) const{
     double l02(sqrt(dx02*dx02+dy02*dy02));
     double l12(sqrt(dx13*dx13+dy13*dy13));
 
+    l.at(i)=min(l02,l12);
+
 // old way
 
     for(int iside=0;iside<3;iside++){
@@ -829,8 +831,11 @@ void Mesh::UpdateLength(VD &l,int const &p,VVD const &x) const{
 
 // compute minimum distance between the mid-points
 
-//    l.at(i)=*min_element(xydist.begin(),xydist.end());
-    l.at(i)=min(l02,l12);
+    l.at(i)=*min_element(xydist.begin(),xydist.end());
+
+// new way - avoids striations ??
+
+    l.at(i)=sqrt(V.at(i));
 
   }
 

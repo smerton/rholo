@@ -109,7 +109,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-12x12.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -197,8 +197,6 @@ int main(){
   M.InitCoords(x0,EXCLUDE_GHOSTS); // set initial coordinates
   M.InitCoords(x1,EXCLUDE_GHOSTS); // set initial coordinates
 
-  M.UpdateLength(l,S.order(),x1);  // initialise element length scale
-
   for(int i=0;i<mat.size();i++){mat.at(i)=M.Material(i);}
   for(int i=0;i<V0.size();i++){V0.at(i)=M.Volume(i);}
   for(int i=0;i<V1.size();i++){V1.at(i)=M.Volume(i);}
@@ -211,6 +209,8 @@ int main(){
   for(int i=0;i<q.size();i++){q.at(i)=0.0;}
   for(int i=0;i<c.size();i++){c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d0[i]);}
   for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}
+
+  M.UpdateLength(l,S.order(),x1,V1);  // initialise element length scale
 
 // allocate a determinant for each derivative
 
@@ -335,7 +335,7 @@ int main(){
 
 // calculate a new stable time-step
 
-    for(int i=0;i<n;i++){dt_cfl.at(i)=(COURANT*l[i]/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
+    for(int i=0;i<n;i++){dt_cfl.at(i)=(step==0)?DTSTART:(COURANT*l[i]/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
 
 // reduce across element and apply a saftey factor
 
@@ -388,13 +388,13 @@ int main(){
 
     M.UpdateCoords(x1,u0,dt);
 
-// update element length scale
-
-    M.UpdateLength(l,S.order(),x1);
-
 // update volume field at the full-step
 
     M.UpdateVolume(V1,x1,S.order());
+
+// update element length scale
+
+    M.UpdateLength(l,S.order(),x1,V1);
 
 // update density field at the full-step
 
@@ -415,7 +415,6 @@ int main(){
 // bulk q
 
     for(int i=0;i<q.size();i++){
-//      l.at(i)=sqrt(V1.at(i));
       double divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
       if(divu<0.0){
         q.at(i)=d1[i]*l[i]*divu*((cq*l[i]*divu)-cl*c[i]);
