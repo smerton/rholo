@@ -1,7 +1,7 @@
-// Finite element variant of RhoLo (Really High Order Lagrangian Operator - RhoLo)
+// Variant of RhoLo (Really High Order Lagrangian Operator - RhoLo)
 // RhoLo is an ultra simple finite element (DG) hydrodynamics test code
-// This finite element variant solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
-// using a mixed continuous finite element method (cell-centred thermodynamic variables p,rho,e with node 
+// This variant solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
+// using a high-order finite element method (node-centred thermodynamic variables p,rho,e and node 
 // centred kinematic variables x,u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
 // implementation is only first order in time
 //
@@ -27,7 +27,7 @@
 //
 
 #define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.601     // insert a macro for the end time
+#define ENDTIME 0.201     // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -109,8 +109,19 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
-  Shape S(1);                                                    // load a p1 shape function
+  Mesh M("mesh/sod-10x1.mesh");                                  // load a new mesh from file
+  Shape S(2);                                                    // load a shape function for the kinematics
+  Shape T(1);                                                    // load a shape function for the thermodynamics
+
+
+
+// got to here with high-order implementation
+  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
+  exit(1);
+// got to here with high-order implementation
+
+
+
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
@@ -138,9 +149,9 @@ int main(){
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-//  test_problem=SOD;                                                    // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+  test_problem=SOD;                                                    // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
+                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for double shock problem 
@@ -162,8 +173,8 @@ int main(){
 //  test_problem=TAYLOR;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-  test_problem=NOH;                                                      // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
+//  test_problem=NOH;                                                      // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
 
 //  test_problem=SEDOV;                                                  // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
@@ -183,10 +194,10 @@ int main(){
 //  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
@@ -313,10 +324,6 @@ int main(){
     }
   }
 
-// impose boundary constraints via row elimination
-
-  bc_insert(KMASS,M,S,d0,detJ,u0,u1,b0,b1);
-
 // invert the mass matrix
 
   cout<<"Inverting the mass matrix..."<<endl;
@@ -423,69 +430,6 @@ int main(){
       }
     }
 
-//  for(int i=0;i<n;i++){
-//
-//    double l(sqrt(V1[i])),divu(0.0);                // length of element and divergence field
-//    double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0); // derivatives of the jacobian
-//    vector<vector<double> > detJS(ndims,vector<double>(S.nloc()));  // jacobian for each component of the divergence term
-//    c.at(i)=sqrt(GAMMA*p[i]/d1[i]);                 // sound speed
-
-// compute a jacobian and determinant for the element
-
-//    for(int j=0;j<S.nloc();j++){
-//      dxdu+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dx/du
-//      dydu+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,0.0,0.0); // dy/du
-//      dxdv+=x1.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dx/dv
-//      dydv+=x1.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,0.0,0.0); // dy/dv
-//    }
-
-//              a1   b3    b1   a3
-//    double detj(dxdu*dydv-dydu*dxdv),area(4.0*detj);
-
-//    double ui1(u1.at(0)[M.Vertex(i,0)]);
-//    double ui2(u1.at(0)[M.Vertex(i,1)]);
-//    double ui3(u1.at(0)[M.Vertex(i,2)]);
-//    double ui4(u1.at(0)[M.Vertex(i,3)]);
-
-//    double vi1(u1.at(1)[M.Vertex(i,0)]);
-//    double vi2(u1.at(1)[M.Vertex(i,1)]);
-//    double vi3(u1.at(1)[M.Vertex(i,2)]);
-//    double vi4(u1.at(1)[M.Vertex(i,3)]);
-
-//    double a1(dxdu);
-//    double b3(dydv);
-//    double b1(dydu);
-//    double a3(dxdv);
-
-// determinants for the deriavtives in the divergence term
-
-//    for(int j=0;j<S.nloc();j++){
-//      detJS.at(0).at(j)=(dydv*S.dvalue(0,j,0.0,0.0)-dydu*S.dvalue(1,j,0.0,0.0))/detj;
-//      detJS.at(1).at(j)=(-dxdv*S.dvalue(0,j,0.0,0.0)+dxdu*S.dvalue(1,j,0.0,0.0))/detj;
-//   }
-
-// calculate element divergence field 
-
-////    divu=(ui1*(b1-b3)+ui2*(b1+b3)+ui3*(-b1+b3)+ui4*(-b1-b3))/area;
-////    divu+=(vi1*(-a1+a3)+vi2*(-a1-a3)+vi3*(a1-a3)+vi4*(a1+a3))/area;
-
-//    for(int idim=0;idim<ndims;idim++){
-//      for(int j=0;j<S.nloc();j++){
-//        divu+=u1.at(idim)[M.Vertex(i,j)]*detJS[idim][j];
-//      }
-//    }
-
-// artificial viscosity term
-
-//    if(divu<0.0){
-//      q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
-////      q.at(i)=d1[i]*((cq*divu*divu*area) - cl*sqrt(detj*c[i]))*divu;
-//    }else{
-//      q.at(i)=0.0; // turn off q as cell divergence indicates expansion
-//    }
-
-//  }
-
 // assemble acceleration field
 
   vector<double> b=vector<double> (M.NDims()*nnodes);for(int i=0;i<M.NDims()*nnodes;i++){b.at(i)=-b1[i];}
@@ -499,10 +443,6 @@ int main(){
       }
     }
   }
-
-// insert boundary conditions
-
-  bc_insert(M,S,b,b0,p,q,detDJ,detJ);
 
 // solve global system
 
@@ -536,11 +476,11 @@ int main(){
     M.UpdateSoundSpeed(c,gamma,mat,p,d1);
 
 // debug
-//  if(step==1){
-//    cout<<"debug stop."<<endl;
+  if(step==1){
+    cout<<"debug stop."<<endl;
 //    output(); // might want this ??
-//    exit(1);
-//  }
+    exit(1);
+  }
 // debug
 
   }
@@ -1125,341 +1065,6 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
   }
 // debug
 
-  return;
-
-}
-
-// insert boundary conditions into the mass matrix
-
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,VVD &u0,VVD &u1,VD &b0,VD &b1){
-
-// loop over boundary elements and choose what type of boundary needs to be applied
-
-  cout<<"There are "<<M.NSides()<<" elements on the mesh boundary:"<<endl;
-
-  int nnodes(M.NNodes()); // needed for expansion of the NROWS macro
-
-// initialise boundary vectors
-
-  for(int i=0;i<M.NDims()*M.NNodes();i++){
-    b0.at(i)=0.0; // value on the boundary
-    b1.at(i)=0.0; // eliminated row
-  }
-
-// impose boundary constraints via row elimination of the global mass matrix
-
-  for(int ib=0;ib<M.NSides();ib++){
-
-    string bcname;
-
-    int j(M.SideAttr(ib)); // element side coincident with mesh boundary
-    int idim=(j==0||j==2)?1:0; // direction perpendicular to mesh boundary
-
-    switch(M.bc_edge(M.SideAttr(ib))){
-      case(VACUUM):
-
-// do nothing so mesh expands into the void
-
-        bcname="vacuum";
-
-        break;
-
-      case(REFLECTIVE):
-
-// set v.n=0 on domain boundary and impose a constraint on the acceleration field
-
-        bcname="reflective";
-
-// set v.n=0 on domain boundary
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-          int k(M.SideNode(ib,iloc));
-          u0.at(idim).at(k)=0.0;
-          u1.at(idim).at(k)=0.0;
-        }
-
-// reflect the mass matrix
-
-        for(int jdim=0;jdim<M.NDims();jdim++){
-          for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-            for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
-              double nn(0.0); // mass matrix
-              for(int gi=0;gi<S.ngi();gi++){
-                nn+=d[M.E2E(M.NCells()+ib,0)]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
-              }
-              A.add(jdim*NROWS+M.SideNode(ib,iloc),jdim*NROWS+M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
-            }
-          }
-        }
-
-// eliminate k'th solution as we are imposing a condition on it
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-
-// boundary node and boundary value
-
-          int k(M.SideNode(ib,iloc));
-          double rhs(0.0),bval(1.0e-200); // no net force acting on boundary node
-
-// collect known information
-
-          for(int i=0;i<M.NNodes();i++){rhs+=A.read(i,idim*NROWS+k)*bval;}
-
-// store boundary value
-
-          b0.at(idim*NROWS+k)=bval;
-
-// move known information onto rhs
-
-          b1.at(idim*NROWS+k)=rhs;
-
-        }
-
-// modify mass matrix and restore symmetry
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-          int k(M.SideNode(ib,iloc));
-          for(int i=0;i<M.NDims()*M.NNodes();i++){
-            if(i!=k){
-              A.write(i,idim*NROWS+k,0.0);
-              A.write(idim*NROWS+k,i,0.0);
-            }
-          }
-          A.write(idim*NROWS+k,idim*NROWS+k,1.0);
-        }
-
-        break;
-
-      case(VELOCITY):
-
-// set v.n=<value> on domain boundary and impose a constraint on the acceleration field
-
-        bcname="velocity";
-
-// set v.n=<value> on domain boundary
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-          int k(M.SideNode(ib,iloc));
-          u0.at(idim).at(k)=M.bc_value(M.SideAttr(ib));
-          u1.at(idim).at(k)=M.bc_value(M.SideAttr(ib));
-        }
-
-// eliminate k'th solution as we are imposing a condition on it
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-
-// boundary node and boundary value
-
-          int k(M.SideNode(ib,iloc));
-          double rhs(0.0),bval(1.0e-200); // no net force acting on boundary node
-
-// collect known information
-
-          for(int i=0;i<M.NNodes();i++){rhs+=A.read(i,idim*NROWS+k)*bval;}
-
-// store boundary value
-
-          b0.at(idim*NROWS+k)=bval;
-
-// move known information onto rhs
-
-          b1.at(idim*NROWS+k)=rhs;
-
-        }
-
-// modify mass matrix and restore symmetry
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-          int k(M.SideNode(ib,iloc));
-          for(int i=0;i<M.NDims()*M.NNodes();i++){
-            if(i!=k){
-              A.write(i,idim*NROWS+k,0.0);
-              A.write(idim*NROWS+k,i,0.0);
-            }
-          }
-          A.write(idim*NROWS+k,idim*NROWS+k,1.0);
-        }
-
-        break;
-
-      case(FLUID):
-
-// add in additional boundary fluid masses to give zero pressure gradient across the edges of the domain
-
-        bcname="fluid";
-
-        for(int jdim=0;jdim<M.NDims();jdim++){
-          for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-            for(int jloc=0;jloc<M.NSideNodes(ib);jloc++){
-              double nn(0.0); // mass matrix
-              for(int gi=0;gi<S.ngi();gi++){
-                nn+=d[M.E2E(M.NCells()+ib,0)]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);
-              }
-              A.add(jdim*NROWS+M.SideNode(ib,iloc),jdim*NROWS+M.SideNode(ib,jloc),nn); // add boundary mass to the mass matrix
-            }
-          }
-        }
-
-        break;
-
-      case(ACCELERATION):
-
-// impose a.n=<value> on domain boundary via row elimination of the mass matrix
-
-        bcname="acceleration";
-
-// eliminate k'th solution as we are imposing a condition on it
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-
-// boundary node and boundary value
-
-          int k(M.SideNode(ib,iloc));
-          double rhs(0.0),bval(M.bc_value(M.SideAttr(ib))); // net force acting on boundary node = m*(<value>).n
-
-// collect known information
-
-          for(int i=0;i<M.NNodes();i++){rhs+=A.read(i,idim*NROWS+k)*bval;}
-
-// store boundary value
-
-          b0.at(idim*NROWS+k)=bval;
-
-// move known information onto rhs
-
-          b1.at(idim*NROWS+k)=rhs;
-
-        }
-
-// modify mass matrix and restore symmetry
-
-        for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-          int k(M.SideNode(ib,iloc));
-          for(int i=0;i<M.NDims()*M.NNodes();i++){
-            if(i!=k){
-              A.write(i,idim*NROWS+k,0.0);
-              A.write(idim*NROWS+k,i,0.0);
-            }
-          }
-          A.write(idim*NROWS+k,idim*NROWS+k,1.0);
-        }
-
-        break;
-
-      default:
-
-        bcname="undefined";
-
-        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded, stopping."<<endl;
-
-        exit(1);
-
-    }
-
-    cout<<"Edge "<<ib<<" boundary type : "<<bcname<<endl;
-  }
-
-  return;
-
-}
-
-// insert boundary conditions on acceleration field
-
-void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,VVVD const &detDJ,VD const &detJ){
-
-  int nnodes(M.NNodes()); // needed for expansion of the NROWS macro
-
-// loop over boundary elements and choose what type of boundary needs to be applied
-
-  for(int ib=0;ib<M.NSides();ib++){
-
-    string bcname;
-
-    int j(M.SideAttr(ib)); // element side coincident with mesh boundary
-    int idim=(j==0||j==2)?1:0; // perpendicular direction
-
-// modify source vector accordingly
-
-    switch(M.bc_edge(M.SideAttr(ib))){
-
-      case(VACUUM):
-
-// do nothing so mesh expands into the void
-
-        bcname="vacuum";
-
-        break;
-
-      case(REFLECTIVE):
-
-// reflective boundary so a.n=0.0
-
-        bcname="reflective";
-
-        for(int i=0;i<M.NNodes();i++){if(b0[idim*NROWS+i]!=0.0){b.at(idim*NROWS+i)=-b0[idim*NROWS+i];}}
-
-        break;
-
-      case(VELOCITY):
-
-// velocity has been imposed so prevent any perpendicular acceleration to retain the value
-
-        bcname="velocity";
-
-        for(int i=0;i<M.NNodes();i++){if(b0[idim*NROWS+i]!=0.0){b.at(idim*NROWS+i)=b0[idim*NROWS+i];}}
-
-        break;
-
-      case(ACCELERATION):
-
-// acceleration has been imposed so enforce the value
-
-        bcname="acceleration";
-
-        for(int i=0;i<M.NNodes();i++){if(b0[idim*NROWS+i]!=0.0){b.at(idim*NROWS+i)=b0[idim*NROWS+i];}}
-
-        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded, stopping."<<endl;
-
-        exit(1);
-
-        break;
-
-      case(FLUID):
-
-// add extra fluid mass on this boundary
-
-        bcname="fluid";
-
-        cout<<"ERROR: Attempting to use detDJ when it is out of date - stopping."<<endl;
-        exit(1);
-
-        for(int jdim=0;jdim<M.NDims();jdim++){
-          for(int iloc=0;iloc<M.NSideNodes(ib);iloc++){
-            double nn(0.0);
-            for(int gi=0;gi<S.ngi();gi++){
-              nn+=detDJ[jdim][iloc][gi]*detJ[gi]*S.wgt(gi);
-            }
-//if(jdim==0){cout<<"Adding extra mass to side node "<<M.SideNode(ib,iloc)<<" : ele "<<M.E2E(M.NCells()+ib,0)<<" is copied across segment "<<ib<<endl;}
-            b.at(jdim*NROWS+M.SideNode(ib,iloc))+=(p[M.E2E(M.NCells()+ib,0)]+q[M.E2E(M.NCells()+ib,0)])*nn;
-          }
-        }
-
-        break;
-
-      default:
-
-        bcname="undefined";
-
-        cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded, stopping."<<endl;
-
-        exit(1);
-    }
-
-  }
-
-// debug
-//  exit(1);
-// debug
   return;
 
 }
