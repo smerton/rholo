@@ -24,6 +24,10 @@ Shape::Shape(int n){
 
   morder=n;
 
+// set the type of shape, assume CONITNUOUS
+
+  mtype=CONTINUOUS;
+
 // set the number of dimensions
 
   mndims=2; // shouldn't we be getting this from the mesh class ?
@@ -69,6 +73,104 @@ Shape::Shape(int n){
 // load a quadrature rule for the numerical integration of the polynomials Px
 
   QuadratureRule Q(this->order()+1);
+
+// shape and derivative value at each integration point
+
+  for(int i=0;i<nloc();i++){
+    vector<double> values;
+    vector<vector<double> > dvalues(mndims);
+    for(int jpt=0;jpt<Q.npoints;jpt++){
+      for(int ipt=0;ipt<Q.npoints;ipt++){
+        values.push_back(value(i,Q.x[ipt],Q.x[jpt]));
+        for(int idim=0;idim<mndims;idim++){
+          dvalues.at(idim).push_back(dvalue(idim,i,Q.x[ipt],Q.x[jpt]));
+        }
+      }
+    }
+    mvalue.push_back(values);
+
+    for(int idim=0;idim<ndims();idim++){
+      mdvalue[idim].push_back(dvalues.at(idim));
+    }
+
+  }
+
+// quadrature weights
+
+  for(int ipt=0,gi=0;ipt<Q.npoints;ipt++){
+    for(int jpt=0;jpt<Q.npoints;jpt++,gi++){
+      mwgt.push_back(Q.w[ipt]*Q.w[jpt]);
+    }
+  }
+
+}
+
+// constructor to instantiate a new shape object of type t using ngi integration point and to set all its attributes in local coordinates
+
+Shape::Shape(int n,int ngi,int t){
+
+// set the polyhedral order
+
+  morder=n;
+
+// set the type of shape, assume CONITNUOUS
+
+  mtype=t;
+
+// set the number of dimensions
+
+  mndims=2; // shouldn't we be getting this from the mesh class ?
+
+// set number of local nodes
+
+  mnloc=(this->order()+1)*(this->order()+1);
+
+// set number of surface nodes on a face
+
+  msloc=this->order()+1;
+
+// set number of integration points adequate for the shape
+
+  int ngi_min((this->order()+1)); // min number needed
+
+  if(ngi<ngi_min){
+    cout<<"Shape::Shape(): "<<ngi_min<<" quadrature points needed, "<<ngi<<" requested."<<endl;
+    exit(1);
+  }
+
+// ngi is the number of points on-axis so we square it to obtain correct number for a 2D element
+
+  mngi=ngi*ngi;
+
+// set number of faces
+
+  mnfaces=4;
+
+// set up reflection across each face
+
+  vector<int> reflections[this->nfaces()];
+
+  reflections[0].push_back(2);
+  reflections[1].push_back(1);
+  reflections[2].push_back(2);
+  reflections[3].push_back(3);
+
+  for(int iface=0;iface<this->nfaces();iface++){
+    mreflect.push_back(reflections[iface]);
+  }
+
+// node positions
+
+  for(int j=0,k=0;j<sloc();j++){
+    for(int i=0;i<sloc();i++,k++){
+      mpos[0].push_back(i);
+      mpos[1].push_back(j);
+    }
+  }
+
+// load a quadrature rule for the numerical integration of the polynomials Px
+
+  QuadratureRule Q(ngi);
 
 // shape and derivative value at each integration point
 
@@ -226,23 +328,59 @@ Shape::Shape(int n,vector<vector<double> > x){
 
 Shape::~Shape(){}
 
-/// member function to prolongate the vector u[] to a new vector v[] in the destination element
+// member function to prolongate the vector u[] of nodal values to a new vector v[] in a destination element of order p
+// this will map nodal data in vector u from the "this->" element to a new element of order p
 
-void Shape::prolongate(double*u,double*v,int p){
+void Shape::prolongate(double*u,double*v,int p) const {
 
-// create the destination element
+// create the destination element of polyhedral order p
 
-  Shape M(p);double P[this->nloc()][M.nloc()]={};
+  Shape M(p,sqrt(this->ngi()),CONTINUOUS);
 
-// form a matrix to map u to M
+// form a prolongation operator to map u[] onto destination stencil M
 
-  for(int i=0;i<M.nloc();i++){
-    v[i]=0.0;
-    for(int j=0;j<this->nloc();j++){
+  Matrix P(M.nloc(),this->nloc());
+
+  for(int iloc=0;iloc<M.nloc();iloc++){
+    for(int jloc=0;jloc<this->nloc();jloc++){
+      double pij(0.0);
       for(int gi=0;gi<M.ngi();gi++){
-        P[i][j]+=M.value(i,gi)*this->value(j,gi)*M.wgt(gi);
+        pij+=M.value(iloc,gi)*this->value(jloc,gi)*M.wgt(gi);
       }
-      v[i]+=P[i][j]*u[j];
+      P.write(iloc,jloc,pij);
+    }
+  }
+
+// form a mass matrix and its inverse on destination stencil M
+
+  Matrix MMASS(M.nloc()),MMASSI(M.nloc());
+
+  for(int iloc=0;iloc<M.nloc();iloc++){
+    for(int jloc=0;jloc<M.nloc();jloc++){
+      double nmass(0.0);
+      for(int gi=0;gi<M.ngi();gi++){
+        nmass+=M.value(iloc,gi)*M.value(jloc,gi)*M.wgt(gi);
+      }
+      MMASS.write(iloc,jloc,nmass);
+    }
+  }
+
+// invert the stencil M mass matrix
+
+  MMASSI.inverse2(&MMASS);
+
+// normalise prolongation operator to respect Galerkin orthogonality
+
+  Matrix PNORM(M.nloc(),this->nloc());
+
+  PNORM.product(&MMASSI,&P);
+
+// prolongate the source vector u[] of length this>nloc() to destination vector v[] which will be of length M.nloc()
+
+  for(int iloc=0;iloc<M.nloc();iloc++){
+    v[iloc]=0.0;
+    for(int jloc=0;jloc<this->nloc();jloc++){
+      v[iloc]+=PNORM.read(iloc,jloc)*u[jloc];
     }
   }
 
@@ -253,6 +391,7 @@ void Shape::prolongate(double*u,double*v,int p){
 // accessor functions to member data
 
 int Shape::order() const {return morder;} // returns the polyhedral order
+int Shape::type() const {return mtype;} // returns the shape type as either CONTINUOUS or DISCONTINUOUS
 int Shape::ndims() const {return mndims;} // returns the number of dimensions
 int Shape::nloc() const {return mnloc;} // returns number of local nodes
 int Shape::sloc() const {return msloc;} // returns number of nodes on the surface

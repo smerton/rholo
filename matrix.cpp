@@ -40,7 +40,7 @@ using namespace std;
 
 void Matrix::inverse2(Matrix *A){
 
-// emit the inverse via lapack
+// emit the inverse via lapack driver routines dgetrf() & dgetri()
 
   int N(A->NRows());
   int *IPIV=new int[N];
@@ -80,13 +80,48 @@ void Matrix::inverse2(Matrix *A){
 
 }
 
-// constructor for a new matrix object
+// constructor for a new square matrix object
+// A[n][n] this constructor would be suitable
+// for a type of matrix whose inverse may be
+// required
 
 Matrix::Matrix(int n){
 
 // set the number of rows and columns
 
-  mN=n;
+  mNCols=n;
+  mNRows=n;
+
+  mMat=new double*[NRows()];
+  for(long i=0;i<NRows();i++){
+    mMat[i]=new double[NCols()];
+  }
+
+// initialise elements of the matrix
+
+  for(int i=0;i<this->NRows();i++){
+    for(int j=0;j<this->NCols();j++){
+      this->write(i,j,0.0);
+    }
+  }
+
+// mark object as active
+
+  active=1;
+
+}
+
+// constructor for a new non-square matrix object
+// A[nrows][ncols] this constructor would be
+// suitable for a type of matrix whose inverse
+// is not required and needs to be more general
+
+Matrix::Matrix(int nrows,int ncols){
+
+// set the number of rows and columns
+
+  mNRows=nrows;
+  mNCols=ncols;
 
   mMat=new double*[NRows()];
   for(long i=0;i<NRows();i++){
@@ -109,11 +144,11 @@ Matrix::Matrix(int n){
 
 // Member function to return the number of rows
 
-int Matrix::NRows(){return mN;}
+int Matrix::NRows(){return mNRows;}
 
 // Member function to return the number of columns
 
-int Matrix::NCols(){return mN;}
+int Matrix::NCols(){return mNCols;}
 
 // Member function to return the transpose
 
@@ -235,10 +270,10 @@ void Matrix::inverse(Matrix *A){
 
 void Matrix::product(Matrix *A,Matrix *B){
 
-  for(int i=0;i<NRows();i++){
-    for(int j=0;j<NRows();j++){
+  for(int i=0;i<A->NRows();i++){
+    for(int j=0;j<B->NCols();j++){
       mMat[i][j]=0.0;
-      for(int k=0;k<NRows();k++){
+      for(int k=0;k<A->NCols();k++){
         mMat[i][j]+=A->read(i,k)*B->read(k,j);
       }
     }
@@ -292,14 +327,13 @@ void Matrix::add(int i,int j,double dat){mMat[i][j]+=dat;}
 
 Matrix::~Matrix(){
 
-
 // mark object as inactive
 
   active=0;
 
 // release storage
 
-  for(long i=0;i<NRows();i++){
+  for(long i=0;i<this->NRows();i++){
     delete[] mMat[i];
     mMat[i]=NULL;
   }

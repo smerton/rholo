@@ -9,6 +9,7 @@
 #include "mesh.h"
 #include "shape.h"
 #include "eos.h"     // eos lookups
+#include "matrix.h"
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -656,9 +657,87 @@ constexpr unsigned int str2int(const char* str, int h = 0){return !str[h] ? 5381
 
 int Mesh::NDims() const {return mNDims;}
 
-// member function to return the number of nodes
+// member function to return the number of nodes in the generator mesh
 
-int Mesh::NNodes() const {return mNNodes;}
+long Mesh::NNodes() const {return mNNodes;}
+
+// member function to insert order p shape of type t=CONTINUOUS or t=DISCONTINUOUS into the mesh and return the number of nodes
+
+long Mesh::NNodes(int p,int t) {
+
+// number of nodes to be determined - this depends on whether the FEM is continuous or discontinuous
+
+  long nnodes(0);
+
+  if(t==DISCONTINUOUS){
+
+// number of nodes in a discontinuous finite element method
+
+    mNNodes_DFEM=NCells()*(p+1)*(p+1);
+    int nloc((p+1)*(p+1));
+
+// set up global node numbers for a discontinuous finite element method
+
+    for(int i=0;i<NCells();i++){
+      vector<long> global_nodes;
+      for(int iloc=0;iloc<nloc;iloc++){
+        global_nodes.push_back(i*nloc+iloc);
+      }
+      mGlobalNode_DFEM.push_back(global_nodes);
+    }
+
+// set return value
+
+    nnodes=mNNodes_DFEM;
+
+  }else{
+
+// first we need the number of cells in each direction
+
+    int ncellsx(0),ncellsy(0);
+    for(int i=0;i<NSides();i++){
+      if(SideAttr(i)==0){ncellsx+=1.0;}
+      if(SideAttr(i)==1){ncellsy+=1.0;}
+    }
+
+// number of nodes in a continuous finite element method
+
+    mNNodes_CFEM=(ncellsx*p+1)*(ncellsy*p+1);
+    int nloc((p+1)*(p+1));
+
+// set up global node numbers for a continuous finite element method
+
+    long k(0.0);
+    for(int j=0;j<ncellsy;j++){
+      for(int i=0;i<ncellsx;i++){
+        vector<long> global_nodes;
+        for(int jloc=0;jloc<p+1;jloc++){
+          for(int iloc=0;iloc<p+1;iloc++){
+            long k(j*p*(p*ncellsx+1)+jloc*(p*ncellsx+1)+(p*i+iloc));
+            global_nodes.push_back(k);
+          }
+        }
+        mGlobalNode_CFEM.push_back(global_nodes);
+      }
+    }
+
+// set return value
+
+    nnodes=mNNodes_CFEM;
+
+  }
+
+  return nnodes;
+
+}
+
+// member function to return the number of global nodes on the continuous finite element mesh
+
+long Mesh::NNodes_CFEM() const {return mNNodes_CFEM;}
+
+// member function to return the number of global nodes on the discontinuous finite element mesh
+
+long Mesh::NNodes_DFEM() const {return mNNodes_DFEM;}
 
 // member function to return the number of ghost nodes
 
@@ -692,6 +771,14 @@ int Mesh::NVertices(int i) const {return mVertex.at(i).size();}
 
 int Mesh::Vertex(int i, int j) const {return mVertex[i][j];}
 
+// member function to return the global node number of local node j in cell i in a continuous finite element method
+
+long Mesh::GlobalNode_CFEM(int i, int j) const {return mGlobalNode_CFEM[i][j];}
+
+// member function to return the global node number of local node j in cell i in a discontinuous finite element method
+
+long Mesh::GlobalNode_DFEM(int i, int j) const {return mGlobalNode_DFEM[i][j];}
+
 // member function to return the number of element sides coincident with a mesh edge
 
 int Mesh::NSides() const {return mNSides;}
@@ -718,29 +805,64 @@ double Mesh::Coord(int idim, int i) const {return mCoord[idim][i];}
 
 // member function to initialise vector x to the mesh coordinates
 
-void Mesh::InitCoords(vector<vector<double> > &v,int const flag){
+void Mesh::InitCoords(vector<vector<double> > &v,int const p,int const t){
+
+// here we are taking the coordinates from the generator which only knows the
+// cell corners (effectively a 4 node p1 element) and using a finite element
+// method to construct the coordinates of all the nodes in the target element
+// which is order p and has (p+1)*(p+1) nodes.
+
+// First step is to declare a shape function M for the order p target element
+// Second step is to construct a p1 4 node element with shape N that has the
+// same number of integration points as shape M
+
+// Then the 4 coordinates from the generator are expanded onto the nodes of the
+// target element using the prolongation operator in the shape class
 
 // first resize the first stride
 
   v.resize(NDims());
 
-// replace each dimension with the vector of coordinates
+// set the number of nodes
 
-  switch(flag){
+  for(int idim=0;idim<NDims();idim++){
+    v.at(idim).resize((t==DISCONTINUOUS)?NNodes_DFEM():NNodes_CFEM());
+  }
 
-    case(EXCLUDE_GHOSTS):
+// declare an order p shape M whose nodes we need to populate with coordinates
 
-      for(int i=0;i<NDims();i++){for(long j=0;j<NNodes();j++){v.at(i).push_back(Coord(i,j));}}
+  Shape M(p); // for M the type doesn't really matter here and the default number of integration points is OK
 
-    break;
+// declare p1 element to source the generator coordinates
 
-    case(INCLUDE_GHOSTS):
+  Shape N(1,sqrt(M.ngi()),CONTINUOUS); // N must have the same number of integration points as M, so declare with M.ngi()
 
-// set initial coordinates including the ghost nodes
+// expand the coordinates of stencil N on to stencil M 
 
-      for(int i=0;i<NDims();i++){v.at(i)=mCoord.at(i);}
+  for(int idim=0;idim<NDims();idim++){
 
-    break;
+    for(int i=0;i<NCells();i++){
+
+      double xn[N.nloc()]; // cell corner coordinates
+      double xm[M.nloc()]; // element node coordinates
+
+// load generator coordinates from the mesh class on to the 4 node stencil N
+
+      for(int iloc=0;iloc<N.nloc();iloc++){xn[iloc]=Coord(idim,Vertex(i,iloc));}
+
+// apply prolongation operator to populate xm
+
+      N.prolongate(xn,xm,M.order());
+
+// commit new coordinates to return address space, each coordinate address is unique if discontinuous so we can append
+
+      if(t==CONTINUOUS){
+        for(int iloc=0;iloc<M.nloc();iloc++){v.at(idim).at(GlobalNode_CFEM(i,iloc))=xm[iloc];}
+      }else{
+        for(int iloc=0;iloc<M.nloc();iloc++){v.at(idim).at(GlobalNode_DFEM(i,iloc))=xm[iloc];}
+      }
+
+    }
 
   }
 
@@ -795,10 +917,10 @@ void Mesh::UpdateLength(VD &l,int const &p,VVD const &x, VD const &V) const{
     for(int idim=0;idim<NDims();idim++){
       double sum0(0.0),sum1(0.0),sum2(0.0),sum3(0.0);
       for(int j=0;j<S.nloc();j++){
-        sum0+=S.value(j,0.0,-1.0)*x.at(idim).at(Vertex(i,j)); // bottom face
-        sum1+=S.value(j,1.0,0.0)*x.at(idim).at(Vertex(i,j)); // right face
-        sum2+=S.value(j,0.0,1.0)*x.at(idim).at(Vertex(i,j)); // top face
-        sum3+=S.value(j,-1.0,0.0)*x.at(idim).at(Vertex(i,j)); // left face
+        sum0+=S.value(j,0.0,-1.0)*x.at(idim).at(GlobalNode_CFEM(i,j)); // bottom face
+        sum1+=S.value(j,1.0,0.0)*x.at(idim).at(GlobalNode_CFEM(i,j)); // right face
+        sum2+=S.value(j,0.0,1.0)*x.at(idim).at(GlobalNode_CFEM(i,j)); // top face
+        sum3+=S.value(j,-1.0,0.0)*x.at(idim).at(GlobalNode_CFEM(i,j)); // left face
       }
       xymid[idim][0]=sum0;
       xymid[idim][1]=sum1;

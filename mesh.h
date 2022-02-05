@@ -20,7 +20,11 @@ class Mesh{
 // accessor functions to member data
 
   int NDims() const; // returns the number of mesh dimensions
-  int NNodes() const; // returns the number of nodes on the mesh
+
+  long NNodes() const; // returns the number of nodes on the mesh read in from the generator
+  long NNodes(int p,int t); // returns the number of nodes in a FEM mesh containing order p shapes of type t=CONTINUOUS or t=DISCONTINUOUS and sets up global node numbers
+  long NNodes_CFEM() const; // returns the number of global nodes on the continuous finite element mesh
+  long NNodes_DFEM() const; // returns the number of global nodes on the discontinuous finite element mesh
   int NGNodes() const; // returns the number of ghost nodes on the mesh edge 
   int NMaterials() const; // returns the number of materials on the mesh
   int NCells() const; // returns the number of cells on the mesh
@@ -35,7 +39,7 @@ class Mesh{
   int NSideNodes(int i) const; // returns the numnber of nodes on side i on edge of mesh
   int SideNode(int i,int j) const; // returns the node number of node j on side i on edge of mesh
   double Coord(int idim,int i) const; // returns coordinate idim of node i
-  void InitCoords(VVD &v,int const flag); // initialise the mesh coordinates and include ghosts with flag=INCLUDE_GHOSTS
+  void InitCoords(VVD &v,int const p,int const t); // initialise the mesh coordinates onto the order p stencil of type t
   double Volume(int i) const; // returns the volume of the element
   void bc_set(int iedge,int bc); // push new boundary condition bc on to mesh edge iedge
   void bc_set(int iedge,int bc,double bcvalue); // push new boundary condition bc and value bcvalue on to mesh edge iedge
@@ -52,21 +56,27 @@ class Mesh{
   void UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0,VD const &V1,VD const &m) const ; // update mesh energy field
   void UpdatePressure(VD &p,VD const &d,VD const &e,VD const &gamma,vector<int> const &mat); // load pressure field
   void UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p,VD const &d) const; // load new sound speeds
+  long GlobalNode_CFEM(int const i,int const j) const; // global node number of local node j in element i in a continuous finite element method
+  long GlobalNode_DFEM(int const i,int const j) const; // global node number of local node j in element i in a discontinuous finite element method
 
   private:
 
 // member data
 
   int mNDims; // number of mesh dimensions
-  int mNNodes; // number of nodes on the mesh
-  int mNGNodes; // number of ghost nodes on the mesh edge
+  long mNNodes; // number of nodes on the mesh read in from the generator
+  long mNNodes_CFEM; // number of nodes on the mesh in a continuous finite element method after polyhedral order has been set (may differ from generator)
+  long mNNodes_DFEM; // number of nodes on the mesh in a discontinuous finite element method after polyhedral order has been set (may differ from generator)
+  long mNGNodes; // number of ghost nodes on the mesh edge
   int mNMaterials; // number of materials on the mesh
   int mNCells; // number of cells on the mesh
   int mNGCells; // number of ghost cells on the mesh edge
   int mNSides; // number of cell sides coinciding with the mesh edge
   vector<int> mMaterial; // material in each cell
   vector<int> mType; // polyhedral type of each cell
-  vector<vector<int> > mVertex; // node number of each vertex in each cell
+  vector<vector<int> > mVertex; // vertex number in each cell on the generator mesh
+  vector<vector<long> > mGlobalNode_CFEM; // global node numbers in a continuous finite element method
+  vector<vector<long> > mGlobalNode_DFEM; // global node numbers in a discontinuous finite element method
   vector<int> mSideAttr; // cell side boundary attribute
   vector<int> mSideType; // cell side boundary type
   vector<vector<int> > mSideNode; // node numbers on each cell side coincident with the mesh edge

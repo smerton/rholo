@@ -40,8 +40,10 @@
 #define VI vector<int>    // vector of ints
 #define COURANT 0.333     // Courant number for CFL condition
 #define DTSFACTOR 0.5     // safety factor on time-step control
-#define NROWS nnodes      // number of rows in the global matrix
-#define NCOLS nnodes      // number of columns in the global matrix
+#define NROWS nknodes     // number of rows in the global matrix
+#define NCOLS nknodes     // number of columns in the global matrix
+#define NGI S.ngi()*n     // number of integration points on the mesh
+#define GPNT i*T.ngi()+gi // global address of integration point gi
 #define ROW M.Vertex(i,iloc)  // row address in global matrix
 #define COL M.Vertex(i,jloc)  // column address in global matrix
 
@@ -83,7 +85,7 @@ void vempty(vector<double>&v);                                                  
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
 void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ); // sum the global kinetic energy field
 void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M);                                                   // sum the global internal energy field
-void initial_data(int const n, int const nnodes, int const ndims, int const nmats,          // echo some initial information
+void initial_data(int const n, long const nknodes, int const ndims, int const nmats,          // echo some initial information
                   Mesh const &M);
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
               VD const &q, VVD const &x, VVD const &u, int const &test_problem);
@@ -110,32 +112,24 @@ int main(){
 // global data
 
   Mesh M("mesh/sod-10x1.mesh");                                  // load a new mesh from file
-  Shape S(2);                                                    // load a shape function for the kinematics
-  Shape T(1);                                                    // load a shape function for the thermodynamics
-
-
-
-// got to here with high-order implementation
-  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
-  exit(1);
-// got to here with high-order implementation
-
-
-
+  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
-  int const nnodes(M.NNodes());                                  // no. nodes in the mesh
+  long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
+  long const ntnodes(M.NNodes(T.order(),T.type()));              // insert shape functions in to the mesh
   int const nmats(M.NMaterials());                               // number of materials
   double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
-  vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
-  vector<double> e0(n),e1(n);                                    // cell-centred energy field
-  vector<double> c(n),p(n),q(n);                                 // element sound speed, pressure and bulk viscosity
+  vector<double> d0(NGI),d1(NGI),V0(n),V1(n),m(n);               // density, volume & mass
+  vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
+  vector<double> c(NGI),p(NGI),q(NGI);                           // sound speed, pressure and bulk viscosity at each integration point
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
-  vector<vector<double> > x0(ndims),x1(ndims);                   // node coordinates
+  vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
+  vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
   vector<double> detJ(S.ngi());                                  // determinant of jacobian at each integration point
   vector<vector<vector<double> > > detDJ(2*ndims);               // determinant of jacobian for each derivative
-  vector<double> dt_cfl(n);                                      // element time-step
+  vector<double> dt_cfl(NGI);                                    // time-step at each integration point
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
   vector<double> b0(2*NROWS),b1(2*NROWS);                        // vectors for boundary conditions (b0=value, b1=eliminated row)
@@ -190,10 +184,10 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
@@ -205,23 +199,54 @@ int main(){
 
 // initialise the problem
 
-  M.InitCoords(x0,EXCLUDE_GHOSTS); // set initial coordinates
-  M.InitCoords(x1,EXCLUDE_GHOSTS); // set initial coordinates
+  M.InitCoords(x0,S.order(),S.type());  // set initial coordinates for kinematic nodes
+  x1=x0;
 
-  for(int i=0;i<mat.size();i++){mat.at(i)=M.Material(i);}
-  for(int i=0;i<V0.size();i++){V0.at(i)=M.Volume(i);}
-  for(int i=0;i<V1.size();i++){V1.at(i)=M.Volume(i);}
-  for(int i=0;i<p.size();i++){int imat(mat[i]);p.at(i)=state[imat-1][3];}   // load pressure field from initial flux state
-  for(int i=0;i<d0.size();i++){int imat(mat[i]);d0.at(i)=state[imat-1][0];} // load density field from initial flux state
-  for(int i=0;i<d1.size();i++){int imat(mat[i]);d1.at(i)=state[imat-1][0];}
-  for(int i=0;i<m.size();i++){m.at(i)=d0[i]*V0[i];}                         // calculate the initial mass field
-  for(int i=0;i<e0.size();i++){e0.at(i)=E(d0[i],p[i],gamma[mat[i]-1]);}     // invert the eos to start the energy field
-  for(int i=0;i<e1.size();i++){e1.at(i)=E(d1[i],p[i],gamma[mat[i]-1]);}
+  M.InitCoords(xt0,T.order(),T.type()); // set initial coordinates for thermodynamic nodes
+  xt1=xt0;
+
+  for(int i=0;i<mat.size();i++){mat.at(i)=M.Material(i);}                                                                                               // load material numbers from the mesh class
+  for(int i=0;i<V0.size();i++){V0.at(i)=M.Volume(i);}                                                                                                   // set initial element volume for start of step
+  for(int i=0;i<V1.size();i++){V1.at(i)=M.Volume(i);}                                                                                                   // set initial element volume for end of step
+  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=state[imat-1][3];}}                                           // load pressure field from initial flux state
+  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){d0.at(GPNT)=state[imat-1][0];}}                                          // load density field from initial flux state
+  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){d1.at(GPNT)=state[imat-1][0];}}
+  for(int i=0;i<m.size();i++){int gi(0);m.at(i)=d0[GPNT]*V0[i];}                                                                                        // calculate the initial mass field
+  for(int i=0;i<mat.size();i++){int imat(mat[i]),gi(0);for(int j=0;j<T.nloc();j++){e0.at(M.GlobalNode_DFEM(i,j))=E(d0[GPNT],p[GPNT],gamma[mat[i]-1]);}} // invert the eos to start the energy field
+  for(int i=0;i<mat.size();i++){int imat(mat[i]),gi(0);for(int j=0;j<T.nloc();j++){e1.at(M.GlobalNode_DFEM(i,j))=E(d1[GPNT],p[GPNT],gamma[mat[i]-1]);}} // invert the eos to start the energy field
   for(int i=0;i<q.size();i++){q.at(i)=0.0;}
-  for(int i=0;i<c.size();i++){c.at(i)=sqrt(gamma[mat[i]-1]*p[i]/d0[i]);}
-  for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}
+  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(gamma[mat[i]-1]*p[GPNT]/d0[GPNT]);}}                     // initial sound speed
+  for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;} // initial time-step
 
   M.UpdateLength(l,S.order(),x1,V1);  // initialise element length scale
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// got to here with high-order implementation
+  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
+  exit(1);
+// got to here with high-order implementation
+
+
+
+
+
+
+
 
 // allocate a determinant for each derivative
 
@@ -299,7 +324,7 @@ int main(){
 
 // echo some initial information
 
-  initial_data(n,nnodes,ndims,nmats,M);
+  initial_data(n,nknodes,ndims,nmats,M);
 
 // assemble mass matrix for acceleration field
 
@@ -432,7 +457,7 @@ int main(){
 
 // assemble acceleration field
 
-  vector<double> b=vector<double> (M.NDims()*nnodes);for(int i=0;i<M.NDims()*nnodes;i++){b.at(i)=-b1[i];}
+  vector<double> b=vector<double> (M.NDims()*nknodes);for(long i=0;i<M.NDims()*nknodes;i++){b.at(i)=-b1[i];}
   for(int i=0;i<n;i++){
     jacobian(i,x1,M,S,detJ,detDJ);
     for(int idim=0;idim<M.NDims();idim++){
@@ -446,10 +471,10 @@ int main(){
 
 // solve global system
 
-  vector<double> udot=vector<double>(M.NDims()*nnodes);
-  for(int i=0;i<M.NDims()*nnodes;i++){
+  vector<double> udot=vector<double>(M.NDims()*nknodes);
+  for(long i=0;i<M.NDims()*nknodes;i++){
     double x(0.0);
-    for(int j=0;j<M.NDims()*nnodes;j++){
+    for(long j=0;j<M.NDims()*nknodes;j++){
       x+=KMASSI.read(i,j)*b[j];
     }
     udot.at(i)=x;
@@ -457,10 +482,10 @@ int main(){
 
 // advance the solution
 
-//  for(int i=0;i<nnodes;i++){u1.at(idim).at(i)=u0.at(idim).at(i)+udot.at(i)*dt;}
+//  for(long i=0;i<nknodes;i++){u1.at(idim).at(i)=u0.at(idim).at(i)+udot.at(i)*dt;}
 
   for(int idim=0;idim<M.NDims();idim++){
-    for(int i=0;i<nnodes;i++){
+    for(long i=0;i<nknodes;i++){
       u1.at(idim).at(i)=u0.at(idim).at(i)+udot.at(idim*NROWS+i)*dt;
     }
   }
@@ -858,13 +883,13 @@ void header(){
 
 // output some initial data
 
-void initial_data(int const n,int const nnodes,int const ndims, int const nmats, Mesh const &M){
+void initial_data(int const n,long const nknodes,int const ndims, int const nmats, Mesh const &M){
 
   cout<<"Initial data for the simulation"<<endl;
 
   cout<<"Number of dimensions:             "<<ndims<<endl;
   cout<<"Number of cells:                  "<<n<<endl;
-  cout<<"Number of nodes:                  "<<nnodes<<endl;
+  cout<<"Number of kinematic nodes:        "<<nknodes<<endl;
   cout<<"Number of materials:              "<<nmats<<endl;
   cout<<"Boundary conditions have been set on "<<M.nbcs()<<" edges :"<<endl;
 

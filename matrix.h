@@ -7,6 +7,7 @@ class Matrix{
   public:
 
   Matrix(int n);                           // constructor function
+  Matrix(int n,int m);                     // constructor function
   ~Matrix();                               // destructor functions
 
   Matrix transpose();                      // returns transpose
@@ -30,6 +31,7 @@ class Matrix{
   private:
 
   double** mMat;                           // the matrix object
-  int mN;                                  // number of rows(=number of columns)
+  int mNRows;                              // number of rows
+  int mNCols;                              // number of columns
 
 };
