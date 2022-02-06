@@ -44,8 +44,8 @@
 #define NCOLS nknodes     // number of columns in the global matrix
 #define NGI S.ngi()*n     // number of integration points on the mesh
 #define GPNT i*T.ngi()+gi // global address of integration point gi
-#define ROW M.Vertex(i,iloc)  // row address in global matrix
-#define COL M.Vertex(i,jloc)  // column address in global matrix
+#define ROW M.GlobalNode_CFEM(i,iloc)  // row address in global matrix
+#define COL M.GlobalNode_CFEM(i,jloc)  // column address in global matrix
 
 #define VACUUM 1              // vacuum boundary
 #define REFLECTIVE 2          // reflective boundary
@@ -79,13 +79,13 @@
 
 // function signatures
 
-string date();                                                                              // function to return the date and time
-void header();                                                                              // header part
-void vempty(vector<double>&v);                                                              // empty a vector
-void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ); // calculate a jacobian and determinant
-void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ); // sum the global kinetic energy field
-void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M);                                                   // sum the global internal energy field
-void initial_data(int const n, long const nknodes, int const ndims, int const nmats,          // echo some initial information
+string date();                                                                                                       // function to return the date and time
+void header();                                                                                                       // header part
+void vempty(vector<double>&v);                                                                                       // empty a vector
+void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ);                          // calculate a jacobian and determinant
+void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ);     // sum the global kinetic energy field
+void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M);                                                       // sum the global internal energy field
+void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,int const ndims, int const nmats, // echo some initial information
                   Mesh const &M);
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
               VD const &q, VVD const &x, VVD const &u, int const &test_problem);
@@ -97,10 +97,10 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
                VVD &u0,VVD &u1,VD &b0,VD &b1);
 void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,VVVD const &detDJ,VD const &detJ); // insert boundary conditions on acceleration field
-void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m);   // input overides for the Taylor-Green vortex
-void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Rayleigh-Taylor instability
-void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Noh stagnation shock
-void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Sedov explosion
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m);   // input overides for the Taylor-Green vortex
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Rayleigh-Taylor instability
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Noh stagnation shock
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Sedov explosion
 template <typename T> int sgn(T val); // return type safe sign of the argument
 
 using namespace std;
@@ -128,7 +128,7 @@ int main(){
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
   vector<double> detJ(S.ngi());                                  // determinant of jacobian at each integration point
-  vector<vector<vector<double> > > detDJ(2*ndims);               // determinant of jacobian for each derivative
+  vector<vector<vector<double> > > detDJ(ndims);                 // determinant of jacobian for each derivative
   vector<double> dt_cfl(NGI);                                    // time-step at each integration point
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
@@ -220,34 +220,6 @@ int main(){
 
   M.UpdateLength(l,S.order(),x1,V1);  // initialise element length scale
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// got to here with high-order implementation
-  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
-  exit(1);
-// got to here with high-order implementation
-
-
-
-
-
-
-
-
 // allocate a determinant for each derivative
 
   for(int idim=0;idim<detDJ.size();idim++){
@@ -265,7 +237,7 @@ int main(){
 
     for(int i=0;i<mat.size();i++){
       for(int iloc=0;iloc<S.nloc();iloc++){
-        long j(M.Vertex(i,iloc));
+        long j(M.GlobalNode_CFEM(i,iloc));
         vtmp.at(j)=(vtmp[j]==0.0)?(state[mat[i]-1][1+idim]):((vtmp[j]!=(state[mat[i]-1][1+idim]))?0.0:(state[mat[i]-1][1+idim]));
       }
     }
@@ -277,8 +249,6 @@ int main(){
 
   }
 
-// got to here with ghost cell stuff
-
 // input overides needed to initialise certain test problems
 // move the nodes to their full-step position
 
@@ -288,7 +258,7 @@ int main(){
 
 // Taylor Green vortex
 
-      init_TAYLOR(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
+      init_TAYLOR(M,S,T,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
 
       break;
 
@@ -296,7 +266,7 @@ int main(){
 
 // Rayleigh-Taylor instability
 
-      init_RAYLEIGH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
+      init_RAYLEIGH(M,S,T,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
 
       break;
 
@@ -304,7 +274,7 @@ int main(){
 
 // Noh stagnation shock
 
-      init_NOH(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
+      init_NOH(M,S,T,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
 
       break;
 
@@ -312,7 +282,7 @@ int main(){
 
 // Sedov expanding shock
 
-      init_SEDOV(M,S,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
+      init_SEDOV(M,S,T,dpi,d0,d1,u0,u1,p,e0,e1,xt1,gamma,mat,detJ,detDJ,m);
 
       break;
 
@@ -324,18 +294,18 @@ int main(){
 
 // echo some initial information
 
-  initial_data(n,nknodes,ndims,nmats,M);
+  initial_data(n,nknodes,ntnodes,S,ndims,nmats,M);
 
 // assemble mass matrix for acceleration field
 
   for(int idim=0;idim<M.NDims();idim++){
-    for(int i=0;i<n;i++){
+    for(int i=0;i<M.NCells();i++){
       jacobian(i,x0,M,S,detJ,detDJ);
       for(int iloc=0;iloc<S.nloc();iloc++){
         for(int jloc=0;jloc<S.nloc();jloc++){
           double nn(0.0),nnx(0.0),nny(0.0),nx(0.0),ny(0.0),nlx(0.0),nly(0.0); // mass matrix
           for(int gi=0;gi<S.ngi();gi++){
-            nn+=d0[i]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);   // mass matrix
+            nn+=d0[GPNT]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);   // mass matrix
             nnx+=S.value(iloc,gi)*detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
             nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
             nlx+=detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);                       // not used: left in as a diagnostic
@@ -364,6 +334,22 @@ int main(){
 // time integration
 
   while(time<=ENDTIME){
+
+// got to here with high-order implementation
+// need to set up density as a function
+// need l(gi) not l(i)
+  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
+  exit(1);
+// got to here with high-order implementation
+
+
+
+
+
+
+
+
+
 
 // calculate a new stable time-step
 
@@ -883,13 +869,15 @@ void header(){
 
 // output some initial data
 
-void initial_data(int const n,long const nknodes,int const ndims, int const nmats, Mesh const &M){
+void initial_data(int const n,long const nknodes,long const ntnodes,Shape const S,int const ndims, int const nmats, Mesh const &M){
 
   cout<<"Initial data for the simulation"<<endl;
 
   cout<<"Number of dimensions:             "<<ndims<<endl;
   cout<<"Number of cells:                  "<<n<<endl;
   cout<<"Number of kinematic nodes:        "<<nknodes<<endl;
+  cout<<"Number of thermodynamic nodes:    "<<ntnodes<<endl;
+  cout<<"Number of integration points:     "<<S.ngi()<<endl;
   cout<<"Number of materials:              "<<nmats<<endl;
   cout<<"Boundary conditions have been set on "<<M.nbcs()<<" edges :"<<endl;
 
@@ -1005,11 +993,12 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 // derivatives of the physical coordinates at the quadrature points
 
-    for(int j=0;j<S.nloc();j++){
-      dxdu+=x.at(0).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
-      dxdv+=x.at(0).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
-      dydu+=x.at(1).at(M.Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
-      dydv+=x.at(1).at(M.Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
+    for(int iloc=0;iloc<S.nloc();iloc++){
+      long gloc=(S.type()==CONTINUOUS)?M.GlobalNode_CFEM(i,iloc):M.GlobalNode_DFEM(i,iloc);
+      dxdu+=x.at(0).at(gloc)*S.dvalue(0,iloc,gi); // dx/du
+      dxdv+=x.at(0).at(gloc)*S.dvalue(1,iloc,gi); // dx/dv
+      dydu+=x.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy/du
+      dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy/dv
     }
 
 // calculate the determinant at the quadrature point and commit to the vector
@@ -1018,77 +1007,14 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 // determinants for the deriavtives at the quadrature points
 
-    for(int j=0;j<S.nloc();j++){
-//      detDJ.at(0).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dydu*S.dvalue(1,j,gi))/detJ[gi]; // original, Taylor runs better ??
-      detDJ.at(0).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dxdv*S.dvalue(1,j,gi))/detJ[gi]; // Noh/triple run better ??
-//      detDJ.at(1).at(j).at(gi)=(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi]; // original, Taylor runs better ??
-      detDJ.at(1).at(j).at(gi)=(-dydu*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi];// Noh/triple run better ??
-      detDJ.at(2).at(j).at(gi)=(dydv*S.dvalue(0,j,gi)-dydu*S.dvalue(1,j,gi))/detJ[gi]; // original
-      detDJ.at(3).at(j).at(gi)=(-dxdv*S.dvalue(0,j,gi)+dxdu*S.dvalue(1,j,gi))/detJ[gi]; // original
+    for(int iloc=0;iloc<S.nloc();iloc++){
+//      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dydu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
+      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dxdv*S.dvalue(1,iloc,gi))/detJ[gi]; // Noh/triple run better ??
+//      detDJ.at(1).at(iloc).at(gi)=(-dxdv*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
+      detDJ.at(1).at(iloc).at(gi)=(-dydu*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi];// Noh/triple run better ??
     }
 
   }
-
-// debug
-//  if(i==300){
-  if(false){
-    cout<<"integral check:"<<endl;
-    cout<<" i "<<i<<endl;
-    vector<double> xnod(S.nloc()),ynod(S.nloc()),xval(2);
-    vector<vector<double> > r;
-    for(int j=0;j<S.nloc();j++){
-      xnod.at(j)=x.at(0).at(M.Vertex(i,j));
-      ynod.at(j)=x.at(1).at(M.Vertex(i,j));
-      cout<<fixed<<setprecision(10)<<" node "<<j<<" x,y= "<<xnod.at(j)<<","<<ynod.at(j)<<endl;
-    }
-
-    double xmin=(*min_element(xnod.begin(),xnod.end()));
-    double xmax=(*max_element(xnod.begin(),xnod.end()));
-    double ymin=(*min_element(ynod.begin(),ynod.end()));
-    double ymax=(*max_element(ynod.begin(),ynod.end()));
-
-    r.push_back(xnod);
-    r.push_back(ynod);
-    Shape G(1,r); // shape in global coordinates
-    double mu[4]={-1.0/sqrt(3.0),1.0/sqrt(3.0),-1.0/sqrt(3.0),1.0/sqrt(3.0)};
-    double eta[4]={-1.0/sqrt(3.0),-1.0/sqrt(3.0),1.0/sqrt(3.0),1.0/sqrt(3.0)};
-    xval.at(0)=0.0;
-    xval.at(1)=0.0;
-
-    for(int j=0;j<S.nloc();j++){
-      for(int gi=0;gi<S.ngi();gi++){
-        xval.at(0)+=S.value(j,mu[gi],eta[gi])*xnod.at(j);
-        xval.at(1)+=S.value(j,mu[gi],eta[gi])*ynod.at(j);
-      }
-    }
-
-    double VG(0.0);
-    for(int j=0;j<S.nloc();j++){
-      double I1x(0.0),I1y(0.0),I2x(0.0),I2y(0.0),IS(0.0),IG(0.0),Gx(0.0),Gy(0.0),VS(0.0);
-      for(int gi=0;gi<S.ngi();gi++){
-        I1x+=detDJ.at(0).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
-        I1y+=detDJ.at(1).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
-        I2x+=detDJ.at(2).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
-        I2y+=detDJ.at(3).at(j).at(gi)*detJ.at(gi)*S.wgt(gi);
-        IS+=S.value(j,gi)*detJ.at(gi)*S.wgt(gi);
-        VS+=detJ.at(gi)*S.wgt(gi);
-      }
-      VG+=G.integrate(j);
-      cout<<fixed<<setprecision(10)<<"node "<<j<<" I1x= "<<I1x<<endl;
-      cout<<fixed<<setprecision(10)<<"       I1y= "<<I1y<<endl;
-      cout<<fixed<<setprecision(10)<<"       I2x= "<<I2x<<endl;
-      cout<<fixed<<setprecision(10)<<"       I2y= "<<I2y<<endl;
-      cout<<fixed<<setprecision(10)<<"       Gx= "<<G.integrate(0,j)<<endl;
-      cout<<fixed<<setprecision(10)<<"       Gy= "<<G.integrate(1,j)<<endl;
-      cout<<fixed<<setprecision(10)<<"       IS= "<<IS<<endl;
-      cout<<fixed<<setprecision(10)<<"       G= "<<G.integrate(j)<<endl;
-      cout<<fixed<<setprecision(10)<<"       V(S)=   "<<VS<<endl;
-      cout<<fixed<<setprecision(10)<<"       V(G)=   "<<VG<<endl;
-    }
-
-//    exit(1);
-  }
-// debug
 
   return;
 
@@ -1096,7 +1022,7 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 // input overides for the Taylor-Green vortex
 
-void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_TAYLOR(): Input overides for Taylor-Green..."<<endl;
 
@@ -1116,28 +1042,46 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 
 // load pressure field
 
-  for(long i=0;i<p.size();i++){
-    double xc[2];xc[0]=0.0;xc[1]=0.0;
-    for(int iloc=0;iloc<S.nloc();iloc++){
-      xc[0]+=S.value(iloc,0.0,0.0)*x.at(0).at(M.Vertex(i,iloc));
-      xc[1]+=S.value(iloc,0.0,0.0)*x.at(1).at(M.Vertex(i,iloc));
+  for(long i=0;i<mat.size();i++){
+    for(int gi=0;gi<S.ngi();gi++){
+      double xc[2];xc[0]=0.0;xc[1]=0.0;
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        xc[0]+=S.value(iloc,gi)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        xc[1]+=S.value(iloc,gi)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+      }
+      p.at(GPNT)=0.25*d0.at(GPNT)*(cos(2.0*dpi*xc[0])+cos(2.0*dpi*xc[1]))+1.0;
     }
-    p.at(i)=0.25*d0.at(i)*(cos(2.0*dpi*xc[0])+cos(2.0*dpi*xc[1]))+1.0;
   }
 
 // invert the eos to start the energy field
 // energy should = (3.0*dpi/8.0)*cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])
 // so we can use this as a check
 
-  for(int i=0;i<e0.size();i++){
-    double xc[2];xc[0]=0.0;xc[1]=0.0;
-    for(int iloc=0;iloc<S.nloc();iloc++){
-      xc[0]+=S.value(iloc,0.0,0.0)*x.at(0).at(M.Vertex(i,iloc));
-      xc[1]+=S.value(iloc,0.0,0.0)*x.at(1).at(M.Vertex(i,iloc));
+  for(int i=0;i<mat.size();i++){
+    vector<double> e0gi(S.ngi()),e1gi(S.ngi());
+    for(int gi=0;gi<S.ngi();gi++){
+      double xc[2];xc[0]=0.0;xc[1]=0.0;
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        xc[0]+=S.value(iloc,gi)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        xc[1]+=S.value(iloc,gi)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+      }
+      double echeck((3.0*dpi/8.0)*(cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])));
+      e0gi.at(gi)=E(d0[GPNT],p[GPNT],gamma[mat[i]-1]);
+      e1gi.at(gi)=E(d1[GPNT],p[GPNT],gamma[mat[i]-1]);
     }
-    double echeck((3.0*dpi/8.0)*(cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])));
-    e0.at(i)=E(d0[i],p[i],gamma[mat[i]-1]);
-    e1.at(i)=E(d1[i],p[i],gamma[mat[i]-1]);
+
+// integrate over Gauss point to obtain node energy
+
+    for(int iloc=0;iloc<T.nloc();iloc++){
+      double e0int(0.0),e1int(0.0);
+      for(int gi=0;gi<S.ngi();gi++){
+        e0int+=e0gi.at(gi)*S.wgt(gi);
+        e1int+=e1gi.at(gi)*S.wgt(gi);
+      }
+      e0.at(M.GlobalNode_DFEM(i,iloc))=e0int;
+      e1.at(M.GlobalNode_DFEM(i,iloc))=e1int;
+    }
+
   }
 
   return;
@@ -1146,7 +1090,7 @@ void init_TAYLOR(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VV
 
 // input overides for the Rayleigh-Taylor instability
 
-void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_RAYLEIGH(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
@@ -1158,7 +1102,7 @@ void init_RAYLEIGH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,
 
 // input overides for the Noh stagnation shock
 
-void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_NOH(): Input overides for Noh..."<<endl;
 
@@ -1203,25 +1147,25 @@ void init_NOH(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &
 
 // input overides for the Sedov explosion
 
-void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_SEDOV(): Input overides for Sedov..."<<endl;
 
 // load energy field
 
-  for(long i=0;i<e0.size();i++){
+  for(long i=0;i<M.NCells();i++){
 
-    e0.at(i)=0.0;
-    e1.at(i)=e0.at(i);
+    for(int iloc=0;iloc<T.nloc();iloc++){
 
-    for(int iloc=0;iloc<S.nloc();iloc++){
+    e0.at(M.GlobalNode_DFEM(i,iloc))=0.0;
+    e1.at(M.GlobalNode_DFEM(i,iloc))=0.0;
 
 // delta function at domain origin
 
-      if( abs(x.at(0).at(M.Vertex(i,iloc)))<1.0e-7 && abs(x.at(1).at(M.Vertex(i,iloc)))<1.0e-7  ){
+      if( abs(x.at(0).at(M.GlobalNode_DFEM(i,iloc)))<1.0e-7 && abs(x.at(1).at(M.GlobalNode_DFEM(i,iloc)))<1.0e-7  ){
 //        e0.at(i)=0.3014676/0.025; // drive ~ 12.058704, from another code see ref. paper for numbers
-        e0.at(i)=0.25/m[i]; // place 1/4 of the drive in each of the 4 cells at the origin per unit mass
-        e1.at(i)=e0.at(i);
+        e0.at(M.GlobalNode_DFEM(i,iloc))=0.25/m[i]; // place 1/4 of the drive in each of the 4 cells at the origin per unit mass
+        e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc));
       }
 
     }
@@ -1230,8 +1174,10 @@ void init_SEDOV(Mesh const &M,Shape const &S,double const &dpi,VD &d0,VD &d1,VVD
 
 // load pressure field
 
-  for(long i=0;i<p.size();i++){
-    p.at(i)=P(d0[i],e0[i],gamma[mat[i]-1]);
+  for(int i=0;i<M.NCells();i++){
+    for(int gi=0;gi<S.ngi();gi++){
+      p.at(GPNT)=P(d0[GPNT],e0[GPNT],gamma[mat[i]-1]);
+    }
   }
 
   return;
