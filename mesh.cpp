@@ -910,7 +910,7 @@ void Mesh::UpdateLength(VD &l,int const &p,VVD const &x, VD const &V) const{
 
   for(int idim=0;idim<NDims();idim++){xymid.at(idim).resize(4);}
 
-  for(int i=0;i<l.size();i++){
+  for(int i=0;i<NCells();i++){
 
 // side mid-points using the finite element method
 

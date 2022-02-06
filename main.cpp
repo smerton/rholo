@@ -83,8 +83,8 @@ string date();                                                                  
 void header();                                                                                                       // header part
 void vempty(vector<double>&v);                                                                                       // empty a vector
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ);                          // calculate a jacobian and determinant
-void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ);     // sum the global kinetic energy field
-void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M);                                                       // sum the global internal energy field
+void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xinit,VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);     // sum the global kinetic energy field
+void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);      // sum the global internal energy field
 void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,int const ndims, int const nmats, // echo some initial information
                   Mesh const &M);
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
@@ -97,10 +97,10 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
                VVD &u0,VVD &u1,VD &b0,VD &b1);
 void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,VVVD const &detDJ,VD const &detJ); // insert boundary conditions on acceleration field
-void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m);   // input overides for the Taylor-Green vortex
-void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Rayleigh-Taylor instability
-void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Noh stagnation shock
-void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &g,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Sedov explosion
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m);   // input overides for the Taylor-Green vortex
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Rayleigh-Taylor instability
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Noh stagnation shock
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Sedov explosion
 template <typename T> int sgn(T val); // return type safe sign of the argument
 
 using namespace std;
@@ -121,19 +121,20 @@ int main(){
   int const nmats(M.NMaterials());                               // number of materials
   double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
-  vector<double> d0(NGI),d1(NGI),V0(n),V1(n),m(n);               // density, volume & mass
+  vector<double> dinit(NGI),V0(n),V1(n),m(n);                    // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
   vector<double> c(NGI),p(NGI),q(NGI);                           // sound speed, pressure and bulk viscosity at each integration point
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
-  vector<double> detJ(S.ngi());                                  // determinant of jacobian at each integration point
-  vector<vector<vector<double> > > detDJ(ndims);                 // determinant of jacobian for each derivative
+  vector<vector<double> > xinit(ndims);                          // initial node coordinates
+  vector<double> detJ0(S.ngi()),detJ(S.ngi());                   // determinant of jacobian at each integration point at time 0 and time-t
+  vector<vector<vector<double> > > detDJ0(ndims),detDJ(ndims);   // determinant of jacobian for each derivative at time 0 and time-t
   vector<double> dt_cfl(NGI);                                    // time-step at each integration point
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
   vector<double> b0(2*NROWS),b1(2*NROWS);                        // vectors for boundary conditions (b0=value, b1=eliminated row)
-  vector<double> l(n);                                           // length of each element
+  vector<double> linit(n);                                       // initial length of each element
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
@@ -201,30 +202,32 @@ int main(){
 
   M.InitCoords(x0,S.order(),S.type());  // set initial coordinates for kinematic nodes
   x1=x0;
+  xinit=x0;
 
   M.InitCoords(xt0,T.order(),T.type()); // set initial coordinates for thermodynamic nodes
   xt1=xt0;
 
-  for(int i=0;i<mat.size();i++){mat.at(i)=M.Material(i);}                                                                                               // load material numbers from the mesh class
-  for(int i=0;i<V0.size();i++){V0.at(i)=M.Volume(i);}                                                                                                   // set initial element volume for start of step
-  for(int i=0;i<V1.size();i++){V1.at(i)=M.Volume(i);}                                                                                                   // set initial element volume for end of step
-  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=state[imat-1][3];}}                                           // load pressure field from initial flux state
-  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){d0.at(GPNT)=state[imat-1][0];}}                                          // load density field from initial flux state
-  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){d1.at(GPNT)=state[imat-1][0];}}
-  for(int i=0;i<m.size();i++){int gi(0);m.at(i)=d0[GPNT]*V0[i];}                                                                                        // calculate the initial mass field
-  for(int i=0;i<mat.size();i++){int imat(mat[i]),gi(0);for(int j=0;j<T.nloc();j++){e0.at(M.GlobalNode_DFEM(i,j))=E(d0[GPNT],p[GPNT],gamma[mat[i]-1]);}} // invert the eos to start the energy field
-  for(int i=0;i<mat.size();i++){int imat(mat[i]),gi(0);for(int j=0;j<T.nloc();j++){e1.at(M.GlobalNode_DFEM(i,j))=E(d1[GPNT],p[GPNT],gamma[mat[i]-1]);}} // invert the eos to start the energy field
-  for(int i=0;i<q.size();i++){q.at(i)=0.0;}
-  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(gamma[mat[i]-1]*p[GPNT]/d0[GPNT]);}}                     // initial sound speed
-  for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;} // initial time-step
+  for(int i=0;i<M.NCells();i++){mat.at(i)=M.Material(i);}                                                                                             // load material numbers from the mesh class
+  for(int i=0;i<M.NCells();i++){V0.at(i)=M.Volume(i);}                                                                                                // set initial element volume for start of step
+  for(int i=0;i<M.NCells();i++){V1.at(i)=M.Volume(i);}                                                                                                // set initial element volume for end of step
+  for(int i=0;i<M.NCells();i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=state[mat.at(i)-1][3];}}                                                     // load pressure field from initial flux state
+  for(int i=0;i<M.NCells();i++){dinit.at(i)=state[mat.at(i)-1][0];}                                                                                   // load density field from initial flux state
+  for(int i=0;i<M.NCells();i++){m.at(i)=dinit.at(i)*V0[i];}                                                                                           // calculate the initial mass field
+  for(int i=0;i<M.NCells();i++){for(int j=0;j<T.nloc();j++){e0.at(M.GlobalNode_DFEM(i,j))=E(dinit.at(i),state[mat.at(i)-1][3],gamma[mat.at(i)-1]);}}  // invert the eos to start the energy field
+  for(int i=0;i<e0.size();i++){e1.at(i)=e0.at(i);}
+  for(int i=0;i<q.size();i++){q.at(i)=0.0;}                                                                                                           // artificial viscosity
+  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(gamma[mat[i]-1]*p[GPNT]/dinit.at(i));}}                // initial sound speed
+  for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}                                                                                             // initial time-step
 
-  M.UpdateLength(l,S.order(),x1,V1);  // initialise element length scale
+  M.UpdateLength(linit,S.order(),xinit,V0);  // initialise element length scale
 
 // allocate a determinant for each derivative
 
   for(int idim=0;idim<detDJ.size();idim++){
+    detDJ0.at(idim).resize(S.nloc());
     detDJ.at(idim).resize(S.nloc());
     for(int j=0;j<S.nloc();j++){
+      detDJ0.at(idim).at(j).resize(S.ngi());
       detDJ.at(idim).at(j).resize(S.ngi());
     }
   }
@@ -258,7 +261,7 @@ int main(){
 
 // Taylor Green vortex
 
-      init_TAYLOR(M,S,T,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
+      init_TAYLOR(M,S,T,dpi,dinit,u0,u1,p,e0,e1,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -266,7 +269,7 @@ int main(){
 
 // Rayleigh-Taylor instability
 
-      init_RAYLEIGH(M,S,T,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
+      init_RAYLEIGH(M,S,T,dpi,dinit,u0,u1,p,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -274,7 +277,7 @@ int main(){
 
 // Noh stagnation shock
 
-      init_NOH(M,S,T,dpi,d0,d1,u0,u1,p,e0,e1,x1,gamma,mat,detJ,detDJ,m);
+      init_NOH(M,S,T,dpi,dinit,u0,u1,p,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -282,7 +285,7 @@ int main(){
 
 // Sedov expanding shock
 
-      init_SEDOV(M,S,T,dpi,d0,d1,u0,u1,p,e0,e1,xt1,gamma,mat,detJ,detDJ,m);
+      init_SEDOV(M,S,T,dpi,dinit,u0,u1,p,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -305,7 +308,7 @@ int main(){
         for(int jloc=0;jloc<S.nloc();jloc++){
           double nn(0.0),nnx(0.0),nny(0.0),nx(0.0),ny(0.0),nlx(0.0),nly(0.0); // mass matrix
           for(int gi=0;gi<S.ngi();gi++){
-            nn+=d0[GPNT]*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);   // mass matrix
+            nn+=dinit.at(i)*S.value(iloc,gi)*S.value(jloc,gi)*detJ[gi]*S.wgt(gi);   // mass matrix
             nnx+=S.value(iloc,gi)*detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
             nny+=S.value(iloc,gi)*detDJ[1][jloc][gi]*detJ[gi]*S.wgt(gi);      // not used: left in as a diagnostic
             nlx+=detDJ[0][jloc][gi]*detJ[gi]*S.wgt(gi);                       // not used: left in as a diagnostic
@@ -335,25 +338,18 @@ int main(){
 
   while(time<=ENDTIME){
 
-// got to here with high-order implementation
-// need to set up density as a function
-// need l(gi) not l(i)
-  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
-  exit(1);
-// got to here with high-order implementation
+// calculate a new stable time step that will impose the CFL limit on each quadrature point
 
 
-
-
-
-
-
-
-
-
-// calculate a new stable time-step
-
-    for(int i=0;i<n;i++){dt_cfl.at(i)=(step==0)?DTSTART:(COURANT*l[i]/sqrt((c[i]*c[i])+2.0*q[i]/d0[i]));} // impose the CFL limit on each element
+    for(int i=0;i<n;i++){
+      jacobian(i,xinit,M,S,detJ0,detDJ0);
+      jacobian(i,x0,M,S,detJ,detDJ);
+      for(int gi=0;gi<S.ngi();gi++){
+        double l(linit.at(i)*detJ.at(gi)/detJ0.at(gi));
+        double d(dinit.at(i)*detJ.at(gi)/detJ0.at(gi));
+        dt_cfl.at(GPNT)=(step==0)?DTSTART:(COURANT*S.wgt(gi)*(l/sqrt((c[GPNT]*c[GPNT])+2.0*q[GPNT]/d))); // impose the CFL limit on each quadrature point
+      }
+    }
 
 // reduce across element and apply a saftey factor
 
@@ -381,20 +377,35 @@ int main(){
 
 // sum kinetic/internal energy fields for conservation checks
 
-    sum_ke(ke,d1,M,u1,x1,S,detJ,detDJ);
-    sum_ie(ie,e1,m,M);
+    sum_ke(ke,u1,dinit,M,xinit,x1,S,T,detJ0,detDJ0,detJ,detDJ);
+    sum_ie(ie,e1,dinit,M,xinit,x1,S,T,detJ0,detDJ0,detJ,detDJ);
+
+
+
+
+// got to here with high-order implementation
+// remove d0 and d1
+// add dinit cell based
+// update d.at(gi) with Jacobians where needed
+  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
+  exit(1);
+// got to here with high-order implementation
+
+
+
+
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
 // graphics output
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
-//      state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,d0,p,e0,q,c,u0,mat,step,time,M,gamma);
+//      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
+      silo(x0,dinit,p,e0,q,c,u0,mat,step,time,M,gamma);
     }else{
       if(abs(remainder(step,VISFREQ))==0){
-//        state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time,gamma);
-        silo(x0,d0,p,e0,q,c,u0,mat,step,time,M,gamma);
+//        state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
+        silo(x0,dinit,p,e0,q,c,u0,mat,step,time,M,gamma);
       }
     }
 // debug
@@ -410,13 +421,9 @@ int main(){
 
     M.UpdateVolume(V1,x1,S.order());
 
-// update element length scale
-
-    M.UpdateLength(l,S.order(),x1,V1);
-
 // update density field at the full-step
 
-    M.UpdateDensity(d1,V1,m);
+    M.UpdateDensity(dinit,V1,m);
 
 // update internal energy field at the full-step
 
@@ -424,22 +431,22 @@ int main(){
 
 // update cell pressures at the full-step
 
-    M.UpdatePressure(p,d1,e1,gamma,mat);
+    M.UpdatePressure(p,dinit,e1,gamma,mat);
 
 // load new sound speeds
 
-    M.UpdateSoundSpeed(c,gamma,mat,p,d1);
+    M.UpdateSoundSpeed(c,gamma,mat,p,dinit);
 
 // bulk q
 
-    for(int i=0;i<q.size();i++){
-      double divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
-      if(divu<0.0){
-        q.at(i)=d1[i]*l[i]*divu*((cq*l[i]*divu)-cl*c[i]);
-      }else{
-        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
-      }
-    }
+//    for(int i=0;i<q.size();i++){
+//      double l(0.0),divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
+//      if(divu<0.0){
+//        q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
+//      }else{
+//        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
+//      }
+//    }
 
 // assemble acceleration field
 
@@ -483,8 +490,8 @@ int main(){
 
 // advance the states for the new time step
 
-    u0=u1;x0=x1;e0=e1;V0=V1;d0=d1;
-    M.UpdateSoundSpeed(c,gamma,mat,p,d1);
+    u0=u1;x0=x1;e0=e1;V0=V1;
+    M.UpdateSoundSpeed(c,gamma,mat,p,dinit);
 
 // debug
   if(step==1){
@@ -498,7 +505,7 @@ int main(){
 
 // some output
 
-  lineouts(M,S,d1,p,e1,q,x1,u1,test_problem);
+  lineouts(M,S,dinit,p,e1,q,x1,u1,test_problem);
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
 
@@ -1022,66 +1029,37 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 // input overides for the Taylor-Green vortex
 
-void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_TAYLOR(): Input overides for Taylor-Green..."<<endl;
 
-// start x component of velocity field
+// start the energy field
 
-  for(long i=0;i<u0.at(0).size();i++){
-    u0.at(0).at(i)=sin(dpi*x.at(0).at(i))*cos(dpi*x.at(1).at(i));
-    u1.at(0).at(i)=u0.at(0).at(i);
-  }
-
-// start y component of velocity field
-
-  for(long i=0;i<u1.at(0).size();i++){
-    u0.at(1).at(i)=-cos(dpi*x.at(0).at(i))*sin(dpi*x.at(1).at(i));
-    u1.at(1).at(i)=u0.at(1).at(i);
-  }
-
-// load pressure field
-
-  for(long i=0;i<mat.size();i++){
-    for(int gi=0;gi<S.ngi();gi++){
-      double xc[2];xc[0]=0.0;xc[1]=0.0;
-      for(int iloc=0;iloc<S.nloc();iloc++){
-        xc[0]+=S.value(iloc,gi)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
-        xc[1]+=S.value(iloc,gi)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
-      }
-      p.at(GPNT)=0.25*d0.at(GPNT)*(cos(2.0*dpi*xc[0])+cos(2.0*dpi*xc[1]))+1.0;
-    }
-  }
-
-// invert the eos to start the energy field
-// energy should = (3.0*dpi/8.0)*cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])
-// so we can use this as a check
-
-  for(int i=0;i<mat.size();i++){
-    vector<double> e0gi(S.ngi()),e1gi(S.ngi());
-    for(int gi=0;gi<S.ngi();gi++){
-      double xc[2];xc[0]=0.0;xc[1]=0.0;
-      for(int iloc=0;iloc<S.nloc();iloc++){
-        xc[0]+=S.value(iloc,gi)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
-        xc[1]+=S.value(iloc,gi)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
-      }
-      double echeck((3.0*dpi/8.0)*(cos(3.0*dpi*xc[0])*cos(dpi*xc[1])-cos(dpi*xc[0])*cos(3.0*dpi*xc[1])));
-      e0gi.at(gi)=E(d0[GPNT],p[GPNT],gamma[mat[i]-1]);
-      e1gi.at(gi)=E(d1[GPNT],p[GPNT],gamma[mat[i]-1]);
-    }
-
-// integrate over Gauss point to obtain node energy
-
+  for(int i=0;i<M.NCells();i++){
     for(int iloc=0;iloc<T.nloc();iloc++){
-      double e0int(0.0),e1int(0.0);
-      for(int gi=0;gi<S.ngi();gi++){
-        e0int+=e0gi.at(gi)*S.wgt(gi);
-        e1int+=e1gi.at(gi)*S.wgt(gi);
-      }
-      e0.at(M.GlobalNode_DFEM(i,iloc))=e0int;
-      e1.at(M.GlobalNode_DFEM(i,iloc))=e1int;
+      double xval(x.at(0).at(M.GlobalNode_DFEM(i,iloc)));
+      double yval(x.at(0).at(M.GlobalNode_DFEM(i,iloc)));
+      e0.at(M.GlobalNode_DFEM(i,iloc))=(3.0*dpi/8.0)*cos(3.0*dpi*xval)*cos(dpi*yval)-cos(dpi*xval)*cos(3.0*dpi*yval);
+      e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc));
     }
+  }
 
+// update pressure field
+
+  for(int i=0;i<M.NCells();i++){
+
+    for(int gi=0;gi<S.ngi();gi++){
+
+// internal energy at the Gauss points
+
+      double egi(0.0);
+      for(int iloc=0;iloc<T.nloc();iloc++){
+        egi+=T.value(iloc,gi)*e0.at(M.GlobalNode_DFEM(i,iloc));
+      }
+
+      p.at(GPNT)=P(dinit.at(i),egi,gamma[mat[i]-1]);
+
+    }
   }
 
   return;
@@ -1090,7 +1068,7 @@ void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,V
 
 // input overides for the Rayleigh-Taylor instability
 
-void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_RAYLEIGH(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
@@ -1102,7 +1080,7 @@ void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi
 
 // input overides for the Noh stagnation shock
 
-void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_NOH(): Input overides for Noh..."<<endl;
 
@@ -1122,10 +1100,7 @@ void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &
   for(long i=0;i<u0.at(0).size();i++){
 
     double rx(x.at(0).at(i)-origin[0]);     // radial vector component from domain origin to node
-//    if(abs(rx)<1.0e-12){rx=0.0;}            // cut-off for centre
-
     double ry(x.at(1).at(i)-origin[1]);     // radial vector component from domain origin to node
-//    if(abs(ry)<1.0e-12){ry=0.0;}            // cut-off for centre
 
 // length of radial vector from domain origin to node
 
@@ -1147,7 +1122,7 @@ void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &
 
 // input overides for the Sedov explosion
 
-void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &d0,VD &d1,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ,VVVD &detDJ,VD const &m){
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_SEDOV(): Input overides for Sedov..."<<endl;
 
@@ -1172,21 +1147,17 @@ void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD
 
   }
 
-// load pressure field
-
-  for(int i=0;i<M.NCells();i++){
-    for(int gi=0;gi<S.ngi();gi++){
-      p.at(GPNT)=P(d0[GPNT],e0[GPNT],gamma[mat[i]-1]);
-    }
-  }
-
   return;
 
 }
 
 // sum the global kinetic energy field
 
-void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape const &S,VD &detJ,VVVD &detDJ){
+void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xinit,VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ){
+
+// density as a function
+
+  vector<double> d(S.ngi());
 
 // sum global kinetic field field
 
@@ -1194,24 +1165,26 @@ void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape
 
   for(int i=0;i<M.NCells();i++){
 
-// update jacobian
+// update jacobians
 
+    jacobian(i,xinit,M,S,detJ0,detDJ0);
     jacobian(i,x,M,S,detJ,detDJ);
+
+// density at the Gauss points
+
+    for(int gi=0;gi<T.ngi();gi++){d.at(gi)=(dinit.at(i)*detJ0.at(gi)/detJ.at(gi));}
+
+// loop over element velocity field
 
     for(int iloc=0;iloc<S.nloc();iloc++){
 
-// update node volume
+// compute update nodal mass
 
-      double nvol(0.0);
-      for(int gi=0;gi<S.ngi();gi++){
-        nvol+=S.value(iloc,gi)*detJ.at(gi)*S.wgt(gi);
-      }
+      double nodmass(0.0);
+      for(int gi=0;gi<T.ngi();gi++){nodmass+=S.value(iloc,gi)*d.at(gi)*S.wgt(gi);}
 
-// update node mass
-
-      double nmass(d.at(i)*nvol);
       for(int idim=0;idim<M.NDims();idim++){
-        ke+=nmass*u.at(idim).at(M.Vertex(i,iloc))*u.at(idim).at(M.Vertex(i,iloc));
+        ke+=nodmass*u.at(idim).at(M.GlobalNode_CFEM(i,iloc))*u.at(idim).at(M.GlobalNode_CFEM(i,iloc));
       }
 
     }
@@ -1226,7 +1199,11 @@ void sum_ke(double &ke,VD const &d,Mesh const &M,VVD const &u,VVD const &x,Shape
 
 // sum the global internal energy field
 
-void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M){
+void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ){
+
+// density as a function
+
+  vector<double> d(T.ngi());
 
 // sum global kinetic field field
 
@@ -1234,9 +1211,28 @@ void sum_ie(double &ie,VD const &e,VD const &m,Mesh const &M){
 
   for(int i=0;i<M.NCells();i++){
 
-// element mass should not change during the calculation
+// update jacobians
 
-    ie+=m.at(i)*e.at(i);
+    jacobian(i,xinit,M,S,detJ0,detDJ0);
+    jacobian(i,x,M,S,detJ,detDJ);
+
+// density at the Gauss points
+
+    for(int gi=0;gi<T.ngi();gi++){d.at(gi)=(dinit.at(i)*detJ0.at(gi)/detJ.at(gi));}
+
+// loop over element energy field
+
+    for(int iloc=0;iloc<T.nloc();iloc++){
+
+// compute nodal mass - this should not change during the calculation
+
+      double nodmass(0.0);
+      for(int gi=0;gi<T.ngi();gi++){nodmass+=T.value(iloc,gi)*d.at(gi)*T.wgt(gi);}
+
+      ie+=nodmass*e.at(M.GlobalNode_DFEM(i,iloc));
+
+    }
+
 
   }
 
