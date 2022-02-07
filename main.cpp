@@ -89,8 +89,10 @@ void initial_data(int const n, long const nknodes,long const ntnodes,Shape const
                   Mesh const &M);
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
               VD const &q, VVD const &x, VVD const &u, int const &test_problem);
-void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
+void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g);
+void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c, // silo graphics output
+          VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g,Shape const &S,Shape const &T);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
@@ -380,13 +382,23 @@ int main(){
     sum_ke(ke,u1,dinit,M,xinit,x1,S,T,detJ0,detDJ0,detJ,detDJ);
     sum_ie(ie,e1,dinit,M,xinit,x1,S,T,detJ0,detDJ0,detJ,detDJ);
 
+    cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
+
+// graphics output
+
+    if(abs(remainder(time,VISFREQ))<1.0e-12){
+//      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
+      silo(x0,xt0,dinit,p,e0,q,c,u0,mat,step,time,M,gamma,S,T);
+    }else{
+      if(abs(remainder(step,VISFREQ))==0){
+//      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
+      silo(x0,xt0,dinit,p,e0,q,c,u0,mat,step,time,M,gamma,S,T);
+      }
+    }
 
 
 
 // got to here with high-order implementation
-// remove d0 and d1
-// add dinit cell based
-// update d.at(gi) with Jacobians where needed
   cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
   exit(1);
 // got to here with high-order implementation
@@ -395,19 +407,13 @@ int main(){
 
 
 
-    cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
-// graphics output
 
-    if(abs(remainder(time,VISFREQ))<1.0e-12){
-//      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,dinit,p,e0,q,c,u0,mat,step,time,M,gamma);
-    }else{
-      if(abs(remainder(step,VISFREQ))==0){
-//        state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-        silo(x0,dinit,p,e0,q,c,u0,mat,step,time,M,gamma);
-      }
-    }
+
+
+
+
+
 // debug
 //  lineouts(M,S,d1,p,e1,q,x1,u1,test_problem);
 //  exit(1);

@@ -30,6 +30,281 @@ std::string date();
 
 using namespace std;
 
+void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,
+          VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g,Shape const &S,Shape const &T){
+
+  DBfile*dbfile;
+  DBoptlist *optlist=NULL;
+  int dberr;
+  string str1("silo/step_"+to_string(step)+".silo");
+
+  const char*filename(str1.c_str());
+  const char*codename(CODENAME);
+  const char*version(VERSION);
+  const char*title(TITLE);
+  const char*fileinfo(FILEINFO);
+  const char*meshname(MESHNAME);
+
+  cout<<"       silo(): Writing a silo graphics dump to file "<<filename<<endl;
+
+// set up material data structure
+
+  int nmat(M.NMaterials());             // number of materials
+  int matdims[]={M.NCells(),1};         // material dimensions
+  char*matname[nmat];                   // material names
+  int matnos[nmat];                     // materials numbers present
+  int *matlist;                         // material number in each zone
+  int mixlen(0);                        // number of mixed cells
+  int mix_next[mixlen];                 // indices into mixed data arrays
+  int mix_mat[mixlen];                  // material numbers for mixed zones
+  int mix_vf[mixlen];                   // volunme fractions
+
+// reuse the following, several different meshes are required to support the different lengths of data
+// some of these meshes subdivide the elements and so the following data can vary for the different meshes
+
+  int nzones;                    // number of cells
+  int ndims(M.NDims());          // number of dimensions
+  long lnodelist;                // length of the nodelist array
+  int *nodelist;                 // nodelist array
+  long nnodes;                   // number of nodes in the mesh
+  int origin(0);                 // first address in nodelist arrays
+  int nshapetypes(1);            // number of different shape types on the mesh
+  int shapesize[nshapetypes];    // number of nodes defining each shape
+  int shapecounts[nshapetypes];  // number of zones of each shape type
+  double *xcoords;               // stores coordinates in correct format for silo
+  double *ycoords;               // stores coordinates in correct format for silo
+  double *coords[ndims];         // array of length ndims pointing to the coordinate arrays
+  int *elnos;                    // element numnbers
+  long *nodnos;                  // node numbers
+
+// disengage deprecation signalling
+
+  dberr=DBSetDeprecateWarnings(0);
+
+// create the silo database - this opens it also
+
+  dbfile=DBCreate(filename,DB_CLOBBER,DB_LOCAL,fileinfo,DB_HDF5);
+
+// draw a mesh called "Elements" to support the material numbers and element numbers
+
+  Shape N(1);                       // use a 4-node quad mesh to support material ist
+  nzones=M.NCells();                // number of cells
+  nnodes=M.NNodes();                // number of nodes
+  ndims=M.NDims();                  // number of dimensions
+  lnodelist=N.nloc()*nzones;        // length of the nodelist
+  nodelist=new int[lnodelist];      // allocate nodelist array
+  xcoords=new double[ndims*nnodes]; // mesh vertex coordinates
+  ycoords=new double[ndims*nnodes]; // mesh vertex coordinates
+  matlist=new int[nzones];          // material numbers
+  elnos=new int[nzones];            // element numbers
+
+// store coordinates in correct format for silo
+
+  for(long i=0;i<nnodes;i++){xcoords[i]=M.Coord(0,i);}
+  for(long i=0;i<nnodes;i++){ycoords[i]=M.Coord(1,i);}
+
+// set up an array of length ndims pointing to the coordinate arrays
+
+  coords[0]=xcoords;
+  coords[1]=ycoords;
+
+// connectivities
+
+  for(int i=0,j=0;i<nzones;i++){
+    for(int k=0;k<N.nloc();k++,j++){
+      if(k==0){nodelist[j]=M.Vertex(i,k);}
+      if(k==1){nodelist[j]=M.Vertex(i,k);}
+      if(k==2){nodelist[j]=M.Vertex(i,3);} // we need to flip the top 2 nodes around as the
+      if(k==3){nodelist[j]=M.Vertex(i,2);} // nodelist goes anticlockwise around the element
+    }
+  }
+
+// zone shapes
+
+  for(int i=0;i<nshapetypes;i++){shapesize[i]=N.nloc();}
+  for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
+
+// material numbers
+
+  for(int i=0;i<nmat;i++){matnos[i]=i+1;}
+  for(int i=0;i<nzones;i++){matlist[i]=m.at(i);}
+  for(int i=0;i<nmat;i++){matname[i]="Air";}
+
+// write out connectivity information
+
+  dberr=DBPutZonelist(dbfile,"zonelist1",nzones,ndims,nodelist,lnodelist,origin,shapesize,shapecounts,nshapetypes);
+
+// write out the mesh
+
+  optlist=DBMakeOptlist(2);
+  dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
+  dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
+  dberr=DBPutUcdmesh(dbfile,"Elements",ndims,NULL,coords,nnodes,nzones,"zonelist1",NULL,DB_DOUBLE,optlist);
+
+// write out the material
+
+  optlist=DBMakeOptlist(1);
+  dberr=DBAddOption(optlist,DBOPT_MATNAMES,matname);
+  dberr=DBPutMaterial(dbfile,"Materials","Elements",nmat,matnos,matlist,matdims,ndims,NULL,NULL,NULL,NULL,mixlen,DB_INT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
+// write the element numbers
+
+  for(int i=0;i<nzones;i++){elnos[i]=i;}
+  optlist=DBMakeOptlist(1);
+  dberr=DBAddOption(optlist,DBOPT_UNITS,(void*)"");
+  dberr=DBPutUcdvar1(dbfile,"elementID","Elements",elnos,nzones,NULL,0,DB_INT,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
+// release the arrays ready for the next mesh
+
+  delete[] nodelist;
+  nodelist=NULL;
+
+  delete[] xcoords;
+  xcoords=NULL;
+
+  delete[] ycoords;
+  ycoords=NULL;
+
+  delete[] matlist;
+  matlist=NULL;
+
+  delete[] elnos;
+  elnos=NULL;
+
+// draw a mesh called "Kinematics" to support the kinematic dataset
+// to plot this we need to subdivide through the nodes as visit can
+// not cope with nodes inside the element
+
+  nzones=M.NCells()*S.order()*S.order(); // number of cells
+  nnodes=M.NNodes_CFEM();                // number of nodes
+  ndims=M.NDims();                       // number of dimensions
+  lnodelist=4*nzones;                    // length of the nodelist
+  nodelist=new int[lnodelist];           // allocate nodelist array
+  xcoords=new double[ndims*nnodes];      // mesh vertex coordinates
+  ycoords=new double[ndims*nnodes];      // mesh vertex coordinates
+  matlist=new int[nzones];               // material numbers
+  elnos=new int[nzones];                 // element numbers
+  nodnos=new long[nnodes];               // node numbers
+
+// store coordinates in correct format for silo
+
+  for(long i=0;i<nnodes;i++){xcoords[i]=x.at(0).at(i);}
+  for(long i=0;i<nnodes;i++){ycoords[i]=x.at(1).at(i);}
+
+// set up an array of length ndims pointing to the coordinate arrays
+
+  coords[0]=xcoords;
+  coords[1]=ycoords;
+
+// connectivities divide the S.nloc() node element up into sub-zones
+
+  for(int i=0,j=0;i<M.NCells();i++){
+    for(int jloc=0;jloc<S.order();jloc++){
+      for(int iloc=0;iloc<S.order();iloc++,j++){
+
+        int iloc0(jloc*(S.order()+1)+iloc);
+        int iloc1(jloc*(S.order()+1)+iloc+1);
+        int iloc2((jloc+1)*(S.order()+1)+iloc);
+        int iloc3((jloc+1)*(S.order()+1)+iloc+1);
+
+        nodelist[j]=M.GlobalNode_CFEM(i,iloc0);
+        nodelist[j]=M.GlobalNode_CFEM(i,iloc1);
+        nodelist[j]=M.GlobalNode_CFEM(i,iloc3); // we need to flip the top 2 nodes around as the
+        nodelist[j]=M.GlobalNode_CFEM(i,iloc2); // nodelist goes anticlockwise around the element
+
+      }
+    }
+
+  }
+
+// zone shapes
+
+  for(int i=0;i<nshapetypes;i++){shapesize[i]=4;}
+  for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
+
+// write out connectivity information
+
+  dberr=DBPutZonelist(dbfile,"zonelist2",nzones,ndims,nodelist,lnodelist,origin,shapesize,shapecounts,nshapetypes);
+
+// write out the mesh
+
+  optlist=DBMakeOptlist(2);
+  dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
+  dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
+  dberr=DBPutUcdmesh(dbfile,"Kinematics",ndims,NULL,coords,nnodes,nzones,"zonelist2",NULL,DB_DOUBLE,optlist);
+  dberr=DBPutPointmesh(dbfile,"Nodes",ndims,coords,nnodes,DB_DOUBLE,optlist);
+
+// write the node numbers
+
+  for(long i=0;i<nnodes;i++){nodnos[i]=i;}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
+  dberr=DBPutUcdvar1(dbfile,"nodeID","Kinematics",nodnos,nnodes,NULL,0,DB_LONG,DB_NODECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
+
+
+
+
+
+
+
+// release the arrays ready for the next mesh
+
+  delete[] nodelist;
+  nodelist=NULL;
+
+  delete[] xcoords;
+  xcoords=NULL;
+
+  delete[] ycoords;
+  ycoords=NULL;
+
+  delete[] matlist;
+  matlist=NULL;
+
+  delete[] elnos;
+  elnos=NULL;
+
+  delete[] nodnos;
+  nodnos=NULL;
+
+// draw a mesh called "Thermodynamics" to support the thermodynamic dataset
+
+
+
+// draw a mesh called "Sample" to support sub-zonal sampling
+
+
+
+
+
+
+
+// close the database
+
+  dberr=DBClose(dbfile);
+
+  return;
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,
           VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g){
 
