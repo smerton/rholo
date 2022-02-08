@@ -661,6 +661,24 @@ int Mesh::NDims() const {return mNDims;}
 
 long Mesh::NNodes() const {return mNNodes;}
 
+// member functino to return the number of nodes in a FEM mesh containing order p shapes
+
+long Mesh::NNodes(int p) const {
+
+// first we need the number of cells in each direction
+
+    long ncellsx(0),ncellsy(0);
+    for(int i=0;i<NSides();i++){
+      if(SideAttr(i)==0){ncellsx+=1;}
+      if(SideAttr(i)==1){ncellsy+=1;}
+    }
+
+// return number of nodes in a continuous finite element method
+
+    return ((ncellsx*p+1)*(ncellsy*p+1));
+
+}
+
 // member function to insert order p shape of type t=CONTINUOUS or t=DISCONTINUOUS into the mesh and return the number of nodes
 
 long Mesh::NNodes(int p,int t) {
@@ -694,16 +712,11 @@ long Mesh::NNodes(int p,int t) {
 
 // first we need the number of cells in each direction
 
-    int ncellsx(0),ncellsy(0);
-    for(int i=0;i<NSides();i++){
-      if(SideAttr(i)==0){ncellsx+=1.0;}
-      if(SideAttr(i)==1){ncellsy+=1.0;}
-    }
+    int ncellsx(NCells(0)),ncellsy(NCells(1));
 
 // number of nodes in a continuous finite element method
 
     mNNodes_CFEM=(ncellsx*p+1)*(ncellsy*p+1);
-    int nloc((p+1)*(p+1));
 
 // set up global node numbers for a continuous finite element method
 
@@ -750,6 +763,22 @@ int Mesh::NMaterials() const {return mNMaterials;}
 // member function to return the number of cells
 
 int Mesh::NCells() const {return mNCells;}
+
+// member function to return the number of cells on axis idim
+
+int Mesh::NCells(int idim) const {
+
+  int ncells[NDims()];
+  ncells[0]=0;ncells[1]=0;
+
+  for(int i=0;i<NSides();i++){
+    if(SideAttr(i)==0){ncells[0]+=1;}
+    if(SideAttr(i)==1){ncells[1]+=1;}
+  }
+
+  return ncells[idim];
+
+}
 
 // member function to return the number of ghost cells
 

@@ -30,6 +30,14 @@ std::string date();
 
 using namespace std;
 
+// local function to return the number of sample points and set up their global numbers
+
+long NSampleNodes(Mesh const &M, int const &nsubs, vector<vector<long> > &SampleNode);
+
+// local function to interpolate the vector vin on to the vector vout at sample points
+
+void sample(Mesh const &M,int const &nsubs,Shape const &T, vector<double> const &vin,double vout[]);
+
 void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,
           VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g,Shape const &S,Shape const &T){
 
@@ -62,22 +70,25 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 // reuse the following, several different meshes are required to support the different lengths of data
 // some of these meshes subdivide the elements and so the following data can vary for the different meshes
 
-  int nzones;                    // number of cells
-  int nsubs;                     // number of subcells
-  int ndims(M.NDims());          // number of dimensions
-  long lnodelist;                // length of the nodelist array
-  int *nodelist;                 // nodelist array
-  long nnodes;                   // number of nodes in the mesh
-  int origin(0);                 // first address in nodelist arrays
-  int nshapetypes(1);            // number of different shape types on the mesh
-  int shapesize[nshapetypes];    // number of nodes defining each shape
-  int shapecounts[nshapetypes];  // number of zones of each shape type
-  double *xcoords;               // stores coordinates in correct format for silo
-  double *ycoords;               // stores coordinates in correct format for silo
-  double *coords[ndims];         // array of length ndims pointing to the coordinate arrays
-  int *elnos;                    // element numnbers
-  long *nodnos;                  // node numbers
-  double *var1;                  // nodal variable to output against the mesh
+  int nzones;                       // number of cells
+  int nsubs;                        // number of subcells
+  int ndims(M.NDims());             // number of dimensions
+  long lnodelist;                   // length of the nodelist array
+  int *nodelist;                    // nodelist array
+  long nnodes;                      // number of nodes in the mesh
+  int origin(0);                    // first address in nodelist arrays
+  int nshapetypes(1);               // number of different shape types on the mesh
+  int shapesize[nshapetypes];       // number of nodes defining each shape
+  int shapecounts[nshapetypes];     // number of zones of each shape type
+  double *xcoords;                  // stores coordinates in correct format for silo
+  double *ycoords;                  // stores coordinates in correct format for silo
+  double *coords[ndims];            // array of length ndims pointing to the coordinate arrays
+  int *elnos;                       // element numnbers
+  long *nodnos;                     // node numbers
+  double *var1;                     // nodal variable to output against the mesh
+  vector<vector<long> > SampleNode; // global numbers of the sample points
+  vector<double> vin;               // vector to sample at the mesh sample points
+  double *vout;              // data at the mesh sample points
 
 // disengage deprecation signalling
 
@@ -100,8 +111,8 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   ndims=M.NDims();                  // number of dimensions
   lnodelist=N.nloc()*nzones;        // length of the nodelist
   nodelist=new int[lnodelist];      // allocate nodelist array
-  xcoords=new double[ndims*nnodes]; // mesh vertex coordinates
-  ycoords=new double[ndims*nnodes]; // mesh vertex coordinates
+  xcoords=new double[nnodes];       // mesh vertex coordinates
+  ycoords=new double[nnodes];       // mesh vertex coordinates
   matlist=new int[nzones];          // material numbers
   elnos=new int[nzones];            // element numbers
   var1=new double[nnodes];          // nodal variable
@@ -147,7 +158,7 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   optlist=DBMakeOptlist(2);
   dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
   dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
-  dberr=DBPutUcdmesh(dbfile,"Elements",ndims,NULL,coords,nnodes,nzones,"zonelist1",NULL,DB_DOUBLE,optlist);
+  dberr=DBPutUcdmesh(dbfile,"Generator",ndims,NULL,coords,nnodes,nzones,"zonelist1",NULL,DB_DOUBLE,optlist);
 
 // write out the material
 
@@ -194,8 +205,8 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   ndims=M.NDims();                       // number of dimensions
   lnodelist=4*nzones;                    // length of the nodelist
   nodelist=new int[lnodelist];           // allocate nodelist array
-  xcoords=new double[ndims*nnodes];      // mesh vertex coordinates
-  ycoords=new double[ndims*nnodes];      // mesh vertex coordinates
+  xcoords=new double[nnodes];            // mesh vertex coordinates
+  ycoords=new double[nnodes];            // mesh vertex coordinates
   matlist=new int[nzones];               // material numbers
   elnos=new int[nzones];                 // element numbers
   nodnos=new long[nnodes];               // node numbers
@@ -326,8 +337,8 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   ndims=M.NDims();                       // number of dimensions
   lnodelist=4*nzones;                    // length of the nodelist
   nodelist=new int[lnodelist];           // allocate nodelist array
-  xcoords=new double[ndims*nnodes];      // mesh vertex coordinates
-  ycoords=new double[ndims*nnodes];      // mesh vertex coordinates
+  xcoords=new double[nnodes];            // mesh vertex coordinates
+  ycoords=new double[nnodes];            // mesh vertex coordinates
   matlist=new int[nzones];               // material numbers
   elnos=new int[nzones];                 // element numbers
   nodnos=new long[nnodes];               // node numbers
@@ -415,52 +426,111 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 
 // draw a mesh called "Sample" to support sampled data
 
-  nsubs=25;                              // number of subcells
-  int nsubx=sqrt(nsubs);
-  int nsuby=sqrt(nsubs);
-  nzones=M.NCells()*nsubs;               // number of cells
-  nnodes=M.NNodes_DFEM();                // number of nodes
-  ndims=M.NDims();                       // number of dimensions
-  lnodelist=4*nzones;                    // length of the nodelist
-  nodelist=new int[lnodelist];           // allocate nodelist array
-  xcoords=new double[ndims*nnodes];      // mesh vertex coordinates
-  ycoords=new double[ndims*nnodes];      // mesh vertex coordinates
-  matlist=new int[nzones];               // material numbers
-  elnos=new int[nzones];                 // element numbers
-  nodnos=new long[nnodes];               // node numbers
-  var1=new double[nnodes];               // nodal variable
+  nsubs=25;                                           // number of sub-cells
+  int nsubx=sqrt(nsubs);                              // number of sub-cells in x direction
+  int nsuby=sqrt(nsubs);                              // number of sub-cells in y direction
+  nzones=M.NCells()*nsubs;                            // number of cells
+  nnodes=NSampleNodes(M,nsubs,SampleNode);            // number of nodes
+  ndims=M.NDims();                                    // number of dimensions
+  lnodelist=4*nzones;                                 // length of the nodelist
+  nodelist=new int[lnodelist];                        // allocate nodelist array
+  xcoords=new double[nnodes];                         // mesh vertex coordinates
+  ycoords=new double[nnodes];                         // mesh vertex coordinates
+  matlist=new int[nzones];                            // material numbers
+  elnos=new int[nzones];                              // element numbers
+  nodnos=new long[nnodes];                            // node numbers
+  var1=new double[nnodes];                            // nodal variable
+  vout=new double[nzones];                            // sampled data
 
 // store coordinates in correct format for silo
 
   for(int i=0;i<M.NCells();i++){
-    vector<double> xx((nsubx+1)*(nsuby+1)),yy((nsubx+1)*(nsuby+1));
-    for(int isuby=0,isub=0;isuby<nsuby;isuby++){
-      for(int isubx=0;isubx<nsubx;isubx++,isub++){
-        double dx(2.0/nsubx),dy(2.0/nsuby);
-        vector<double> xpos={isubx*dx,(isubx+1)*dx,isubx*dx,(isubx+1)*dx};
-        vector<double> ypos={isuby*dy,isuby*dx,(isuby+1)*dy,(isuby+1)*dy};
 
-        for(int j=0;j<4;j++){
-          double xval(0.0),yval(0.0);
-          for(int iloc=0;iloc<T.nloc();iloc++){
-            xval+=T.value(iloc,xpos.at(j),ypos.at(j))*xt.at(0).at(M.GlobalNode_DFEM(i,iloc));
-            yval+=T.value(iloc,xpos.at(j),ypos.at(j))*xt.at(1).at(M.GlobalNode_DFEM(i,iloc));
-          }
+// subdivide the element
+
+    for(int isuby=0,isub=0;isuby<nsuby+1;isuby++){
+      for(int isubx=0;isubx<nsubx+1;isubx++,isub++){
+
+        double dx(2.0/nsubx),dy(2.0/nsuby);
+
+// aquire the parametric coordinates isubx,isuby of local node isub
+
+        double xloc(-1.0+isubx*dx);
+        double yloc(-1.0+isuby*dy);
+
+// aquire the global vertices of sub-cell isub from a finite element method
+
+        double xsum(0.0),ysum(0.0);
+        for(int iloc=0;iloc<T.nloc();iloc++){
+          xsum+=T.value(iloc,xloc,yloc)*xt.at(0).at(M.GlobalNode_DFEM(i,iloc));
+          ysum+=T.value(iloc,xloc,yloc)*xt.at(1).at(M.GlobalNode_DFEM(i,iloc));
         }
 
+// store the coordinates of sample point isub
 
-
-
+        xcoords[SampleNode.at(i).at(isub)]=xsum;
+        ycoords[SampleNode.at(i).at(isub)]=ysum;
 
       }
     }
 
   }
 
+// set up an array of length ndims pointing to the coordinate arrays
 
+  coords[0]=xcoords;
+  coords[1]=ycoords;
 
+// connectivities joining up the sub-cells
 
+  for(int i=0,j=0;i<M.NCells();i++){
 
+    for(int jloc=0;jloc<nsuby;jloc++){
+      for(int iloc=0;iloc<nsubx;iloc++,j+=4){
+
+// node numbers in the corners of the sub-zone
+
+        int iloc0(jloc*(nsubx+1)+iloc);
+        int iloc1(jloc*(nsubx+1)+iloc+1);
+        int iloc2((jloc+1)*(nsubx+1)+iloc);
+        int iloc3((jloc+1)*(nsubx+1)+iloc+1);
+
+// store in the node list
+
+        nodelist[j]=SampleNode.at(i).at(iloc0);
+        nodelist[j+1]=SampleNode.at(i).at(iloc1);
+        nodelist[j+2]=SampleNode.at(i).at(iloc3); // we need to flip the top 2 nodes around as the
+        nodelist[j+3]=SampleNode.at(i).at(iloc2); // nodelist goes anticlockwise around the element
+
+      }
+    }
+
+  }
+
+// zone shapes
+
+  for(int i=0;i<nshapetypes;i++){shapesize[i]=4;}
+  for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
+
+// write out connectivity information
+
+  dberr=DBPutZonelist(dbfile,"zonelist4",nzones,ndims,nodelist,lnodelist,origin,shapesize,shapecounts,nshapetypes);
+
+// write out the mesh
+
+  optlist=DBMakeOptlist(2);
+  dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
+  dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
+  dberr=DBPutUcdmesh(dbfile,"Sampling",ndims,NULL,coords,nnodes,nzones,"zonelist4",NULL,DB_DOUBLE,optlist);
+  dberr=DBPutPointmesh(dbfile,"Sample_Points",ndims,coords,nnodes,DB_DOUBLE,optlist);
+
+// write out the density
+
+  vin=d;sample(M,nsubs,T,vin,vout);
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g/cc");
+  dberr=DBPutUcdvar1(dbfile,"density","Sampling",vout,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
 
 
 
@@ -496,6 +566,9 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   delete[] var1;
   var1=NULL;
 
+  delete[] vout;
+  vout=NULL;
+
 // close the database
 
   dberr=DBClose(dbfile);
@@ -504,19 +577,90 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 
 }
 
+// function to return the number of sample points and set up their global numbers
 
+long NSampleNodes(Mesh const &M, int const &nsubs, vector<vector<long> > &SampleNode){
 
+// first empty the vector so we can re-use this function if needed
 
+  vector<vector<long> > vempty;
+  SampleNode=vempty;
 
+// set number of sub-divisions along each axis of the cell
 
+  int p=sqrt(nsubs);
 
+// first find number of cells in each direction
 
+  int ncellsx(M.NCells(0));
+  int ncellsy(M.NCells(1));
 
+// set number of nodes to sample
 
+  long mNSampleNodes((p*ncellsx+1)*(p*ncellsy+1));
 
+// set up global node numbers for a mesh
 
+  long k(0.0);
+  for(int j=0;j<ncellsy;j++){
+    for(int i=0;i<ncellsx;i++){
+      vector<long> global_nodes;
+      for(int jloc=0;jloc<p+1;jloc++){
+        for(int iloc=0;iloc<p+1;iloc++){
+          long k(j*p*(p*ncellsx+1)+jloc*(p*ncellsx+1)+(p*i+iloc));
+          global_nodes.push_back(k);
+        }
+      }
+      SampleNode.push_back(global_nodes);
+    }
+  }
 
+  return mNSampleNodes;
 
+}
+
+// function to interpolate data on to sample points
+
+void sample(Mesh const &M,int const &nsubs,Shape const &T, vector<double> const &vin,double vout[]){
+
+// number of subdivisions in each direction
+
+  int nsubx(sqrt(nsubs));
+  int nsuby(sqrt(nsubs));
+
+  for(int i=0;i<M.NCells();i++){
+
+// subdivide the element
+
+    for(int isuby=0,isub=0;isuby<nsuby;isuby++){
+      for(int isubx=0;isubx<nsubx;isubx++,isub++){
+
+        double dx(2.0/nsubx),dy(2.0/nsuby);
+
+// aquire the parametric coordinates isubx,isuby of local node isub
+
+        double xloc(-1.0+0.5*dx+isubx*dx);
+        double yloc(-1.0+0.5*dy+isuby*dy);
+
+// aquire the global vertices of sub-cell isub from a finite element method
+
+        double varsum(0.0);
+        for(int iloc=0;iloc<T.nloc();iloc++){
+          varsum+=T.value(iloc,xloc,yloc)*vin.at(M.GlobalNode_DFEM(i,iloc));
+        }
+
+// store the coordinates of sample point isub
+
+        vout[nsubs*i+isub]=varsum;
+
+      }
+    }
+
+  }
+
+  return;
+
+}
 
 void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,
           VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g){

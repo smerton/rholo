@@ -22,12 +22,14 @@ class Mesh{
   int NDims() const; // returns the number of mesh dimensions
 
   long NNodes() const; // returns the number of nodes on the mesh read in from the generator
+  long NNodes(int p) const; // returns the number of nodes in a FEM mesh containing order p shapes
   long NNodes(int p,int t); // returns the number of nodes in a FEM mesh containing order p shapes of type t=CONTINUOUS or t=DISCONTINUOUS and sets up global node numbers
   long NNodes_CFEM() const; // returns the number of global nodes on the continuous finite element mesh
   long NNodes_DFEM() const; // returns the number of global nodes on the discontinuous finite element mesh
   int NGNodes() const; // returns the number of ghost nodes on the mesh edge 
   int NMaterials() const; // returns the number of materials on the mesh
   int NCells() const; // returns the number of cells on the mesh
+  int NCells(int idim) const; // returns the number of cells on axis idim
   int NGCells() const; // returns the number of ghost cells on the mesh edge
   int Material(int i) const; // returns material number in cell i
   int Type(int i) const; // returns the geometric type of cell i
