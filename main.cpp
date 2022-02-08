@@ -91,7 +91,7 @@ void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e
               VD const &q, VVD const &x, VVD const &u, int const &test_problem);
 void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g);
-void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c, // silo graphics output
+void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &p,VD const &e,VD const &q,VD const &c, // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g,Shape const &S,Shape const &T);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
@@ -113,7 +113,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-10x1.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/triple-point-56x24.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -123,7 +123,7 @@ int main(){
   int const nmats(M.NMaterials());                               // number of materials
   double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
-  vector<double> dinit(NGI),V0(n),V1(n),m(n);                    // density, volume & mass
+  vector<double> dinit(n),V0(n),V1(n),m(n);                      // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
   vector<double> c(NGI),p(NGI),q(NGI);                           // sound speed, pressure and bulk viscosity at each integration point
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
@@ -146,9 +146,9 @@ int main(){
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-  test_problem=SOD;                                                    // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
-                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+//  test_problem=SOD;                                                    // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for double shock problem 
@@ -176,10 +176,10 @@ int main(){
 //  test_problem=SEDOV;                                                  // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
 
-//  test_problem=TRIPLE;                                                 // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
-//                                 {1.000, 0.000,0.000, 0.100,1.4},
-//                                 {0.125, 0.000,0.000, 0.100,1.5}};
+  test_problem=TRIPLE;                                                 // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
+                                 {1.000, 0.000,0.000, 0.100,1.4},
+                                 {0.125, 0.000,0.000, 0.100,1.5}};
 
 // acquire adiabatic constant for each material
 
@@ -388,11 +388,11 @@ int main(){
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,xt0,dinit,p,e0,q,c,u0,mat,step,time,M,gamma,S,T);
+      silo(x0,xt0,xinit,dinit,linit,p,e0,q,c,u0,mat,step,time,M,gamma,S,T);
     }else{
       if(abs(remainder(step,VISFREQ))==0){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,xt0,dinit,p,e0,q,c,u0,mat,step,time,M,gamma,S,T);
+      silo(x0,xt0,xinit,dinit,linit,p,e0,q,c,u0,mat,step,time,M,gamma,S,T);
       }
     }
 

@@ -22,6 +22,7 @@
 #include "silo.h"
 #include "shape.h"
 #include "mesh.h"
+#include "eos.h"     // eos lookups
 #include <cmath>
 
 // function signatures
@@ -30,16 +31,14 @@ std::string date();
 
 using namespace std;
 
-// local function to return the number of sample points and set up their global numbers
-
-long NSampleNodes(Mesh const &M, int const &nsubs, vector<vector<long> > &SampleNode);
-
-// local function to interpolate the vector vin on to the vector vout at sample points
-
-void sample(Mesh const &M,int const &nsubs,Shape const &T, vector<double> const &vin,double vout[]);
-
-void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,
+void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &p,VD const &e,VD const &q,VD const &c,
           VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g,Shape const &S,Shape const &T){
+
+// local function signatures
+
+  long NSampleNodes(Mesh const &M, int const &nsubs, vector<vector<long> > &SampleNode); // obtain number of sample points and set up their global numbers
+  void sample(Mesh const &M,int const &nsubs,Shape const &T, vector<double> const &vin,double vout[]); // interpolate vin to obtain vout at the sample points
+  void J(Mesh const &M,Shape const &S,VVD const &x,int const &i,int const &nsubs,vector<double> &detj); //compute a jacobian and return the determinant at the sample points
 
   DBfile*dbfile;
   DBoptlist *optlist=NULL;
@@ -57,21 +56,23 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 
 // set up material data structure
 
-  int nmat(M.NMaterials());             // number of materials
-  int matdims[]={M.NCells(),1};         // material dimensions
-  char*matname[nmat];                   // material names
-  int matnos[nmat];                     // materials numbers present
-  int *matlist;                         // material number in each zone
-  int mixlen(0);                        // number of mixed cells
-  int mix_next[mixlen];                 // indices into mixed data arrays
-  int mix_mat[mixlen];                  // material numbers for mixed zones
-  int mix_vf[mixlen];                   // volunme fractions
+  int  nmat(M.NMaterials());             // number of materials
+  int  matdims[2];                       // material dimensions
+  char *matname[nmat];                   // material names
+  int  matnos[nmat];                     // materials numbers present
+  int  *matlist;                         // material number in each zone
+  int  mixlen(0);                        // number of mixed cells
+  int  mix_next[mixlen];                 // indices into mixed data arrays
+  int  mix_mat[mixlen];                  // material numbers for mixed zones
+  int  mix_vf[mixlen];                   // volunme fractions
 
 // reuse the following, several different meshes are required to support the different lengths of data
 // some of these meshes subdivide the elements and so the following data can vary for the different meshes
 
   int nzones;                       // number of cells
-  int nsubs;                        // number of subcells
+  int nsubs;                        // number of sub-cells
+  int nsubx;                        // number of sub-cells on x-axis
+  int nsuby;                        // number of sub-cells on y-axis
   int ndims(M.NDims());             // number of dimensions
   long lnodelist;                   // length of the nodelist array
   int *nodelist;                    // nodelist array
@@ -85,10 +86,10 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   double *coords[ndims];            // array of length ndims pointing to the coordinate arrays
   int *elnos;                       // element numnbers
   long *nodnos;                     // node numbers
-  double *var1;                     // nodal variable to output against the mesh
+  double *var1;                     // nodal/zonal variable to output against the mesh
   vector<vector<long> > SampleNode; // global numbers of the sample points
   vector<double> vin;               // vector to sample at the mesh sample points
-  double *vout;              // data at the mesh sample points
+  vector<double> detj0,detj;        // determinant at the sample point for writing out d as a function
 
 // disengage deprecation signalling
 
@@ -105,7 +106,9 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 // draw a mesh called "Elements" to support the material numbers and element numbers
 
   Shape N(1);                       // use a 4-node quad mesh to support material list
-  nsubs=1;                          // number of subcells
+  nsubs=1;                          // number of sub-cells
+  nsubx=sqrt(nsubs);                // number of sub-cells on x-axis
+  nsuby=sqrt(nsubs);                // number of sub-cells on y-axis
   nzones=M.NCells();                // number of cells
   nnodes=M.NNodes();                // number of nodes
   ndims=M.NDims();                  // number of dimensions
@@ -146,8 +149,10 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 // material numbers
 
   for(int i=0;i<nmat;i++){matnos[i]=i+1;}
-  for(int i=0;i<nzones;i++){matlist[i]=m.at(i);}
+  for(int i=0,k=0;i<M.NCells();i++){for(int j=0;j<nsubs;j++,k++){matlist[k]=m.at(i);}}
   for(int i=0;i<nmat;i++){matname[i]="Air";}
+  matdims[0]=nzones;
+  matdims[1]=1;
 
 // write out connectivity information
 
@@ -159,21 +164,7 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
   dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
   dberr=DBPutUcdmesh(dbfile,"Generator",ndims,NULL,coords,nnodes,nzones,"zonelist1",NULL,DB_DOUBLE,optlist);
-
-// write out the material
-
-  optlist=DBMakeOptlist(1);
-  dberr=DBAddOption(optlist,DBOPT_MATNAMES,matname);
-  dberr=DBPutMaterial(dbfile,"Materials","Elements",nmat,matnos,matlist,matdims,ndims,NULL,NULL,NULL,NULL,mixlen,DB_INT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-// write the element numbers
-
-//  for(int i=0;i<nzones;i++){elnos[i]=i;}
-//  optlist=DBMakeOptlist(1);
-//  dberr=DBAddOption(optlist,DBOPT_UNITS,(void*)"");
-//  dberr=DBPutUcdvar1(dbfile,"elementID","Elements",elnos,nzones,NULL,0,DB_INT,DB_ZONECENT,optlist);
-//  dberr=DBFreeOptlist(optlist);
+  dberr=DBPutPointmesh(dbfile,"Generator_Nodes",ndims,coords,nnodes,DB_DOUBLE,optlist);
 
 // release the arrays ready for the next mesh
 
@@ -199,7 +190,9 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 // to plot this we need to subdivide through the nodes as visit can
 // not cope with nodes inside the element
 
-  nsubs=S.order()*S.order();             // number of subcells
+  nsubs=S.order()*S.order();             // number of sub-cells
+  nsubx=sqrt(nsubs);                     // number of sub-cells on x-axis
+  nsuby=sqrt(nsubs);                     // number of sub-cells on y-axis
   nzones=M.NCells()*nsubs;               // number of cells
   nnodes=M.NNodes_CFEM();                // number of nodes
   ndims=M.NDims();                       // number of dimensions
@@ -252,6 +245,14 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   for(int i=0;i<nshapetypes;i++){shapesize[i]=4;}
   for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
 
+// material numbers
+
+  for(int i=0;i<nmat;i++){matnos[i]=i+1;}
+  for(int i=0,k=0;i<M.NCells();i++){for(int j=0;j<nsubs;j++,k++){matlist[k]=m.at(i);}}
+  for(int i=0;i<nmat;i++){matname[i]="Air";}
+  matdims[0]=nzones;
+  matdims[1]=1;
+
 // write out connectivity information
 
   dberr=DBPutZonelist(dbfile,"zonelist2",nzones,ndims,nodelist,lnodelist,origin,shapesize,shapecounts,nshapetypes);
@@ -278,6 +279,21 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   optlist=DBMakeOptlist(1);
   dberr=DBAddOption(optlist,DBOPT_UNITS,(void*)"");
   dberr=DBPutUcdvar1(dbfile,"elementID","Kinematics",elnos,nzones,NULL,0,DB_INT,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
+// write out the materials
+
+  optlist=DBMakeOptlist(1);
+  dberr=DBAddOption(optlist,DBOPT_MATNAMES,matname);
+  dberr=DBPutMaterial(dbfile,"Materials","Kinematics",nmat,matnos,matlist,matdims,ndims,NULL,NULL,NULL,NULL,mixlen,DB_INT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
+// write the material IDs
+
+  for(int i=0,k=0;i<M.NCells();i++){for(int iloc=0;iloc<nsubs;iloc++,k++){elnos[k]=m.at(i);}}
+  optlist=DBMakeOptlist(1);
+  dberr=DBAddOption(optlist,DBOPT_UNITS,(void*)"");
+  dberr=DBPutUcdvar1(dbfile,"materialID","Kinematics",elnos,nzones,NULL,0,DB_INT,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
 // velocity field x-component
@@ -331,7 +347,9 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 // to plot this we need to subdivide through the nodes as visit can
 // not cope with nodes inside the element
 
-  nsubs=T.order()*T.order();             // number of subcells
+  nsubs=T.order()*T.order();             // number of sub-cells
+  nsubx=sqrt(nsubs);                     // number of sub-cells on x-axis
+  nsuby=sqrt(nsubs);                     // number of sub-cells on y-axis
   nzones=M.NCells()*nsubs;               // number of cells
   nnodes=M.NNodes_DFEM();                // number of nodes
   ndims=M.NDims();                       // number of dimensions
@@ -384,6 +402,14 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   for(int i=0;i<nshapetypes;i++){shapesize[i]=4;}
   for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
 
+// material numbers
+
+  for(int i=0;i<nmat;i++){matnos[i]=i+1;}
+  for(int i=0,k=0;i<M.NCells();i++){for(int j=0;j<nsubs;j++,k++){matlist[k]=m.at(i);}}
+  for(int i=0;i<nmat;i++){matname[i]="Air";}
+  matdims[0]=nzones;
+  matdims[1]=1;
+
 // write out connectivity information
 
   dberr=DBPutZonelist(dbfile,"zonelist3",nzones,ndims,nodelist,lnodelist,origin,shapesize,shapecounts,nshapetypes);
@@ -395,13 +421,6 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
   dberr=DBPutUcdmesh(dbfile,"Thermodynamics",ndims,NULL,coords,nnodes,nzones,"zonelist3",NULL,DB_DOUBLE,optlist);
   dberr=DBPutPointmesh(dbfile,"Thermodynamic_Nodes",ndims,coords,nnodes,DB_DOUBLE,optlist);
-
-
-
-
-
-
-
 
   delete[] nodelist;
   nodelist=NULL;
@@ -426,9 +445,9 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 
 // draw a mesh called "Sample" to support sampled data
 
-  nsubs=25;                                           // number of sub-cells
-  int nsubx=sqrt(nsubs);                              // number of sub-cells in x direction
-  int nsuby=sqrt(nsubs);                              // number of sub-cells in y direction
+  nsubs=4;                                            // number of sub-cells
+  nsubx=sqrt(nsubs);                                  // number of sub-cells on x-axis
+  nsuby=sqrt(nsubs);                                  // number of sub-cells on y-axis
   nzones=M.NCells()*nsubs;                            // number of cells
   nnodes=NSampleNodes(M,nsubs,SampleNode);            // number of nodes
   ndims=M.NDims();                                    // number of dimensions
@@ -439,8 +458,7 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   matlist=new int[nzones];                            // material numbers
   elnos=new int[nzones];                              // element numbers
   nodnos=new long[nnodes];                            // node numbers
-  var1=new double[nnodes];                            // nodal variable
-  vout=new double[nzones];                            // sampled data
+  var1=new double[nzones];                            // nodal/zonal variable
 
 // store coordinates in correct format for silo
 
@@ -512,6 +530,14 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   for(int i=0;i<nshapetypes;i++){shapesize[i]=4;}
   for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
 
+// material numbers
+
+  for(int i=0;i<nmat;i++){matnos[i]=i+1;}
+  for(int i=0,k=0;i<M.NCells();i++){for(int j=0;j<nsubs;j++,k++){matlist[k]=m.at(i);}}
+  for(int i=0;i<nmat;i++){matname[i]="Air";}
+  matdims[0]=nzones;
+  matdims[1]=1;
+
 // write out connectivity information
 
   dberr=DBPutZonelist(dbfile,"zonelist4",nzones,ndims,nodelist,lnodelist,origin,shapesize,shapecounts,nshapetypes);
@@ -524,26 +550,38 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
   dberr=DBPutUcdmesh(dbfile,"Sampling",ndims,NULL,coords,nnodes,nzones,"zonelist4",NULL,DB_DOUBLE,optlist);
   dberr=DBPutPointmesh(dbfile,"Sample_Points",ndims,coords,nnodes,DB_DOUBLE,optlist);
 
-// write out the density
+// internal energy
 
-  vin=d;sample(M,nsubs,T,vin,vout);
+  vin=e;sample(M,nsubs,T,vin,var1);
   optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g/cc");
-  dberr=DBPutUcdvar1(dbfile,"density","Sampling",vout,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
+  dberr=DBPutUcdvar1(dbfile,"energy","Sampling",var1,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
+// density
 
+  for(int i=0,k=0;i<M.NCells();i++){J(M,S,xinit,i,nsubs,detj0);J(M,S,x,i,nsubs,detj);for(int isub=0;isub<nsubs;isub++,k++){var1[k]=d.at(i)*detj0.at(isub)/detj.at(isub);}}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g/cc");
+  dberr=DBPutUcdvar1(dbfile,"density","Sampling",var1,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
 
+// pressure
 
+  vin=e;sample(M,nsubs,T,vin,var1);
+  for(int i=0,k=0;i<M.NCells();i++){J(M,S,xinit,i,nsubs,detj0);J(M,S,x,i,nsubs,detj);for(int isub=0;isub<nsubs;isub++,k++){double dk(d.at(i)*detj0.at(isub)/detj.at(isub)),ek(var1[k]),gk(g.at(m.at(i)-1)),pk(P(dk,ek,gk));var1[k]=pk;}}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mb");
+  dberr=DBPutUcdvar1(dbfile,"pressure","Sampling",var1,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
 
+// gamma
 
-
-
-
-
-
-
-
+  for(int i=0,k=0;i<M.NCells();i++){for(int isub=0;isub<nsubs;isub++,k++){var1[k]=g.at(m.at(i)-1);}}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
+  dberr=DBPutUcdvar1(dbfile,"gamma","Sampling",var1,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
 
   delete[] nodelist;
   nodelist=NULL;
@@ -565,9 +603,6 @@ void silo(VVD const &x,VVD const &xt,VD const &d,VD const &p,VD const &e,VD cons
 
   delete[] var1;
   var1=NULL;
-
-  delete[] vout;
-  vout=NULL;
 
 // close the database
 
@@ -649,7 +684,7 @@ void sample(Mesh const &M,int const &nsubs,Shape const &T, vector<double> const 
           varsum+=T.value(iloc,xloc,yloc)*vin.at(M.GlobalNode_DFEM(i,iloc));
         }
 
-// store the coordinates of sample point isub
+// store the data at the sample point isub
 
         vout[nsubs*i+isub]=varsum;
 
@@ -662,189 +697,45 @@ void sample(Mesh const &M,int const &nsubs,Shape const &T, vector<double> const 
 
 }
 
-void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,
-          VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g){
+// compute a jacobian and return a vector containing the determinant at each sample point
 
-  DBfile*dbfile;
-  DBoptlist *optlist=NULL;
-  int dberr;
-  string str1("silo/step_"+to_string(step)+".silo");
+void J(Mesh const &M,Shape const &N,VVD const &x, int const &i,int const &nsubs,vector<double> &detj){
 
-  const char*filename(str1.c_str());
-  const char*codename(CODENAME);
-  const char*version(VERSION);
-  const char*title(TITLE);
-  const char*fileinfo(FILEINFO);
-  const char*meshname(MESHNAME);
+// clear out the vector passed in so it is safe to push
 
-  Shape S(1);                          // declare a degree-1 shape function
-  int nzones(M.NCells());              // number of zones
-  int ndims(M.NDims());                // number of dimensions
-  int nnodesk(M.NNodes());             // number of nodes on kinematic grid
-  int origin(0);                       // first address in nodelist arrays
-  int lnodelist=(S.nloc()*nzones);     // length of the node list
-  int nodelist[lnodelist];             // the node list
-  int nshapetypes(1);                  // number of different shape types on the mesh
-  int shapesize[nshapetypes];          // number of nodes defining each shape
-  int shapecounts[nshapetypes];        // number of zones of each shape type
+  vector<double> vempty;
+  detj=vempty;
 
-// set up material data structure
+// subdivide the element i
 
-  int nmat(M.NMaterials());             // number of materials
-  int matdims[]={nzones,1};             // material dimensions
-  char*matname[nmat];                   // material names
-  int matnos[nmat];                     // materials numbers present
-  int matlist[nzones];                  // material number in each zone
-  int mixlen(0);                        // number of mixed cells
-  int mix_next[mixlen];                 // indices into mixed data arrays
-  int mix_mat[mixlen];                  // material numbers for mixed zones
-  int mix_vf[mixlen];                   // volunme fractions
+  int nsubx=sqrt(nsubs),nsuby=nsubx;
 
-// output arrays
+  for(int isuby=0,isub=0;isuby<nsuby;isuby++){
+    for(int isubx=0;isubx<nsubx;isubx++,isub++){
 
-  int elnos[nzones];                    // element numbers
-  long nknos[nnodesk];                  // node numbers
-  double var1[nnodesk];                 // zone centred scalars
-  double var2[nzones];                  // zone centred scalars
+      double dx(2.0/nsubx),dy(2.0/nsuby);
 
-  cout<<"       silo(): Writing a silo graphics dump to file "<<filename<<endl;
+// aquire the parametric coordinates isubx,isuby of local node isub
 
-// store coordinates in correct format for silo and repeat for each mesh
+      double xloc(-1.0+0.5*dx+isubx*dx);
+      double yloc(-1.0+0.5*dy+isuby*dy);
 
-  double xcoordsk[nnodesk];for(int i=0;i<M.NNodes();i++){xcoordsk[i]=x.at(0).at(i);}
-  double ycoordsk[nnodesk];for(int i=0;i<M.NNodes();i++){ycoordsk[i]=x.at(1).at(i);}
-  double *coordsk[]={xcoordsk,ycoordsk};
+// aquire the global vertices of sub-cell isub from a finite element method
 
-// connectivities
+      double dxdu(0.0),dxdv(0.0),dydu(0.0),dydv(0.0);
+      for(int iloc=0;iloc<N.nloc();iloc++){
+        dxdu+=N.dvalue(0,iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dxdv+=N.dvalue(1,iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dydu+=N.dvalue(0,iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        dydv+=N.dvalue(1,iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+      }
 
-  for(int i=0,j=0;i<nzones;i++){
-    for(int k=0;k<S.nloc();k++,j++){
-//      nodelist[j]=M.Vertex(i,k);
-      if(k==0){nodelist[j]=M.Vertex(i,k);}
-      if(k==1){nodelist[j]=M.Vertex(i,k);}
-      if(k==2){nodelist[j]=M.Vertex(i,3);} // we need to flip the top 2 nodes around as the
-      if(k==3){nodelist[j]=M.Vertex(i,2);} // nodelist goes anticlockwise around the element
+// determinant at the sample point
+
+      detj.push_back(dxdu*dydv-dxdv*dydv);
+
     }
   }
-
-// zone shapes
-
-  for(int i=0;i<nshapetypes;i++){shapesize[i]=S.nloc();}
-  for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
-
-// material numbers
-
-  for(int i=0;i<nmat;i++){matnos[i]=i+1;}
-  for(int i=0;i<nzones;i++){matlist[i]=m.at(i);}
-  for(int i=0;i<nmat;i++){matname[i]="Air";}
-
-// disengage deprecation signalling
-
-  dberr=DBSetDeprecateWarnings(0);
-
-// create the silo database - this opens it also
-
-  dbfile=DBCreate(filename,DB_CLOBBER,DB_LOCAL,fileinfo,DB_HDF5);
-
-// write out connectivity information. //
-
-  dberr=DBPutZonelist(dbfile, "zonelist", nzones, ndims, nodelist, lnodelist, origin ,shapesize, shapecounts, nshapetypes);
-
-// write out the meshes //
-
-  optlist=DBMakeOptlist(2);
-  dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
-  dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
-  dberr=DBPutUcdmesh(dbfile,"Elements",ndims,NULL,coordsk,nnodesk,nzones,"zonelist",NULL,DB_DOUBLE,optlist);
-  dberr=DBPutPointmesh(dbfile,"Kinematics",ndims,coordsk,nnodesk,DB_DOUBLE,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-// write out the material
-
-  optlist=DBMakeOptlist(1);
-  dberr=DBAddOption(optlist,DBOPT_MATNAMES,matname);
-  dberr=DBPutMaterial(dbfile,"Materials","Elements",nmat,matnos,matlist,matdims,ndims,NULL,NULL,NULL,NULL,mixlen,DB_INT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-// write the element numbers
-
-  for(int i=0;i<nzones;i++){elnos[i]=i;}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
-  dberr=DBPutUcdvar1(dbfile,"elementID","Elements",elnos,nzones,NULL,0,DB_INT,DB_ZONECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-// write the node numbers
-
-  for(long i=0;i<nnodesk;i++){nknos[i]=i;}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
-  dberr=DBPutUcdvar1(dbfile,"nodeID","Elements",nknos,nnodesk,NULL,0,DB_LONG,DB_NODECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-// write scalar data fields
-
-  for(long i=0;i<nzones;i++){var2[i]=d.at(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"g/cc");
-  dberr=DBPutUcdvar1(dbfile,"density","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-  for(long i=0;i<nzones;i++){var2[i]=p.at(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mb");
-  dberr=DBPutUcdvar1(dbfile,"pressure","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-  for(long i=0;i<nzones;i++){var2[i]=q.at(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mb");
-  dberr=DBPutUcdvar1(dbfile,"bulk_q","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-  for(long i=0;i<nzones;i++){var2[i]=c.at(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
-  dberr=DBPutUcdvar1(dbfile,"sound_speed","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-  for(int i=0;i<nzones;i++){var2[i]=e.at(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
-  dberr=DBPutUcdvar1(dbfile,"energy","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-  for(int i=0;i<nzones;i++){var2[i]=g.at(matlist[i]-1);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
-  dberr=DBPutUcdvar1(dbfile,"gamma","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
-  dberr=DBFreeOptlist(optlist);
-
-// write vector data fields
-
-  for(long i=0;i<nnodesk;i++){var1[i]=u.at(0).at(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
-  dberr=DBPutUcdvar1(dbfile,"velocity_x","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
-  dberr=DBFreeOptlist(optlist);
-
-  for(long i=0;i<nnodesk;i++){var1[i]=u.at(1).at(i);}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
-  dberr=DBPutUcdvar1(dbfile,"velocity_y","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
-  dberr=DBFreeOptlist(optlist);
-
-// write velocity resultant
-
-  for(long i=0;i<nnodesk;i++){var1[i]=sqrt(u.at(0).at(i)*u.at(0).at(i)+u.at(1).at(i)*u.at(1).at(i));}
-  optlist = DBMakeOptlist(1);
-  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
-  dberr=DBPutUcdvar1(dbfile,"velocity","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
-  dberr=DBFreeOptlist(optlist);
-
-// close the database
-
-  dberr=DBClose(dbfile);
 
   return;
 
