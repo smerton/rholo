@@ -113,7 +113,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/triple-point-56x24.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/sod-10x1.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -143,12 +143,13 @@ int main(){
   int test_problem(0);                                           // set later for specific test cases that may need some overides
   double dpi(4.0*atan(1.0));                                     // definition of pi to double precision
   vector<double> gamma(M.NMaterials());                          // ratio of specific heats, set from material definition
+  bool zpdv(false);                                              // pdv energy field
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-//  test_problem=SOD;                                                    // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+  test_problem=SOD;                                                    // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
+                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for double shock problem 
@@ -176,10 +177,10 @@ int main(){
 //  test_problem=SEDOV;                                                  // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
 
-  test_problem=TRIPLE;                                                 // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
-                                 {1.000, 0.000,0.000, 0.100,1.4},
-                                 {0.125, 0.000,0.000, 0.100,1.5}};
+//  test_problem=TRIPLE;                                                 // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
+//                                 {1.000, 0.000,0.000, 0.100,1.4},
+//                                 {0.125, 0.000,0.000, 0.100,1.5}};
 
 // acquire adiabatic constant for each material
 
@@ -396,36 +397,23 @@ int main(){
       }
     }
 
-
-
-// got to here with high-order implementation
-  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
-  exit(1);
-// got to here with high-order implementation
-
-
-
-
-
-
-
-
-
-
-
-
 // debug
 //  lineouts(M,S,d1,p,e1,q,x1,u1,test_problem);
 //  exit(1);
 // debug
 
-// move the nodes to their full-step position
+// advect the nodes to the full-step position
 
-    M.UpdateCoords(x1,u0,dt);
+    M.UpdateCoords(x1,u0,dt);  // kinematics
+    M.UpdateCoords(xt1,u0,dt); // thermodynamics
 
 // update volume field at the full-step
 
     M.UpdateVolume(V1,x1,S.order());
+
+// set up a PdV term
+
+  if(zpdv){
 
 // update density field at the full-step
 
@@ -442,6 +430,17 @@ int main(){
 // load new sound speeds
 
     M.UpdateSoundSpeed(c,gamma,mat,p,dinit);
+
+  }
+
+
+// got to here with high-order implementation
+  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
+  exit(1);
+// got to here with high-order implementation
+
+
+
 
 // bulk q
 

@@ -909,7 +909,7 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const{
 
     for(long i=0;i<x.at(idim).size();i++){
 
-      x.at(idim).at(i)=x.at(idim)[i]+u.at(idim)[i]*dt;
+      x.at(idim).at(i)=x.at(idim).at(i)+u.at(idim).at(i)*dt;
 
     }
 
@@ -1000,7 +1000,7 @@ void Mesh::UpdateVolume(VD &V,VVD const &x, int const &p) const{
 
 // declare a shape function
 
-  Shape S(1);
+  Shape S(p);
 
 // initialise a Jacobian
 
@@ -1019,10 +1019,10 @@ void Mesh::UpdateVolume(VD &V,VVD const &x, int const &p) const{
 // derivatives of the physical coordinates at the quadrature points
 
       for(int j=0;j<S.nloc();j++){
-        dxdu+=x.at(0).at(Vertex(i,j))*S.dvalue(0,j,gi); // dx/du
-        dxdv+=x.at(0).at(Vertex(i,j))*S.dvalue(1,j,gi); // dx/dv
-        dydu+=x.at(1).at(Vertex(i,j))*S.dvalue(0,j,gi); // dy/du
-        dydv+=x.at(1).at(Vertex(i,j))*S.dvalue(1,j,gi); // dy/dv
+        dxdu+=x.at(0).at(GlobalNode_CFEM(i,j))*S.dvalue(0,j,gi); // dx/du
+        dxdv+=x.at(0).at(GlobalNode_CFEM(i,j))*S.dvalue(1,j,gi); // dx/dv
+        dydu+=x.at(1).at(GlobalNode_CFEM(i,j))*S.dvalue(0,j,gi); // dy/du
+        dydv+=x.at(1).at(GlobalNode_CFEM(i,j))*S.dvalue(1,j,gi); // dy/dv
       }
 
 // calculate the determinant at the quadrature point and commit to the vector
