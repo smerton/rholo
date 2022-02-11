@@ -31,7 +31,7 @@ std::string date();
 
 using namespace std;
 
-void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &p,VD const &e,VD const &q,VD const &c,
+void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &e,
           VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g,Shape const &S,Shape const &T){
 
 // local function signatures

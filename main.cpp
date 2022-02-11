@@ -89,9 +89,7 @@ void initial_data(int const n, long const nknodes,long const ntnodes,Shape const
                   Mesh const &M);
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
               VD const &q, VVD const &x, VVD const &u, int const &test_problem);
-void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
-          VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g);
-void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &p,VD const &e,VD const &q,VD const &c, // silo graphics output
+void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &e, // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g,Shape const &S,Shape const &T);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
@@ -99,10 +97,10 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
                VVD &u0,VVD &u1,VD &b0,VD &b1);
 void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,VVVD const &detDJ,VD const &detJ); // insert boundary conditions on acceleration field
-void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m);   // input overides for the Taylor-Green vortex
-void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Rayleigh-Taylor instability
-void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Noh stagnation shock
-void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Sedov explosion
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m);   // input overides for the Taylor-Green vortex
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Rayleigh-Taylor instability
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Noh stagnation shock
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Sedov explosion
 template <typename T> int sgn(T val); // return type safe sign of the argument
 
 using namespace std;
@@ -125,7 +123,7 @@ int main(){
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> dinit(n),V0(n),V1(n),m(n);                      // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
-  vector<double> c(NGI),p(NGI),q(NGI);                           // sound speed, pressure and bulk viscosity at each integration point
+//  vector<double> c(NGI),p(NGI),q(NGI);                           // sound speed, pressure and bulk viscosity at each integration point
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
@@ -143,7 +141,8 @@ int main(){
   int test_problem(0);                                           // set later for specific test cases that may need some overides
   double dpi(4.0*atan(1.0));                                     // definition of pi to double precision
   vector<double> gamma(M.NMaterials());                          // ratio of specific heats, set from material definition
-  bool zpdv(false);                                              // pdv energy field
+  long nzeroes(0.0);                                             // number of non-zeroes in the CSR force matrix
+  vector<double> F(nzeroes);                                     // force matrix in CSR format
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
@@ -213,13 +212,13 @@ int main(){
   for(int i=0;i<M.NCells();i++){mat.at(i)=M.Material(i);}                                                                                             // load material numbers from the mesh class
   for(int i=0;i<M.NCells();i++){V0.at(i)=M.Volume(i);}                                                                                                // set initial element volume for start of step
   for(int i=0;i<M.NCells();i++){V1.at(i)=M.Volume(i);}                                                                                                // set initial element volume for end of step
-  for(int i=0;i<M.NCells();i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=state[mat.at(i)-1][3];}}                                                     // load pressure field from initial flux state
+//  for(int i=0;i<M.NCells();i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=state[mat.at(i)-1][3];}}                                                     // load pressure field from initial flux state
   for(int i=0;i<M.NCells();i++){dinit.at(i)=state[mat.at(i)-1][0];}                                                                                   // load density field from initial flux state
   for(int i=0;i<M.NCells();i++){m.at(i)=dinit.at(i)*V0[i];}                                                                                           // calculate the initial mass field
   for(int i=0;i<M.NCells();i++){for(int j=0;j<T.nloc();j++){e0.at(M.GlobalNode_DFEM(i,j))=E(dinit.at(i),state[mat.at(i)-1][3],gamma[mat.at(i)-1]);}}  // invert the eos to start the energy field
   for(int i=0;i<e0.size();i++){e1.at(i)=e0.at(i);}
-  for(int i=0;i<q.size();i++){q.at(i)=0.0;}                                                                                                           // artificial viscosity
-  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(gamma[mat[i]-1]*p[GPNT]/dinit.at(i));}}                // initial sound speed
+//  for(int i=0;i<q.size();i++){q.at(i)=0.0;}                                                                                                           // artificial viscosity
+//  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(gamma[mat[i]-1]*state[mat.at(i)-1][3]/dinit.at(i));}}                // initial sound speed
   for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}                                                                                             // initial time-step
 
   M.UpdateLength(linit,S.order(),xinit,V0);  // initialise element length scale
@@ -264,7 +263,7 @@ int main(){
 
 // Taylor Green vortex
 
-      init_TAYLOR(M,S,T,dpi,dinit,u0,u1,p,e0,e1,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_TAYLOR(M,S,T,dpi,dinit,u0,u1,e0,e1,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -272,7 +271,7 @@ int main(){
 
 // Rayleigh-Taylor instability
 
-      init_RAYLEIGH(M,S,T,dpi,dinit,u0,u1,p,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_RAYLEIGH(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -280,7 +279,7 @@ int main(){
 
 // Noh stagnation shock
 
-      init_NOH(M,S,T,dpi,dinit,u0,u1,p,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_NOH(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -288,7 +287,7 @@ int main(){
 
 // Sedov expanding shock
 
-      init_SEDOV(M,S,T,dpi,dinit,u0,u1,p,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_SEDOV(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -347,10 +346,13 @@ int main(){
     for(int i=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x0,M,S,detJ,detDJ);
+      vector<double> q(S.ngi()),c(S.ngi());
       for(int gi=0;gi<S.ngi();gi++){
         double l(linit.at(i)*detJ.at(gi)/detJ0.at(gi));
         double d(dinit.at(i)*detJ.at(gi)/detJ0.at(gi));
-        dt_cfl.at(GPNT)=(step==0)?DTSTART:(COURANT*S.wgt(gi)*(l/sqrt((c[GPNT]*c[GPNT])+2.0*q[GPNT]/d))); // impose the CFL limit on each quadrature point
+// M.UpdateSoundSpeed();
+// M.UpdateQ();
+        dt_cfl.at(GPNT)=(step==0)?DTSTART:(COURANT*S.wgt(gi)*(l/sqrt((c[gi]*c[gi])+2.0*q[gi]/d))); // impose the CFL limit on each quadrature point
       }
     }
 
@@ -389,11 +391,11 @@ int main(){
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,xt0,xinit,dinit,linit,p,e0,q,c,u0,mat,step,time,M,gamma,S,T);
+      silo(x0,xt0,xinit,dinit,linit,e0,u0,mat,step,time,M,gamma,S,T);
     }else{
       if(abs(remainder(step,VISFREQ))==0){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,xt0,xinit,dinit,linit,p,e0,q,c,u0,mat,step,time,M,gamma,S,T);
+      silo(x0,xt0,xinit,dinit,linit,e0,u0,mat,step,time,M,gamma,S,T);
       }
     }
 
@@ -411,30 +413,47 @@ int main(){
 
     M.UpdateVolume(V1,x1,S.order());
 
-// set up a PdV term
+// assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both e/u eqns
 
-  if(zpdv){
+    for(long k=0;k<nzeroes;k++){F.at(k)=0.0;}
+    for(int i=0, k=0;i<n;i++){
+      jacobian(i,xinit,M,S,detJ0,detDJ0);
+      jacobian(i,x1,M,S,detJ,detDJ);
+      vector<double> l(S.ngi()),d(S.ngi()),p(S.ngi());
+      for(int gi=0;gi<S.ngi();gi++){
+        double egi(0.0);
+        for(int jloc=0;jloc<T.nloc();jloc++,k++){
+          egi+=e1.at(GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
+        }
+        p.at(gi)=P(d,egi,gamma.at(mat.at(i)));
+        double l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        double d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+// M.UpdateSoundSpeed();
+// M.UpdateQ();
+      }
 
-// update density field at the full-step
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        for(int jloc=0;jloc<T.nloc();jloc++,k++){
+          for(int gi=0;gi<S.ngi();gi++){
+            F.at(k)+=(p[gi]+q[gi])*S.dvalue(iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+          }
+        }
+      }
+    }
 
-    M.UpdateDensity(dinit,V1,m);
 
-// update internal energy field at the full-step
 
-    M.UpdateEnergy(e0,e1,p,q,V0,V1,m);
 
-// update cell pressures at the full-step
 
-    M.UpdatePressure(p,dinit,e1,gamma,mat);
 
-// load new sound speeds
 
-    M.UpdateSoundSpeed(c,gamma,mat,p,dinit);
-
-  }
 
 
 // got to here with high-order implementation
+// M.UpdateSoundSpeed(); in both dt loop and F loop
+// M.UpdateQ(); in both dt loop and F loop
+// idim lop needs ro be added to F loop
+// maybe declare p,l,d,c,q, egi at the top ??
   cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
   exit(1);
 // got to here with high-order implementation
@@ -1034,7 +1053,7 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 
 // input overides for the Taylor-Green vortex
 
-void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_TAYLOR(): Input overides for Taylor-Green..."<<endl;
 
@@ -1049,31 +1068,13 @@ void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,V
     }
   }
 
-// update pressure field
-
-  for(int i=0;i<M.NCells();i++){
-
-    for(int gi=0;gi<S.ngi();gi++){
-
-// internal energy at the Gauss points
-
-      double egi(0.0);
-      for(int iloc=0;iloc<T.nloc();iloc++){
-        egi+=T.value(iloc,gi)*e0.at(M.GlobalNode_DFEM(i,iloc));
-      }
-
-      p.at(GPNT)=P(dinit.at(i),egi,gamma[mat[i]-1]);
-
-    }
-  }
-
   return;
 
 }
 
 // input overides for the Rayleigh-Taylor instability
 
-void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_RAYLEIGH(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
@@ -1085,7 +1086,7 @@ void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi
 
 // input overides for the Noh stagnation shock
 
-void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_NOH(): Input overides for Noh..."<<endl;
 
@@ -1127,7 +1128,7 @@ void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &
 
 // input overides for the Sedov explosion
 
-void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &p,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_SEDOV(): Input overides for Sedov..."<<endl;
 
