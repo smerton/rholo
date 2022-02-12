@@ -124,6 +124,7 @@ int main(){
   vector<double> dinit(n),V0(n),V1(n),m(n);                      // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
 //  vector<double> c(NGI),p(NGI),q(NGI);                           // sound speed, pressure and bulk viscosity at each integration point
+  vector<double> l(S.ngi()),d(S.ngi()),c(S.ngi()),p(S.ngi()),q(S.ngi()); // sound speed, pressure and bulk viscosity at each integration point
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
@@ -413,29 +414,29 @@ int main(){
 
     M.UpdateVolume(V1,x1,S.order());
 
-// assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both e/u eqns
+// assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both energy and momentum equations
 
     for(long k=0;k<nzeroes;k++){F.at(k)=0.0;}
     for(int i=0, k=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x1,M,S,detJ,detDJ);
-      vector<double> l(S.ngi()),d(S.ngi()),p(S.ngi());
       for(int gi=0;gi<S.ngi();gi++){
         double egi(0.0);
         for(int jloc=0;jloc<T.nloc();jloc++,k++){
-          egi+=e1.at(GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
+          egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
         }
-        p.at(gi)=P(d,egi,gamma.at(mat.at(i)));
-        double l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
-        double d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)));
 // M.UpdateSoundSpeed();
 // M.UpdateQ();
       }
-
-      for(int iloc=0;iloc<S.nloc();iloc++){
-        for(int jloc=0;jloc<T.nloc();jloc++,k++){
-          for(int gi=0;gi<S.ngi();gi++){
-            F.at(k)+=(p[gi]+q[gi])*S.dvalue(iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+      for(int idim=0;idim<M.NDims();idim++){
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          for(int jloc=0;jloc<T.nloc();jloc++,k++){
+            for(int gi=0;gi<S.ngi();gi++){
+              F.at(k)+=(p[gi]+q[gi])*S.dvalue(idim,iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+            }
           }
         }
       }
