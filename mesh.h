@@ -57,7 +57,9 @@ class Mesh{
   void UpdateDensity(VD &d,VD const &V,VD const &m) const; // update denisty field d given a volume field V and a mass field m
   void UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0,VD const &V1,VD const &m) const ; // update mesh energy field
   void UpdatePressure(VD &p,VD const &d,VD const &e,VD const &gamma,vector<int> const &mat); // load pressure field
+  double UpdatePressure(double const &d,double const &e,double const&g); // returns pressure field value at a point
   void UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p,VD const &d) const; // load new sound speeds
+  double UpdateSoundSpeed(double const &g,double const &p,double const &d); // returns sound speed at a point
   long GlobalNode_CFEM(int const i,int const j) const; // global node number of local node j in element i in a continuous finite element method
   long GlobalNode_DFEM(int const i,int const j) const; // global node number of local node j in element i in a discontinuous finite element method
 

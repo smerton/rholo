@@ -87,8 +87,7 @@ void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xin
 void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);      // sum the global internal energy field
 void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,int const ndims, int const nmats, // echo some initial information
                   Mesh const &M);
-void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
-              VD const &q, VVD const &x, VVD const &u, int const &test_problem);
+void lineouts(Mesh const &M, Shape const &S,VD const &dinit,VD const &e,VVD const &x, VVD const &u, int const &test_problem); // line-outs
 void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &e, // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g,Shape const &S,Shape const &T);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
@@ -123,8 +122,8 @@ int main(){
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> dinit(n),V0(n),V1(n),m(n);                      // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
-//  vector<double> c(NGI),p(NGI),q(NGI);                           // sound speed, pressure and bulk viscosity at each integration point
-  vector<double> l(S.ngi()),d(S.ngi()),c(S.ngi()),p(S.ngi()),q(S.ngi()); // sound speed, pressure and bulk viscosity at each integration point
+//  vector<double> c(NGI),p(NGI),q(NGI);                         // sound speed, pressure and bulk viscosity at each integration point
+  double l,d,c,p,q;                                             // length scale,density,sound speed, pressure and bulk viscosity evaluated at a point
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
@@ -347,13 +346,17 @@ int main(){
     for(int i=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x0,M,S,detJ,detDJ);
-      vector<double> q(S.ngi()),c(S.ngi());
       for(int gi=0;gi<S.ngi();gi++){
-        double l(linit.at(i)*detJ.at(gi)/detJ0.at(gi));
-        double d(dinit.at(i)*detJ.at(gi)/detJ0.at(gi));
-// M.UpdateSoundSpeed();
-// M.UpdateQ();
-        dt_cfl.at(GPNT)=(step==0)?DTSTART:(COURANT*S.wgt(gi)*(l/sqrt((c[gi]*c[gi])+2.0*q[gi]/d))); // impose the CFL limit on each quadrature point
+        l=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        d=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        double egi(0.0);
+        for(int iloc=0;iloc<T.nloc();iloc++){
+          egi+=e1.at(M.GlobalNode_DFEM(i,iloc))*T.value(iloc,gi);
+        }
+        p=M.UpdatePressure(d,egi,gamma.at(mat.at(i)-1));
+        c=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p,d);
+//        M.UpdateQ();
+        dt_cfl.at(GPNT)=(step==0)?DTSTART:(COURANT*S.wgt(gi)*(l/sqrt(c*c+2.0*q/d))); // impose the CFL limit on each quadrature point
       }
     }
 
@@ -425,17 +428,17 @@ int main(){
         for(int jloc=0;jloc<T.nloc();jloc++,k++){
           egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
         }
-        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
-        d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
-        p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)));
-// M.UpdateSoundSpeed();
+        l=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        d=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        p=P(d,egi,gamma.at(mat.at(i)));
+        c=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p,d);
 // M.UpdateQ();
       }
       for(int idim=0;idim<M.NDims();idim++){
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int jloc=0;jloc<T.nloc();jloc++,k++){
             for(int gi=0;gi<S.ngi();gi++){
-              F.at(k)+=(p[gi]+q[gi])*S.dvalue(idim,iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+              F.at(k)+=(p+q)*S.dvalue(idim,iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
             }
           }
         }
@@ -451,10 +454,8 @@ int main(){
 
 
 // got to here with high-order implementation
-// M.UpdateSoundSpeed(); in both dt loop and F loop
+// store p at each gauss point
 // M.UpdateQ(); in both dt loop and F loop
-// idim lop needs ro be added to F loop
-// maybe declare p,l,d,c,q, egi at the top ??
   cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
   exit(1);
 // got to here with high-order implementation
@@ -481,7 +482,7 @@ int main(){
     for(int idim=0;idim<M.NDims();idim++){
       for(int iloc=0;iloc<S.nloc();iloc++){
         for(int gi=0;gi<S.ngi();gi++){
-          b.at(idim*NROWS+ROW)+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+//          b.at(idim*NROWS+ROW)+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
         }
       }
     }
@@ -516,7 +517,6 @@ int main(){
 // advance the states for the new time step
 
     u0=u1;x0=x1;e0=e1;V0=V1;
-    M.UpdateSoundSpeed(c,gamma,mat,p,dinit);
 
 // debug
   if(step==1){
@@ -530,7 +530,7 @@ int main(){
 
 // some output
 
-  lineouts(M,S,dinit,p,e1,q,x1,u1,test_problem);
+  lineouts(M,S,dinit,e1,x1,u1,test_problem);
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
 
@@ -576,7 +576,7 @@ int main(){
 
 // this function codes for some line-outs
 
-void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,VD const &q,VVD const &x,VVD const &u, int const &test_problem){
+void lineouts(Mesh const &M,Shape const &S,VD const &dinit,VD const &e,VVD const &x,VVD const &u, int const &test_problem){
 
 // file handle for output
 
@@ -711,6 +711,8 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
     cout<<"lineouts(): Lineout "<<iline<<" writing to file "<<Lineout.at(iline).filename<<" ..."<<endl;
 
+    double p(0.0),q(0.0),d(0.0);
+
 // open the output file for the lineout and write the header part
 
     f1.open(Lineout.at(iline).filename);
@@ -803,12 +805,12 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
 // evaluate density field at global coordinate r(x,y)
 
-      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=d.at(i);}
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=d;}
       for(int j=0;j<G.nloc();j++){interpolated_value[0]+=G.value(j,ri)*nodal_value.at(j);}
 
 // evaluate pressure field at global coordinate r(x,y)
 
-      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=p.at(i);}
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=p;}
       for(int j=0;j<G.nloc();j++){interpolated_value[1]+=G.value(j,ri)*nodal_value.at(j);}
 
 // evaluate energy field at global coordinate r(x,y)
@@ -818,7 +820,7 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
 // evaluate artificial viscosity field at global coordinate r(x,y)
 
-      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=q.at(i);}
+      for(int j=0;j<G.nloc();j++){nodal_value.at(j)=q;}
       for(int j=0;j<G.nloc();j++){interpolated_value[3]+=G.value(j,ri)*nodal_value.at(j);}
 
 // evaluate velocity field at global coordinate r(x,y)

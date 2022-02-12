@@ -1083,6 +1083,10 @@ void Mesh::UpdatePressure(VD &p,VD const &d,VD const &e,VD const &gamma,vector<i
 
 }
 
+// member function to return pressure field value at a point
+
+double Mesh::UpdatePressure(double const&d,double const&e,double const&g){return P(d,e,g);}
+
 // load new sound speeds
 
 void Mesh::UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p,VD const &d) const{
@@ -1094,6 +1098,10 @@ void Mesh::UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p
   return;
 
 }
+
+// member function to return sound speed at a point
+
+double Mesh::UpdateSoundSpeed(double const &g,double const &p,double const &d){return C(p,d,g);}
 
 // member function to return the element volume
 
