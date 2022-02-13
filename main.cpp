@@ -123,7 +123,7 @@ int main(){
   vector<double> dinit(n),V0(n),V1(n),m(n);                      // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
 //  vector<double> c(NGI),p(NGI),q(NGI);                         // sound speed, pressure and bulk viscosity at each integration point
-  double l,d,c,p,q;                                             // length scale,density,sound speed, pressure and bulk viscosity evaluated at a point
+  vector<double> l(S.ngi()),d(S.ngi()),c(S.ngi()),p(S.ngi()),q(S.ngi()); // length scale,density,sound speed, pressure and bulk viscosity evaluated at a point
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
@@ -342,25 +342,31 @@ int main(){
 
 // calculate a new stable time step that will impose the CFL limit on each quadrature point
 
-
     for(int i=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x0,M,S,detJ,detDJ);
+
+// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration
+
       for(int gi=0;gi<S.ngi();gi++){
-        l=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
-        d=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
         double egi(0.0);
         for(int iloc=0;iloc<T.nloc();iloc++){
           egi+=e1.at(M.GlobalNode_DFEM(i,iloc))*T.value(iloc,gi);
         }
-        p=M.UpdatePressure(d,egi,gamma.at(mat.at(i)-1));
-        c=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p,d);
-//        M.UpdateQ();
-        dt_cfl.at(GPNT)=(step==0)?DTSTART:(COURANT*S.wgt(gi)*(l/sqrt(c*c+2.0*q/d))); // impose the CFL limit on each quadrature point
+        double divu(0.0);
+        for(int idim=0;idim<M.NDims();idim++){
+          for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(jloc,gi))/detJ.at(gi);}
+        }
+        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        p.at(gi)=M.UpdatePressure(d.at(gi),egi,gamma.at(mat.at(i)-1));
+        c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
+        q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
+        dt_cfl.at(GPNT)=(step==0)?DTSTART:(COURANT*S.wgt(gi)*(l.at(gi)/sqrt(c.at(gi)*c.at(gi)+2.0*q.at(gi)/d.at(gi)))); // impose the CFL limit on each quadrature point
       }
     }
 
-// reduce across element and apply a saftey factor
+// reduce time step across element and apply a saftey factor
 
     dts.at(0)=DTSFACTOR*(*min_element(dt_cfl.begin(), dt_cfl.end()));
 
@@ -423,22 +429,29 @@ int main(){
     for(int i=0, k=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x1,M,S,detJ,detDJ);
+
+// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration
+
       for(int gi=0;gi<S.ngi();gi++){
         double egi(0.0);
         for(int jloc=0;jloc<T.nloc();jloc++,k++){
           egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
         }
-        l=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
-        d=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
-        p=P(d,egi,gamma.at(mat.at(i)));
-        c=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p,d);
-// M.UpdateQ();
+        double divu(0.0);
+        for(int idim=0;idim<M.NDims();idim++){
+          for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(jloc,gi))/detJ.at(gi);}
+        }
+        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
+        c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
+        q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
       }
       for(int idim=0;idim<M.NDims();idim++){
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int jloc=0;jloc<T.nloc();jloc++,k++){
             for(int gi=0;gi<S.ngi();gi++){
-              F.at(k)+=(p+q)*S.dvalue(idim,iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+//              F.at(k)+=(p+q)*S.dvalue(idim,iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
             }
           }
         }

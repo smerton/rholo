@@ -60,6 +60,7 @@ class Mesh{
   double UpdatePressure(double const &d,double const &e,double const&g); // returns pressure field value at a point
   void UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p,VD const &d) const; // load new sound speeds
   double UpdateSoundSpeed(double const &g,double const &p,double const &d); // returns sound speed at a point
+  double UpdateQ(double const&l,double const&d,double const&c,double const&cq,double const&cl,double const&divu); // returns artificial viscosity at a point
   long GlobalNode_CFEM(int const i,int const j) const; // global node number of local node j in element i in a continuous finite element method
   long GlobalNode_DFEM(int const i,int const j) const; // global node number of local node j in element i in a discontinuous finite element method
 

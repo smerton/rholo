@@ -1103,6 +1103,15 @@ void Mesh::UpdateSoundSpeed(VD &c,VD const &g,vector<int> const &mat,VD const &p
 
 double Mesh::UpdateSoundSpeed(double const &g,double const &p,double const &d){return C(p,d,g);}
 
+// member function to return artificial viscosity at a point
+
+
+double Mesh::UpdateQ(double const&l,double const&d,double const&c,double const&cq,double const&cl,double const&divu){
+
+return( (divu<0.0)?(d*l*divu*((cq*l*divu)-cl*c)):0.0);
+
+}
+
 // member function to return the element volume
 
 double Mesh::Volume(int i) const {return mVolume.at(i);}
