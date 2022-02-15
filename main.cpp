@@ -305,20 +305,19 @@ int main(){
 
 // assign storage to the force matrix - use a compressed format
 
-    nzeroes=0;F.resize(0);
-    for(int i=0, k=0;i<n;i++){
-      for(int idim=0;idim<M.NDims();idim++){
-        for(int iloc=0;iloc<S.nloc();iloc++){
-          for(int jloc=0;jloc<T.nloc();jloc++,k++){
-            frow.push_back(idim*nknodes+M.GlobalNode_CFEM(i,iloc));
-            fcol.push_back(idim*ntnodes+M.GlobalNode_DFEM(i,jloc));
-            F.push_back(0.0);
-cout<<"k= "<<k<<" i "<<i<<" idim "<<idim<<" iloc "<<iloc<<" jloc "<<jloc<<" nzeroes= "<<nzeroes<<endl;
-            nzeroes++;
-          }
+  for(int i=0, k=0;i<n;i++){
+    for(int idim=0;idim<M.NDims();idim++){
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        for(int jloc=0;jloc<T.nloc();jloc++,k++){
+          frow.push_back(idim*nknodes+M.GlobalNode_CFEM(i,iloc));
+          fcol.push_back(idim*ntnodes+M.GlobalNode_DFEM(i,jloc));
         }
       }
     }
+  }
+
+  nzeroes=frow.size();
+  F.resize(nzeroes);
 
   cout<<"Force matrix assigned, "<<nzeroes<<" non-zeroes in its address space: "<<fixed<<setprecision(2)<<F.size()*8.0/1024.0/1024.0<<" Mb acquired."<<endl;
 
