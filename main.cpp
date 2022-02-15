@@ -214,13 +214,10 @@ int main(){
   for(int i=0;i<M.NCells();i++){mat.at(i)=M.Material(i);}                                                                                             // load material numbers from the mesh class
   for(int i=0;i<M.NCells();i++){V0.at(i)=M.Volume(i);}                                                                                                // set initial element volume for start of step
   for(int i=0;i<M.NCells();i++){V1.at(i)=M.Volume(i);}                                                                                                // set initial element volume for end of step
-//  for(int i=0;i<M.NCells();i++){for(int gi=0;gi<T.ngi();gi++){p.at(GPNT)=state[mat.at(i)-1][3];}}                                                     // load pressure field from initial flux state
   for(int i=0;i<M.NCells();i++){dinit.at(i)=state[mat.at(i)-1][0];}                                                                                   // load density field from initial flux state
   for(int i=0;i<M.NCells();i++){m.at(i)=dinit.at(i)*V0[i];}                                                                                           // calculate the initial mass field
   for(int i=0;i<M.NCells();i++){for(int j=0;j<T.nloc();j++){e0.at(M.GlobalNode_DFEM(i,j))=E(dinit.at(i),state[mat.at(i)-1][3],gamma[mat.at(i)-1]);}}  // invert the eos to start the energy field
   for(int i=0;i<e0.size();i++){e1.at(i)=e0.at(i);}
-//  for(int i=0;i<q.size();i++){q.at(i)=0.0;}                                                                                                           // artificial viscosity
-//  for(int i=0;i<mat.size();i++){int imat(mat[i]);for(int gi=0;gi<T.ngi();gi++){c.at(GPNT)=sqrt(gamma[mat[i]-1]*state[mat.at(i)-1][3]/dinit.at(i));}}                // initial sound speed
   for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}                                                                                             // initial time-step
 
   M.UpdateLength(linit,S.order(),xinit,V0);  // initialise element length scale
@@ -303,7 +300,7 @@ int main(){
 
   initial_data(n,nknodes,ntnodes,S,ndims,nmats,M);
 
-// assign storage to the force matrix - use a compressed format
+// assign storage to the force matrix - use a compressed coordinate format
 
   for(int i=0, k=0;i<n;i++){
     for(int idim=0;idim<M.NDims();idim++){
@@ -483,6 +480,12 @@ int main(){
       }
 
     }
+
+// assemble finite element energy field
+
+
+
+
 
 
 
