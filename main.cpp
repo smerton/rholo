@@ -141,8 +141,10 @@ int main(){
   int test_problem(0);                                           // set later for specific test cases that may need some overides
   double dpi(4.0*atan(1.0));                                     // definition of pi to double precision
   vector<double> gamma(M.NMaterials());                          // ratio of specific heats, set from material definition
-  long nzeroes(0.0);                                             // number of non-zeroes in the CSR force matrix
+  long nzeroes(0);                                               // number of non-zeroes in the CSR force matrix
   vector<double> F(nzeroes);                                     // force matrix in CSR format
+  vector<long> frow(nzeroes);                                    // row addresses in the force matrix
+  vector<long> fcol(nzeroes);                                    // column addresses in the force matrix
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
@@ -301,8 +303,28 @@ int main(){
 
   initial_data(n,nknodes,ntnodes,S,ndims,nmats,M);
 
+// assign storage to the force matrix - use a compressed format
+
+    nzeroes=0;F.resize(0);
+    for(int i=0, k=0;i<n;i++){
+      for(int idim=0;idim<M.NDims();idim++){
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          for(int jloc=0;jloc<T.nloc();jloc++,k++){
+            frow.push_back(idim*nknodes+M.GlobalNode_CFEM(i,iloc));
+            fcol.push_back(idim*ntnodes+M.GlobalNode_DFEM(i,jloc));
+            F.push_back(0.0);
+cout<<"k= "<<k<<" i "<<i<<" idim "<<idim<<" iloc "<<iloc<<" jloc "<<jloc<<" nzeroes= "<<nzeroes<<endl;
+            nzeroes++;
+          }
+        }
+      }
+    }
+
+  cout<<"Force matrix assigned, "<<nzeroes<<" non-zeroes in its address space: "<<fixed<<setprecision(2)<<F.size()*8.0/1024.0/1024.0<<" Mb acquired."<<endl;
+
 // assemble mass matrix for acceleration field
 
+  cout<<"Mass matrix for acceleration field assembly: ";
   for(int idim=0;idim<M.NDims();idim++){
     for(int i=0;i<M.NCells();i++){
       jacobian(i,x0,M,S,detJ,detDJ);
@@ -323,10 +345,11 @@ int main(){
       }
     }
   }
+  cout<<"Done."<<endl;
 
 // invert the mass matrix
 
-  cout<<"Inverting the mass matrix..."<<endl;
+  cout<<"Inverting the mass matrix: ";
 
   KMASSI.inverse2(&KMASS); // lapack drivers dgetrf_ and dgetri_
 
@@ -430,11 +453,11 @@ int main(){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x1,M,S,detJ,detDJ);
 
-// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration
+// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration point
 
       for(int gi=0;gi<S.ngi();gi++){
         double egi(0.0);
-        for(int jloc=0;jloc<T.nloc();jloc++,k++){
+        for(int jloc=0;jloc<T.nloc();jloc++){
           egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
         }
         double divu(0.0);
@@ -447,15 +470,19 @@ int main(){
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
         q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
       }
+
+// construct force terms
+
       for(int idim=0;idim<M.NDims();idim++){
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int jloc=0;jloc<T.nloc();jloc++,k++){
             for(int gi=0;gi<S.ngi();gi++){
-//              F.at(k)+=(p+q)*S.dvalue(idim,iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+              F.at(k)+=(p.at(gi)+q.at(gi))*S.dvalue(idim,iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
             }
           }
         }
       }
+
     }
 
 
@@ -467,8 +494,6 @@ int main(){
 
 
 // got to here with high-order implementation
-// store p at each gauss point
-// M.UpdateQ(); in both dt loop and F loop
   cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
   exit(1);
 // got to here with high-order implementation
