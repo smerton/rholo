@@ -28,7 +28,7 @@
 
 #define DTSTART 0.001     // insert a macro for the first time step
 #define ENDTIME 0.201     // insert a macro for the end time
-//#define ECUT 1.0e-8     // cut-off on the energy field
+#define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
@@ -145,6 +145,7 @@ int main(){
   vector<double> F(nzeroes);                                     // force matrix in CSR format
   vector<long> frow(nzeroes);                                    // row addresses in the force matrix
   vector<long> fcol(nzeroes);                                    // column addresses in the force matrix
+  vector<int> fdim(nzeroes);                                     // dimension addresses in the force matrix
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
@@ -306,12 +307,17 @@ int main(){
     for(int idim=0;idim<M.NDims();idim++){
       for(int iloc=0;iloc<S.nloc();iloc++){
         for(int jloc=0;jloc<T.nloc();jloc++,k++){
-          frow.push_back(idim*nknodes+M.GlobalNode_CFEM(i,iloc));
-          fcol.push_back(idim*ntnodes+M.GlobalNode_DFEM(i,jloc));
+//          frow.push_back(idim*nknodes+M.GlobalNode_CFEM(i,iloc));
+          frow.push_back(M.GlobalNode_CFEM(i,iloc)); // more convenient for loop structures where F[][] is accessed ?
+//          fcol.push_back(idim*ntnodes+M.GlobalNode_DFEM(i,jloc));
+          fcol.push_back(M.GlobalNode_DFEM(i,jloc)); // more convenient for loop structures where F[][] is accessed ?
+          fdim.push_back(idim); // store the dimension idim associated with the address in F[][]
         }
       }
     }
   }
+
+// set number of non-zeroes
 
   nzeroes=frow.size();
   F.resize(nzeroes);
@@ -483,10 +489,65 @@ int main(){
 
 // assemble finite element energy field
 
+  {Matrix A(T.nloc());vector<double> b(ntnodes),utmp(M.NDims()*nknodes);double bloc[T.nloc()],edot[T.nloc()];for(long i=0;i<b.size();i++){b.at(i)=0.0;}
+
+// assemble the rhs of the energy equation from the force matrix using F^T dot (ux,uy)^T
+
+    for(long iz=0;iz<nzeroes;iz++){b.at(fcol.at(iz))+=F.at(iz)*u1.at(fdim.at(iz)).at(frow.at(iz));}
+
+// solve the energy equation locally in each cell
+
+    for(int i=0;i<n;i++){
+
+// update jacobians for this cell
+
+      jacobian(i,xinit,M,S,detJ0,detDJ0);
+      jacobian(i,x1,M,S,detJ,detDJ);
+
+// update density field at each quadrature point in the cell
+
+      for(int gi=0;gi<S.ngi();gi++){d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);}
+
+// assemble a local mass matrix for the energy equation
+
+      for(int iloc=0;iloc<T.nloc();iloc++){
+        for(int jloc=0;jloc<T.nloc();jloc++){
+          double nn(0.0); // mass matrix
+          for(int gi=0;gi<S.ngi();gi++){
+            nn+=d.at(gi)*T.value(iloc,gi)*T.value(jloc,gi)*detJ.at(gi)*S.wgt(gi);
+          }
+          A.write(iloc,jloc,nn);
+        }
+        bloc[iloc]=b.at(M.GlobalNode_DFEM(i,iloc)); // local sourcing of the energy field
+      }
+
+// solve the system for edot=de/dt
+
+      A.solve(edot,bloc);
+
+// advance the solution and commit to the global address space in the energy field
+
+      for(int iloc=0;iloc<T.nloc();iloc++){e1.at(M.GlobalNode_DFEM(i,iloc))=max(ECUT,e0.at(M.GlobalNode_DFEM(i,iloc))-edot[iloc]*dt);}
+
+    }
+
+  }
+
+// assemble acceleration field
+
+  {vector<double> b(M.NDims()*nknodes);for(long i=0;i<b.size();i++){b.at(i)=0.0;}
 
 
 
 
+
+
+
+
+
+
+
+  }
 
 
 
@@ -500,19 +561,6 @@ int main(){
   exit(1);
 // got to here with high-order implementation
 
-
-
-
-// bulk q
-
-//    for(int i=0;i<q.size();i++){
-//      double l(0.0),divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
-//      if(divu<0.0){
-//        q.at(i)=d1[i]*l*divu*((cq*l*divu)-cl*c[i]);
-//      }else{
-//        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
-//      }
-//    }
 
 // assemble acceleration field
 
