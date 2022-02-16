@@ -489,75 +489,75 @@ int main(){
 
 // assemble finite element energy field
 
-  {Matrix A(T.nloc());vector<double> b(ntnodes),utmp(M.NDims()*nknodes);double bloc[T.nloc()],edot[T.nloc()];for(long i=0;i<b.size();i++){b.at(i)=0.0;}
+    {Matrix A(T.nloc());vector<double> b(ntnodes),utmp(M.NDims()*nknodes);double bloc[T.nloc()],edot[T.nloc()];for(long i=0;i<b.size();i++){b.at(i)=0.0;}
 
 // assemble the rhs of the energy equation from the force matrix using F^T dot (ux,uy)^T
 
-    for(long iz=0;iz<nzeroes;iz++){b.at(fcol.at(iz))+=F.at(iz)*u1.at(fdim.at(iz)).at(frow.at(iz));}
+      for(long iz=0;iz<nzeroes;iz++){b.at(fcol.at(iz))+=F.at(iz)*u1.at(fdim.at(iz)).at(frow.at(iz));}
 
 // solve the energy equation locally in each cell
 
-    for(int i=0;i<n;i++){
+      for(int i=0;i<n;i++){
 
 // update jacobians for this cell
 
-      jacobian(i,xinit,M,S,detJ0,detDJ0);
-      jacobian(i,x1,M,S,detJ,detDJ);
+        jacobian(i,xinit,M,S,detJ0,detDJ0);
+        jacobian(i,x1,M,S,detJ,detDJ);
 
 // update density field at each quadrature point in the cell
 
-      for(int gi=0;gi<S.ngi();gi++){d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);}
+        for(int gi=0;gi<S.ngi();gi++){d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);}
 
 // assemble a local mass matrix for the energy equation
 
-      for(int iloc=0;iloc<T.nloc();iloc++){
-        for(int jloc=0;jloc<T.nloc();jloc++){
-          double nn(0.0); // mass matrix
-          for(int gi=0;gi<S.ngi();gi++){
-            nn+=d.at(gi)*T.value(iloc,gi)*T.value(jloc,gi)*detJ.at(gi)*S.wgt(gi);
+        for(int iloc=0;iloc<T.nloc();iloc++){
+          for(int jloc=0;jloc<T.nloc();jloc++){
+            double nn(0.0); // mass matrix
+            for(int gi=0;gi<S.ngi();gi++){
+              nn+=d.at(gi)*T.value(iloc,gi)*T.value(jloc,gi)*detJ.at(gi)*S.wgt(gi);
+            }
+            A.write(iloc,jloc,nn);
           }
-          A.write(iloc,jloc,nn);
+          bloc[iloc]=b.at(M.GlobalNode_DFEM(i,iloc)); // local sourcing of the energy field
         }
-        bloc[iloc]=b.at(M.GlobalNode_DFEM(i,iloc)); // local sourcing of the energy field
-      }
 
 // solve the system for edot=de/dt
 
-      A.solve(edot,bloc);
+        A.solve(edot,bloc);
 
 // advance the solution and commit to the global address space in the energy field
 
-      for(int iloc=0;iloc<T.nloc();iloc++){e1.at(M.GlobalNode_DFEM(i,iloc))=max(ECUT,e0.at(M.GlobalNode_DFEM(i,iloc))-edot[iloc]*dt);}
+        for(int iloc=0;iloc<T.nloc();iloc++){e1.at(M.GlobalNode_DFEM(i,iloc))=max(ECUT,e0.at(M.GlobalNode_DFEM(i,iloc))-edot[iloc]*dt);}
+
+      }
 
     }
-
-  }
 
 // assemble acceleration field
 
-  {vector<double> b(M.NDims()*nknodes);for(long i=0;i<b.size();i++){b.at(i)=0.0;}
+    {vector<double> b(M.NDims()*nknodes);for(long i=0;i<b.size();i++){b.at(i)=0.0;}
 
 // assemble the rhs of the momentum equation from the force matrix using F dot (unit vector)^T
 
-    for(long iz=0;iz<nzeroes;iz++){b.at(fdim.at(iz)*nknodes+frow.at(iz))+=F.at(iz);}
+      for(long iz=0;iz<nzeroes;iz++){b.at(fdim.at(iz)*nknodes+frow.at(iz))+=F.at(iz);}
 
 // solve global system
 
-    for(int idim=0;idim<M.NDims();idim++){
-      for(long i=0;i<nknodes;i++){
-        double udot(0.0);
-        for(long j=0;j<nknodes;j++){
-          udot+=KMASSI.read(i,j)*b.at(j);
-        }
+      for(int idim=0;idim<M.NDims();idim++){
+        for(long i=0;i<nknodes;i++){
+          double udot(0.0);
+          for(long j=0;j<nknodes;j++){
+            udot+=KMASSI.read(i,j)*b.at(j);
+          }
 
 // advance the solution and commit to the global address space
 
-        u1.at(idim).at(i)=u0.at(idim).at(i)+udot*dt;
+          u1.at(idim).at(i)=u0.at(idim).at(i)+udot*dt;
 
+        }
       }
-    }
 
-  }
+    }
 
 // advance the time step
 
@@ -572,18 +572,19 @@ int main(){
     e0=e1;   // internal energy
     V0=V1;   // cell volumes
 
+// debug
+//  cout<<"ux:"<<endl;
+//  for(int i=0;i<M.NCells()*S.order()+1;i++){
+//    int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
+//    cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i1)<<" "<<u1.at(0).at(i2)<<" "<<u1.at(0).at(i3)<<endl;
+//  }
+//  cout<<"uy:"<<endl;
+//  for(int i=0;i<M.NCells()*S.order()+1;i++){
+//    int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
+//    cout<<x1.at(1).at(i)<<" "<<u1.at(1).at(i1)<<" "<<u1.at(1).at(i2)<<" "<<u1.at(1).at(i3)<<endl;
+//  }
 
-
-
-
-
-
-
-// got to here with high-order implementation
-  cout<<"main(): High-order implementation not operational yet, stopping here !!"<<endl;
-  exit(1);
-// got to here with high-order implementation
-
+// debug
 
 
 // debug
