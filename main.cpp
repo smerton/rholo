@@ -122,8 +122,8 @@ int main(){
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> dinit(n),V0(n),V1(n),m(n);                      // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
-//  vector<double> c(NGI),p(NGI),q(NGI);                         // sound speed, pressure and bulk viscosity at each integration point
-  vector<double> l(S.ngi()),d(S.ngi()),c(S.ngi()),p(S.ngi()),q(S.ngi()); // length scale,density,sound speed, pressure and bulk viscosity evaluated at a point
+  vector<double> l(S.ngi()),d(S.ngi()),c(S.ngi());               // length scale, density and sound speed as functions
+  vector<double> p(S.ngi()),q(S.ngi());                          // pressure and artificial viscosity as functions
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
@@ -537,17 +537,40 @@ int main(){
 
   {vector<double> b(M.NDims()*nknodes);for(long i=0;i<b.size();i++){b.at(i)=0.0;}
 
+// assemble the rhs of the momentum equation from the force matrix using F dot (unit vector)^T
 
+    for(long iz=0;iz<nzeroes;iz++){b.at(fdim.at(iz)*nknodes+frow.at(iz))+=F.at(iz);}
 
+// solve global system
 
+    for(int idim=0;idim<M.NDims();idim++){
+      for(long i=0;i<nknodes;i++){
+        double udot(0.0);
+        for(long j=0;j<nknodes;j++){
+          udot+=KMASSI.read(i,j)*b.at(j);
+        }
 
+// advance the solution and commit to the global address space
 
+        u1.at(idim).at(i)=u0.at(idim).at(i)+udot*dt;
 
-
-
-
+      }
+    }
 
   }
+
+// advance the time step
+
+    time+=dt;
+    step++;
+
+// advance the flux states for the new time step
+
+    u0=u1;   // velocity field
+    x0=x1;   // kinematic node coordinates
+    xt0=xt1; // thermodynamic node coordinates
+    e0=e1;   // internal energy
+    V0=V1;   // cell volumes
 
 
 
@@ -562,49 +585,6 @@ int main(){
 // got to here with high-order implementation
 
 
-// assemble acceleration field
-
-  vector<double> b=vector<double> (M.NDims()*nknodes);for(long i=0;i<M.NDims()*nknodes;i++){b.at(i)=-b1[i];}
-  for(int i=0;i<n;i++){
-    jacobian(i,x1,M,S,detJ,detDJ);
-    for(int idim=0;idim<M.NDims();idim++){
-      for(int iloc=0;iloc<S.nloc();iloc++){
-        for(int gi=0;gi<S.ngi();gi++){
-//          b.at(idim*NROWS+ROW)+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
-        }
-      }
-    }
-  }
-
-// solve global system
-
-  vector<double> udot=vector<double>(M.NDims()*nknodes);
-  for(long i=0;i<M.NDims()*nknodes;i++){
-    double x(0.0);
-    for(long j=0;j<M.NDims()*nknodes;j++){
-      x+=KMASSI.read(i,j)*b[j];
-    }
-    udot.at(i)=x;
-  }
-
-// advance the solution
-
-//  for(long i=0;i<nknodes;i++){u1.at(idim).at(i)=u0.at(idim).at(i)+udot.at(i)*dt;}
-
-  for(int idim=0;idim<M.NDims();idim++){
-    for(long i=0;i<nknodes;i++){
-      u1.at(idim).at(i)=u0.at(idim).at(i)+udot.at(idim*NROWS+i)*dt;
-    }
-  }
-
-// advance the time step
-
-    time+=dt;
-    step++;
-
-// advance the states for the new time step
-
-    u0=u1;x0=x1;e0=e1;V0=V1;
 
 // debug
   if(step==1){
