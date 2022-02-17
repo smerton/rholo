@@ -83,23 +83,39 @@ string date();                                                                  
 void header();                                                                                                       // header part
 void vempty(vector<double>&v);                                                                                       // empty a vector
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ);                          // calculate a jacobian and determinant
-void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xinit,VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);     // sum the global kinetic energy field
-void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);      // sum the global internal energy field
-void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,int const ndims, int const nmats, // echo some initial information
-                  Mesh const &M);
-void lineouts(Mesh const &M, Shape const &S,VD const &dinit,VD const &e,VVD const &x, VVD const &u, int const &test_problem); // line-outs
-void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &e, // silo graphics output
+void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xinit,                                  // sum the global kinetic energy field
+            VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);
+void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,                                   // sum the global internal energy field
+            VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);
+void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,                                  // echo some initial information
+                  int const ndims, int const nmats,Mesh const &M);
+void lineouts(Mesh const &M, Shape const &S,VD const &dinit,VD const &e,VVD const &x,                                // line-outs
+              VVD const &u, int const &test_problem);
+void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &e,                           // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g,Shape const &S,Shape const &T);
-void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
+void state_print(int const n,int const ndims, int const nmats, VI const &mat,                                        // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,           // insert boundary conditions into the mass matrix
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,                                    // insert boundary conditions into the mass matrix
                VVD &u0,VVD &u1,VD &b0,VD &b1);
-void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,VVVD const &detDJ,VD const &detJ); // insert boundary conditions on acceleration field
-void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m);   // input overides for the Taylor-Green vortex
-void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Rayleigh-Taylor instability
-void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Noh stagnation shock
-void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m); // input overides for the Sedov explosion
+void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,                              // insert boundary conditions on acceleration field
+               VVVD const &detDJ,VD const &detJ);
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                            // input overides for the Taylor-Green vortex
+                 VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
+                 vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+                 VVVD &detDJ,VD const &m);
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                          // input overides for the Rayleigh-Taylor instability
+                   VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
+                   vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+                   VVVD &detDJ,VD const &m);
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                               // input overides for the Noh stagnation shock
+              VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
+              vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+              VVVD &detDJ,VD const &m);
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                             // input overides for the Sedov explosion
+                VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
+                vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+                VVVD &detDJ,VD const &m);
 template <typename T> int sgn(T val); // return type safe sign of the argument
 
 using namespace std;
