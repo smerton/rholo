@@ -126,7 +126,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-10x1.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/sod-4x1.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -396,7 +396,7 @@ int main(){
         }
         double divu(0.0);
         for(int idim=0;idim<M.NDims();idim++){
-          for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(jloc,gi))/detJ.at(gi);}
+          for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
         l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
         d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
@@ -480,7 +480,7 @@ int main(){
         }
         double divu(0.0);
         for(int idim=0;idim<M.NDims();idim++){
-          for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(jloc,gi))/detJ.at(gi);}
+          for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
         l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
         d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
