@@ -503,6 +503,26 @@ int main(){
 
     }
 
+// debug
+  for(int i=0;i<n;i++){
+    jacobian(i,xinit,M,S,detJ0,detDJ0);
+    jacobian(i,x1,M,S,detJ,detDJ);
+    for(int gi=0;gi<S.ngi();gi++){
+      d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+      l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+    }
+    double imass(0.0),ilength(0.0),vsum(0.0);
+    for(int gi=0;gi<S.ngi();gi++){
+      imass+=d.at(gi)*detJ.at(gi)*S.wgt(gi);
+      ilength+=l.at(gi)*detJ.at(gi)*S.wgt(gi);
+      vsum+=detJ.at(gi)*S.wgt(gi);
+    }
+    cout<<" cell "<<i<<" linit= "<<linit.at(i)<<" l= "<<ilength<<" vol check= "<<vsum<<endl;
+
+  }
+
+// debug
+
 // assemble finite element energy field
 
     {Matrix A(T.nloc());vector<double> b(ntnodes),utmp(M.NDims()*nknodes);double bloc[T.nloc()],edot[T.nloc()];for(long i=0;i<b.size();i++){b.at(i)=0.0;}
