@@ -458,7 +458,7 @@ int main(){
 // advect the nodes to the full-step position
 
     M.UpdateCoords(x1,u0,dt);  // kinematics
-    M.UpdateCoords(xt1,u0,dt); // thermodynamics
+    M.MapCoords(x1,xt1,S.order(),T.order()); // thermodynamics
 
 // update volume field at the full-step
 
@@ -495,7 +495,7 @@ int main(){
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int jloc=0;jloc<T.nloc();jloc++,k++){
             for(int gi=0;gi<S.ngi();gi++){
-              F.at(k)+=(p.at(gi)+q.at(gi))*S.dvalue(idim,iloc,gi)*T.value(jloc,gi)*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi);
+              F.at(k)+=(p.at(gi)+q.at(gi))*detDJ[idim][iloc][gi]*T.value(jloc,gi)*detJ[gi]*S.wgt(gi);
             }
           }
         }
