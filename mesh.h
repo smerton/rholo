@@ -53,6 +53,7 @@ class Mesh{
   double Min(int idim) const; // returns mesh boundary minimum in dimension idim
   double Max(int idim) const; // returns mesh boundary maximum in dimension idim
   void UpdateCoords(VVD &x,VVD const &u,double const dt) const; // advect coordinate x a distance u*dt with velocity u
+  void MapCoords(VVD const &xp,VVD &xq,int const &p,int const &q) const; // map coordinates from an order p mesh to an order q mesh
   double UpdateLength(int const &p,double const &V); // update length scale for an element of polyhedral order p and volume V
   void UpdateVolume(VD &V,VVD const &x,int const &p) const; // update volume field V given coordinate x and polyhedral element order p
   void UpdateDensity(VD &d,VD const &V,VD const &m) const; // update denisty field d given a volume field V and a mass field m

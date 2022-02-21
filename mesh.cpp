@@ -919,6 +919,47 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const{
 
 }
 
+// member function to map coordinates from an order p mesh to an order q mesh
+
+void Mesh::MapCoords(VVD const &xp,VVD &xq,int const &p,int const &q) const{
+
+// declare a shape for each element
+
+  Shape P(p,p+1,CONTINUOUS);
+  Shape Q(q,sqrt(P.ngi()),DISCONTINUOUS);
+
+// loop over dimension and advect nodes a distance u*dt
+
+  for(int idim=0;idim<NDims();idim++){
+
+    for(long i=0;i<NCells();i++){
+
+      double xptmp[P.nloc()]; // element P node coordinates
+      double xqtmp[Q.nloc()]; // element Q node coordinates
+
+// load coordinates from the mesh on stencil p
+
+      for(int iloc=0;iloc<P.nloc();iloc++){xptmp[iloc]=xp.at(idim).at(GlobalNode_CFEM(i,iloc));}
+
+// apply prolongation operator to populate xqtmp
+
+      P.prolongate(xptmp,xqtmp,Q.order());
+
+// commit new coordinates to return address space, each coordinate address is unique if discontinuous so we can append
+
+      if(Q.type()==CONTINUOUS){
+        for(int iloc=0;iloc<Q.nloc();iloc++){xq.at(idim).at(GlobalNode_CFEM(i,iloc))=xqtmp[iloc];}
+      }else{
+        for(int iloc=0;iloc<Q.nloc();iloc++){xq.at(idim).at(GlobalNode_DFEM(i,iloc))=xqtmp[iloc];}
+      }
+
+    }
+  }
+
+  return;
+
+}
+
 // initialise element length scale
 
 void Mesh::InitLength(VD &l,int const &p,VD const &V) const{
