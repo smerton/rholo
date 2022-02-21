@@ -919,80 +919,23 @@ void Mesh::UpdateCoords(VVD &x, VVD const &u, double const dt) const{
 
 }
 
-// update element length scale
+// initialise element length scale
 
-void Mesh::UpdateLength(VD &l,int const &p,VVD const &x, VD const &V) const{
+void Mesh::InitLength(VD &l,int const &p,VD const &V) const{
 
-// shape of polyhedral order p
-
-  Shape S(p);
-
-// distance between mid-points
-
-  VD xydist;
-
-// midpoint coordinates for each side
-
-  VVD xymid(NDims());
-
-// resize mid-point coordinate vector to hold information for 4 sides
-
-  for(int idim=0;idim<NDims();idim++){xymid.at(idim).resize(4);}
+// partition each cell volume based on p - this will normalise it to the element order
 
   for(int i=0;i<NCells();i++){
-
-// side mid-points using the finite element method
-
-    for(int idim=0;idim<NDims();idim++){
-      double sum0(0.0),sum1(0.0),sum2(0.0),sum3(0.0);
-      for(int j=0;j<S.nloc();j++){
-        sum0+=S.value(j,0.0,-1.0)*x.at(idim).at(GlobalNode_CFEM(i,j)); // bottom face
-        sum1+=S.value(j,1.0,0.0)*x.at(idim).at(GlobalNode_CFEM(i,j)); // right face
-        sum2+=S.value(j,0.0,1.0)*x.at(idim).at(GlobalNode_CFEM(i,j)); // top face
-        sum3+=S.value(j,-1.0,0.0)*x.at(idim).at(GlobalNode_CFEM(i,j)); // left face
-      }
-      xymid[idim][0]=sum0;
-      xymid[idim][1]=sum1;
-      xymid[idim][2]=sum2;
-      xymid[idim][3]=sum3;
-    }
-
-// distances between the mid-points
-
-    double dx02(xymid[0][0]-xymid[0][2]);
-    double dy02(xymid[1][0]-xymid[1][2]);
-
-    double dx13(xymid[0][1]-xymid[0][3]);
-    double dy13(xymid[1][1]-xymid[1][3]);
-
-    double l02(sqrt(dx02*dx02+dy02*dy02));
-    double l12(sqrt(dx13*dx13+dy13*dy13));
-
-    l.at(i)=min(l02,l12);
-
-// old way
-
-    for(int iside=0;iside<3;iside++){
-      for(int jside=iside+1;jside<4;jside++){
-        double dx(abs(xymid[0][iside]-xymid[0][jside]));
-        double dy(abs(xymid[1][iside]-xymid[1][jside]));
-        xydist.push_back(sqrt(dx*dx+dy*dy));
-      }
-    }
-
-// compute minimum distance between the mid-points
-
-    l.at(i)=*min_element(xydist.begin(),xydist.end());
-
-// new way - avoids striations ??
-
-    l.at(i)=sqrt(V.at(i));
-
+    l.at(i)=sqrt(V.at(i))/p;
   }
 
   return;
 
 }
+
+// update element length scale, just use the same definition as for the initial length until we understand how to normalise it properly for high-order
+
+double Mesh::UpdateLength(int const &p,double const &V){return sqrt(V)/p;}
 
 // update volume field
 

@@ -42,6 +42,7 @@ class Mesh{
   int SideNode(int i,int j) const; // returns the node number of node j on side i on edge of mesh
   double Coord(int idim,int i) const; // returns coordinate idim of node i
   void InitCoords(VVD &v,int const p,int const t); // initialise the mesh coordinates onto the order p stencil of type t
+  void InitLength(VD &l,int const &p,VD const &V) const; // initialise the element length scale
   double Volume(int i) const; // returns the volume of the element
   void bc_set(int iedge,int bc); // push new boundary condition bc on to mesh edge iedge
   void bc_set(int iedge,int bc,double bcvalue); // push new boundary condition bc and value bcvalue on to mesh edge iedge
@@ -52,7 +53,7 @@ class Mesh{
   double Min(int idim) const; // returns mesh boundary minimum in dimension idim
   double Max(int idim) const; // returns mesh boundary maximum in dimension idim
   void UpdateCoords(VVD &x,VVD const &u,double const dt) const; // advect coordinate x a distance u*dt with velocity u
-  void UpdateLength(VD &l,int const &p,VVD const &x,VD const &V) const; // update length of each element of polyhedral order p
+  double UpdateLength(int const &p,double const &V); // update length scale for an element of polyhedral order p and volume V
   void UpdateVolume(VD &V,VVD const &x,int const &p) const; // update volume field V given coordinate x and polyhedral element order p
   void UpdateDensity(VD &d,VD const &V,VD const &m) const; // update denisty field d given a volume field V and a mass field m
   void UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0,VD const &V1,VD const &m) const ; // update mesh energy field

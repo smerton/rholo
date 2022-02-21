@@ -237,7 +237,7 @@ int main(){
   for(int i=0;i<e0.size();i++){e1.at(i)=e0.at(i);}
   for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}                                                                                             // initial time-step
 
-  M.UpdateLength(linit,S.order(),xinit,V0);  // initialise element length scale
+  M.InitLength(linit,S.order(),V0);  // initialise element length scale
 
 // allocate a determinant for each derivative
 
@@ -398,7 +398,7 @@ int main(){
         for(int idim=0;idim<M.NDims();idim++){
           for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
-        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
         d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
         p.at(gi)=M.UpdatePressure(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -482,7 +482,7 @@ int main(){
         for(int idim=0;idim<M.NDims();idim++){
           for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
-        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
         d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
         p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -502,26 +502,6 @@ int main(){
       }
 
     }
-
-// debug
-  for(int i=0;i<n;i++){
-    jacobian(i,xinit,M,S,detJ0,detDJ0);
-    jacobian(i,x1,M,S,detJ,detDJ);
-    for(int gi=0;gi<S.ngi();gi++){
-      d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
-      l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
-    }
-    double imass(0.0),ilength(0.0),vsum(0.0);
-    for(int gi=0;gi<S.ngi();gi++){
-      imass+=d.at(gi)*detJ.at(gi)*S.wgt(gi);
-      ilength+=l.at(gi)*detJ.at(gi)*S.wgt(gi);
-      vsum+=detJ.at(gi)*S.wgt(gi);
-    }
-    cout<<" cell "<<i<<" linit= "<<linit.at(i)<<" l= "<<ilength<<" vol check= "<<vsum<<endl;
-
-  }
-
-// debug
 
 // assemble finite element energy field
 
