@@ -1,0 +1,27 @@
+Title "Sod Shock Tube simulation."
+Description "This is a 4x1 cell mesh"
+Description "in x-y slab geometry"
+
+# Set number of nodes on each axis
+Nodes 5 2 1
+
+# Set mesh extent
+Domain x 0.0 1.0 y 0.0 0.5 z 0.0 0.0
+
+# Set boundary condition on each face
+Boundaries R R R R T T
+
+# Set polyhedral order for kinematics
+Pk 1
+
+# Set polyhedral order for thermodynamics (Pt=Pk-1 or 0 to turn on PdV)
+Pt 0
+
+# Define materials
+Material 1 density 1.0 pressure 1.0 velocity 0.0 0.0 0.0 x 0.0 0.5 y 0.0 1.0 z 0.0 0.0
+Material 2 density 1.0 pressure 1.0 velocity 0.0 0.0 0.0 x 0.5 1.0 y 0.0 1.0 z 0.0 0.0
+
+# Set ambient material
+Ambient 1
+
+End
