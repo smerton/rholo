@@ -1,6 +1,8 @@
 // Variant of RhoLo (Really High Order Lagrangian Operator - RhoLo)
-// RhoLo is an ultra simple finite element (DG) hydrodynamics test code
-// This variant solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
+// RhoLo is an experimental high-order 2D pure Lagrangian hydrodynamics test code used for
+// making assessments of high-order methods and developing an implementation strategy for
+// high-order methods.
+// This code solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
 // using a high-order finite element method (node-centred thermodynamic variables p,rho,e and node 
 // centred kinematic variables x,u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
 // implementation is only first order in time
