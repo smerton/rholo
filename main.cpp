@@ -126,7 +126,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-4x1.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/sod-20x1.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -561,9 +561,9 @@ int main(){
 
       for(int idim=0;idim<M.NDims();idim++){
         for(long i=0;i<nknodes;i++){
-          double udot(0.0);
+          double udot(0.0);long ladd(idim*nknodes);
           for(long j=0;j<nknodes;j++){
-            udot+=KMASSI.read(i,j)*b.at(j);
+            udot+=KMASSI.read(ladd+i,ladd+j)*b.at(ladd+j);
           }
 
 // advance the solution and commit to the global address space
@@ -589,16 +589,16 @@ int main(){
     V0=V1;   // cell volumes
 
 // debug
-//  cout<<"ux:"<<endl;
-//  for(int i=0;i<M.NCells()*S.order()+1;i++){
-//    int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
-//    cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i1)<<" "<<u1.at(0).at(i2)<<" "<<u1.at(0).at(i3)<<endl;
-//  }
-//  cout<<"uy:"<<endl;
-//  for(int i=0;i<M.NCells()*S.order()+1;i++){
-//    int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
-//    cout<<x1.at(1).at(i)<<" "<<u1.at(1).at(i1)<<" "<<u1.at(1).at(i2)<<" "<<u1.at(1).at(i3)<<endl;
-//  }
+  cout<<"ux:"<<endl;
+  for(int i=0;i<M.NCells()*S.order()+1;i++){
+    int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
+    cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i1)<<" "<<u1.at(0).at(i2)<<" "<<u1.at(0).at(i3)<<endl;
+  }
+  cout<<"uy:"<<endl;
+  for(int i=0;i<M.NCells()*S.order()+1;i++){
+    int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
+    cout<<x1.at(0).at(i)<<" "<<u1.at(1).at(i1)<<" "<<u1.at(1).at(i2)<<" "<<u1.at(1).at(i3)<<endl;
+  }
 
 // debug
 
