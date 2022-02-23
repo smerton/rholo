@@ -98,10 +98,8 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,                                        // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,                                    // insert boundary conditions into the mass matrix
-               VVD &u0,VVD &u1,VD &b0,VD &b1);
-void bc_insert(Mesh const &M,Shape const &S,VD &b,VD const &b0,VD const &p,VD const &q,                              // insert boundary conditions on acceleration field
-               VVVD const &detDJ,VD const &detJ);
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,                                    // insert boundary conditions in to the mass matrix via row elimination
+               VVD &u0,VVD &u1,VD &b0,VD &b1,long const &nnodes);
 void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                            // input overides for the Taylor-Green vortex
                  VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
                  vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
@@ -129,7 +127,7 @@ int main(){
 // global data
 
   Mesh M("mesh/sod-20x1.mesh");                                  // load a new mesh from file
-  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape S(1,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -151,7 +149,8 @@ int main(){
   vector<double> dt_cfl(NGI);                                    // time-step at each integration point
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
   vector<int> mat(n);                                            // element material numbers
-  vector<double> b0(2*NROWS),b1(2*NROWS);                        // vectors for boundary conditions (b0=value, b1=eliminated row)
+  vector<double> b0(M.NDims()*nknodes);                          // boundary conditions on the acceleration field
+  vector<double> b1(M.NDims()*nknodes);                          // rows eliminated from the mass matrix
   vector<double> linit(n);                                       // initial length of each element
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
@@ -273,7 +272,6 @@ int main(){
   }
 
 // input overides needed to initialise certain test problems
-// move the nodes to their full-step position
 
   switch(test_problem){
 
@@ -366,6 +364,10 @@ int main(){
     }
   }
   cout<<"Done."<<endl;
+
+// impose boundary constraints via row elimination
+
+  bc_insert(KMASS,M,S,dinit,detJ,u0,u1,b0,b1,nknodes);
 
 // invert the mass matrix
 
@@ -553,11 +555,15 @@ int main(){
 
 // assemble acceleration field
 
-    {vector<double> b(M.NDims()*nknodes);for(long i=0;i<b.size();i++){b.at(i)=0.0;}
+    {vector<double> b(M.NDims()*nknodes);for(long i=0;i<b.size();i++){b.at(i)=-b1.at(i);}
 
 // assemble the rhs of the momentum equation from the force matrix using F dot (unit vector)^T
 
       for(long iz=0;iz<nzeroes;iz++){b.at(fdim.at(iz)*nknodes+frow.at(iz))+=F.at(iz);}
+
+// impose boundary constraints
+
+      for(long i=0;i<b.size();i++){if(b0.at(i)!=0.0){b.at(i)=b0.at(i);}}
 
 // solve global system
 
@@ -594,12 +600,14 @@ int main(){
   cout<<"ux:"<<endl;
   for(int i=0;i<M.NCells()*S.order()+1;i++){
     int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
-    cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i1)<<" "<<u1.at(0).at(i2)<<" "<<u1.at(0).at(i3)<<endl;
+    cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i1)<<" "<<u1.at(0).at(i2)<<endl;
+//    cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i1)<<" "<<u1.at(0).at(i2)<<" "<<u1.at(0).at(i3)<<endl;
   }
   cout<<"uy:"<<endl;
   for(int i=0;i<M.NCells()*S.order()+1;i++){
     int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
-    cout<<x1.at(0).at(i)<<" "<<u1.at(1).at(i1)<<" "<<u1.at(1).at(i2)<<" "<<u1.at(1).at(i3)<<endl;
+    cout<<x1.at(0).at(i)<<" "<<u1.at(1).at(i1)<<" "<<u1.at(1).at(i2)<<endl;
+//    cout<<x1.at(0).at(i)<<" "<<u1.at(1).at(i1)<<" "<<u1.at(1).at(i2)<<" "<<u1.at(1).at(i3)<<endl;
   }
 
 // debug
@@ -1129,10 +1137,10 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 // determinants for the deriavtives at the quadrature points
 
     for(int iloc=0;iloc<S.nloc();iloc++){
-//      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dydu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
-      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dxdv*S.dvalue(1,iloc,gi))/detJ[gi]; // Noh/triple run better ??
-//      detDJ.at(1).at(iloc).at(gi)=(-dxdv*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
-      detDJ.at(1).at(iloc).at(gi)=(-dydu*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi];// Noh/triple run better ??
+      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dydu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
+//      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dxdv*S.dvalue(1,iloc,gi))/detJ[gi]; // Noh/triple run better ??
+      detDJ.at(1).at(iloc).at(gi)=(-dxdv*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
+//      detDJ.at(1).at(iloc).at(gi)=(-dydu*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi];// Noh/triple run better ??
     }
 
   }
@@ -1330,6 +1338,165 @@ void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xini
     }
 
 
+  }
+
+  return;
+
+}
+
+// function to insert boundary conditions into the mass matrix via row elimination
+
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,VVD &u0,VVD &u1,VD &b0,VD &b1,long const &nknodes){
+
+// loop over boundary elements and choose what type of boundary needs to be applied
+
+  cout<<"There are "<<M.NSides()<<" element sides on the mesh boundary:"<<endl;
+
+// initialise boundary vectors
+
+  fill(b0.begin(),b0.end(),0.0); // value on the boundary
+  fill(b1.begin(),b1.end(),0.0); // eliminated row
+
+// find cell sides coincident with the edges of the mesh
+
+  for(long i=0;i<M.NCells();i++){
+    for(int iside=0;iside<M.NVertices(i);iside++){
+
+      if(M.E2E(i,iside)<M.NCells()){continue;}
+
+// side iside is on a mesh edge, impose boundary conditions
+
+      string bcname;
+
+      int j(M.SideAttr(iside));  // element side coincident with mesh boundary
+      int idim=(j==0||j==2)?1:0; // direction perpendicular to mesh boundary
+
+// acquire local node numbers on side iside
+
+      int local_node[S.order()+1];
+
+      switch(iside){
+
+        case(0): // bottom edge of mesh
+
+          for(int iloc=0;iloc<S.order()+1;iloc++){local_node[iloc]=iloc;}
+
+          break;
+
+        case(1): // right edge of mesh
+
+          for(int iloc=0;iloc<S.order()+1;iloc++){local_node[iloc]=iloc*(S.order()+1)+S.order();}
+
+          break;
+
+        case(2): // top edge of mesh
+
+          for(int iloc=0;iloc<S.order()+1;iloc++){local_node[iloc]=S.nloc()-S.order()-1+iloc;}
+
+          break;
+
+        case(3): // left edge of mesh
+
+          for(int iloc=0;iloc<S.order()+1;iloc++){local_node[iloc]=iloc*(S.order()+1);}
+
+          break;
+
+      }
+
+// select boundary condition type on side iside
+
+      switch(M.bc_edge(iside)){
+
+        case(VACUUM):
+
+// do nothing so mesh expands into the void
+
+          bcname="vacuum";
+
+          break;
+
+        case(REFLECTIVE):
+
+// set v.n=0 on domain boundary and impose a constraint on the acceleration field
+
+          bcname="reflective";
+
+          break;
+
+        case(VELOCITY):
+
+// set v.n=<value> on domain boundary and impose a constraint on the acceleration field
+
+          bcname="velocity";
+
+// set v.n=<value> on domain boundary
+
+          for(int isloc=0;isloc<S.order()+1;isloc++){
+            long k(M.GlobalNode_CFEM(i,local_node[isloc]));
+            u0.at(idim).at(k)=M.bc_value(iside);
+            u1.at(idim).at(k)=M.bc_value(iside);
+          }
+
+// eliminate k'th solution as we are imposing a condition on it
+
+          for(int isloc=0;isloc<S.order()+1;isloc++){
+
+            long k(M.GlobalNode_CFEM(i,local_node[isloc])); // boundary node
+            double bval(1.0e-200); // boundary value
+
+// collect known information - is this double counting ??
+
+            for(long irow=0;irow<nknodes;irow++){b1.at(idim*nknodes+irow)+=A.read(idim*nknodes+irow,idim*nknodes+k)*bval;}
+
+// store boundary value
+
+            b0.at(idim*NROWS+k)=bval;
+
+          }
+
+// modify mass matrix to restore symmetry, this is to try and avoid costly changes to the solution strategy
+
+          for(int isloc=0;isloc<S.order()+1;isloc++){
+            long k(M.GlobalNode_CFEM(i,local_node[isloc])); // boundary node
+            for(long l=0;l<M.NDims()*nknodes;l++){
+              if(l!=k){
+                A.write(l,idim*nknodes+k,0.0);
+                A.write(idim*nknodes+k,l,0.0);
+              }
+            }
+            A.write(idim*nknodes+k,idim*nknodes+k,1.0);
+          }
+
+          break;
+
+        case(FLUID):
+
+// add in additional boundary fluid masses to give zero pressure gradient across the edges of the domain
+
+          bcname="fluid";
+
+          break;
+
+        case(ACCELERATION):
+
+// impose a.n=<value> on domain boundary via row elimination of the mass matrix
+
+          bcname="acceleration";
+
+          break;
+
+        default:
+
+          bcname="undefined";
+
+          cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded, stopping."<<endl;
+
+          exit(1);
+
+      }
+
+      cout<<"Edge "<<iside<<" boundary type : "<<bcname<<endl;
+    }
   }
 
   return;
