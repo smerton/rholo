@@ -127,7 +127,7 @@ int main(){
 // global data
 
   Mesh M("mesh/sod-20x1.mesh");                                  // load a new mesh from file
-  Shape S(1,3,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -1368,8 +1368,7 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
 
       string bcname;
 
-      int j(M.SideAttr(iside));  // element side coincident with mesh boundary
-      int idim=(j==0||j==2)?1:0; // direction perpendicular to mesh boundary
+      int idim=(iside==0||iside==2)?1:0; // direction perpendicular to mesh boundary
 
 // acquire local node numbers on side iside
 
