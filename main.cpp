@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.201     // insert a macro for the end time
+#define DTSTART 0.0001     // insert a macro for the first time step
+#define ENDTIME 0.15      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -385,13 +385,13 @@ int main(){
 
   while(time<=ENDTIME){
 
-// calculate a new stable time step that will impose the CFL limit on each quadrature point
+// calculate a new stable time step that will impose the CFL limit on each integration point
 
     for(int i=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x0,M,S,detJ,detDJ);
 
-// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration
+// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration point
 
       for(int gi=0;gi<S.ngi();gi++){
         double egi(0.0);
@@ -403,7 +403,7 @@ int main(){
           for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
         l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
-        d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=M.UpdatePressure(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
         q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
@@ -468,48 +468,9 @@ int main(){
 
     M.UpdateVolume(V1,x1,S.order());
 
-// assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both energy and momentum equations
-
-    for(long k=0;k<nzeroes;k++){F.at(k)=0.0;}
-    for(int i=0, k=0;i<n;i++){
-      jacobian(i,xinit,M,S,detJ0,detDJ0);
-      jacobian(i,x1,M,S,detJ,detDJ);
-
-// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration point
-
-      for(int gi=0;gi<S.ngi();gi++){
-        double egi(0.0);
-        for(int jloc=0;jloc<T.nloc();jloc++){
-          egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
-        }
-        double divu(0.0);
-        for(int idim=0;idim<M.NDims();idim++){
-          for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
-        }
-        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
-        d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);
-        p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
-        c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
-        q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
-      }
-
-// construct force terms
-
-      for(int idim=0;idim<M.NDims();idim++){
-        for(int iloc=0;iloc<S.nloc();iloc++){
-          for(int jloc=0;jloc<T.nloc();jloc++,k++){
-            for(int gi=0;gi<S.ngi();gi++){
-              F.at(k)+=(p.at(gi)+q.at(gi))*detDJ[idim][iloc][gi]*T.value(jloc,gi)*detJ[gi]*S.wgt(gi);
-            }
-          }
-        }
-      }
-
-    }
-
 // assemble finite element energy field
 
-    {Matrix A(T.nloc());vector<double> b(ntnodes),utmp(M.NDims()*nknodes);double bloc[T.nloc()],edot[T.nloc()];for(long i=0;i<b.size();i++){b.at(i)=0.0;}
+    {Matrix A(T.nloc());vector<double> b(ntnodes);double bloc[T.nloc()],edot[T.nloc()];for(long i=0;i<b.size();i++){b.at(i)=0.0;}
 
 // assemble the rhs of the energy equation from the force matrix using F^T dot (ux,uy)^T
 
@@ -526,7 +487,7 @@ int main(){
 
 // update density field at each quadrature point in the cell
 
-        for(int gi=0;gi<S.ngi();gi++){d.at(gi)=dinit.at(i)*detJ.at(gi)/detJ0.at(gi);}
+        for(int gi=0;gi<S.ngi();gi++){d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);}
 
 // assemble a local mass matrix for the energy equation
 
@@ -553,9 +514,51 @@ int main(){
 
     }
 
+// assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both energy and momentum equations
+
+    for(long k=0;k<nzeroes;k++){F.at(k)=0.0;}
+    for(int i=0, k=0;i<n;i++){
+      jacobian(i,xinit,M,S,detJ0,detDJ0);
+      jacobian(i,x1,M,S,detJ,detDJ);
+
+// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration point
+
+      for(int gi=0;gi<S.ngi();gi++){
+        double egi(0.0);
+        for(int jloc=0;jloc<T.nloc();jloc++){
+          egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
+        }
+        double divu(0.0);
+        for(int idim=0;idim<M.NDims();idim++){
+          for(int jloc=0;jloc<S.nloc();jloc++){
+            divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+          }
+        }
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
+        d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
+        p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
+        c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
+        q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
+      }
+
+// construct force terms
+
+      for(int idim=0;idim<M.NDims();idim++){
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          for(int jloc=0;jloc<T.nloc();jloc++,k++){
+            for(int gi=0;gi<S.ngi();gi++){
+              F.at(k)+=(p.at(gi)+q.at(gi))*detDJ[idim][iloc][gi]*T.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+            }
+          }
+        }
+      }
+
+    }
+
 // assemble acceleration field
 
-    {vector<double> b(M.NDims()*nknodes);for(long i=0;i<b.size();i++){b.at(i)=-b1.at(i);}
+    vector<double> b(M.NDims()*nknodes);
+    {for(long i=0;i<b.size();i++){b.at(i)=-b1.at(i);}
 
 // assemble the rhs of the momentum equation from the force matrix using F dot (unit vector)^T
 
@@ -597,28 +600,11 @@ int main(){
     V0=V1;   // cell volumes
 
 // debug
-  cout<<"ux:"<<endl;
-  for(int i=0;i<M.NCells()*S.order()+1;i++){
-    int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
-    cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i1)<<" "<<u1.at(0).at(i2)<<endl;
-//    cout<<x1.at(0).at(i)<<" "<<u1.at(0).at(i1)<<" "<<u1.at(0).at(i2)<<" "<<u1.at(0).at(i3)<<endl;
-  }
-  cout<<"uy:"<<endl;
-  for(int i=0;i<M.NCells()*S.order()+1;i++){
-    int i1(i),i2(i1+M.NCells()*S.order()+1),i3(i2+M.NCells()*S.order()+1);
-    cout<<x1.at(0).at(i)<<" "<<u1.at(1).at(i1)<<" "<<u1.at(1).at(i2)<<endl;
-//    cout<<x1.at(0).at(i)<<" "<<u1.at(1).at(i1)<<" "<<u1.at(1).at(i2)<<" "<<u1.at(1).at(i3)<<endl;
-  }
-
-// debug
-
-
-// debug
-  if(step==1){
-    cout<<"debug stop."<<endl;
+//  if(step==5){
+//    cout<<"debug stop."<<endl;
 //    output(); // might want this ??
-    exit(1);
-  }
+//    exit(1);
+//  }
 // debug
 
   }

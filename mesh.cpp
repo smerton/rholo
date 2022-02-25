@@ -960,7 +960,7 @@ void Mesh::MapCoords(VVD const &xp,VVD &xq,int const &p,int const &q) const{
 
 }
 
-// initialise element length scale
+// initial node displacement
 
 void Mesh::InitLength(VD &l,int const &p,VD const &V) const{
 
@@ -968,6 +968,12 @@ void Mesh::InitLength(VD &l,int const &p,VD const &V) const{
 
   for(int i=0;i<NCells();i++){
     l.at(i)=sqrt(V.at(i))/p;
+  }
+
+// for psuedo 1D we can use this
+
+  for(int i=0;i<NCells();i++){
+    l.at(i)=1.0/(NCells()*p);
   }
 
   return;
