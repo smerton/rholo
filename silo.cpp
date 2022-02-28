@@ -39,6 +39,7 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
   long NSampleNodes(Mesh const &M, int const &nsubs, vector<vector<long> > &SampleNode); // obtain number of sample points and set up their global numbers
   void sample(Mesh const &M,int const &nsubs,Shape const &T, vector<double> const &vin,double vout[]); // interpolate vin to obtain vout at the sample points
   void J(Mesh const &M,Shape const &S,VVD const &x,int const &i,int const &nsubs,vector<double> &detj); //compute a jacobian and return the determinant at the sample points
+  void J(Mesh const &M,Shape const &S,VVD const &x,int const &i,vector<double> &detj); //compute a jacobian and return the determinant at the integration points
 
   DBfile*dbfile;
   DBoptlist *optlist=NULL;
@@ -478,11 +479,17 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 
 // aquire the global vertices of sub-cell isub from a finite element method
 
+//        double xsum(0.0),ysum(0.0);
+//        for(int iloc=0;iloc<T.nloc();iloc++){
+//          xsum+=T.value(iloc,xloc,yloc)*xt.at(0).at(M.GlobalNode_DFEM(i,iloc));
+//          ysum+=T.value(iloc,xloc,yloc)*xt.at(1).at(M.GlobalNode_DFEM(i,iloc));
+//        }
         double xsum(0.0),ysum(0.0);
-        for(int iloc=0;iloc<T.nloc();iloc++){
-          xsum+=T.value(iloc,xloc,yloc)*xt.at(0).at(M.GlobalNode_DFEM(i,iloc));
-          ysum+=T.value(iloc,xloc,yloc)*xt.at(1).at(M.GlobalNode_DFEM(i,iloc));
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          xsum+=S.value(iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+          ysum+=S.value(iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
         }
+
 
 // store the coordinates of sample point isub
 
@@ -732,9 +739,40 @@ void J(Mesh const &M,Shape const &N,VVD const &x, int const &i,int const &nsubs,
 
 // determinant at the sample point
 
-      detj.push_back(dxdu*dydv-dxdv*dydv);
+      detj.push_back(dxdu*dydv-dxdv*dydu);
 
     }
+  }
+
+  return;
+
+}
+
+// compute a jacobian and return a vector containing the determinant at each integration point
+
+void J(Mesh const &M,Shape const &N,VVD const &x, int const &i,vector<double> &detj){
+
+// clear out the vector passed in so it is safe to push
+
+  vector<double> vempty;
+  detj=vempty;
+
+// compute jacobian at each integration point
+
+  for(int gi=0;gi<N.ngi();gi++){
+
+    double dxdu(0.0),dxdv(0.0),dydu(0.0),dydv(0.0);
+    for(int iloc=0;iloc<N.nloc();iloc++){
+      dxdu+=N.dvalue(0,iloc,gi)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+      dxdv+=N.dvalue(1,iloc,gi)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+      dydu+=N.dvalue(0,iloc,gi)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+      dydv+=N.dvalue(1,iloc,gi)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+    }
+
+// determinant at the sample point
+
+    detj.push_back(dxdu*dydv-dxdv*dydu);
+
   }
 
   return;
