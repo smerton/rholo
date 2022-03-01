@@ -123,8 +123,31 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 
 // store coordinates in correct format for silo
 
-  for(long i=0;i<nnodes;i++){xcoords[i]=M.Coord(0,i);}
-  for(long i=0;i<nnodes;i++){ycoords[i]=M.Coord(1,i);}
+  for(int j=0,iel=0;j<M.NCells(1);j++){
+    for(int i=0;i<M.NCells(0);i++,iel++){
+
+// corner node numbers in the corners of the order p element
+
+      int iloc0(0),iloc1(S.order()),iloc2(S.nloc()-1-S.order()),iloc3(S.nloc()-1);
+
+// corner node numbers in the corners of the p1 element
+
+      int jnod0(j*(M.NCells(0)+1)+i),jnod1(jnod0+1),jnod2(jnod0+(M.NCells(0)+1)),jnod3(jnod1+(M.NCells(0)+1));
+
+// copy corner coordinates from kinematic mesh on to a p1 mesh
+
+      xcoords[jnod0]=x.at(0).at(M.GlobalNode_CFEM(iel,iloc0));
+      xcoords[jnod1]=x.at(0).at(M.GlobalNode_CFEM(iel,iloc1));
+      xcoords[jnod2]=x.at(0).at(M.GlobalNode_CFEM(iel,iloc2));
+      xcoords[jnod3]=x.at(0).at(M.GlobalNode_CFEM(iel,iloc3));
+
+      ycoords[jnod0]=x.at(1).at(M.GlobalNode_CFEM(iel,iloc0));
+      ycoords[jnod1]=x.at(1).at(M.GlobalNode_CFEM(iel,iloc1));
+      ycoords[jnod2]=x.at(1).at(M.GlobalNode_CFEM(iel,iloc2));
+      ycoords[jnod3]=x.at(1).at(M.GlobalNode_CFEM(iel,iloc3));
+
+    }
+  }
 
 // set up an array of length ndims pointing to the coordinate arrays
 
