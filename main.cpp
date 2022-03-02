@@ -127,8 +127,8 @@ int main(){
 // global data
 
   Mesh M("mesh/noh-9x9.mesh");                                  // load a new mesh from file
-  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
-  Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
+  Shape S(3,4,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape T(2,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
@@ -398,11 +398,13 @@ int main(){
         for(int iloc=0;iloc<T.nloc();iloc++){
           egi+=e1.at(M.GlobalNode_DFEM(i,iloc))*T.value(iloc,gi);
         }
+        egi=max(ECUT,egi);
         double divu(0.0);
         for(int idim=0;idim<M.NDims();idim++){
           for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
         l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
+//        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=M.UpdatePressure(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -508,7 +510,7 @@ int main(){
 
 // advance the solution and commit to the global address space in the energy field
 
-        for(int iloc=0;iloc<T.nloc();iloc++){e1.at(M.GlobalNode_DFEM(i,iloc))=max(ECUT,e0.at(M.GlobalNode_DFEM(i,iloc))-edot[iloc]*dt);}
+        for(int iloc=0;iloc<T.nloc();iloc++){e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc))-edot[iloc]*dt;}
 
       }
 
@@ -528,6 +530,7 @@ int main(){
         for(int jloc=0;jloc<T.nloc();jloc++){
           egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
         }
+        egi=max(ECUT,egi);
         double divu(0.0);
         for(int idim=0;idim<M.NDims();idim++){
           for(int jloc=0;jloc<S.nloc();jloc++){
@@ -535,10 +538,8 @@ int main(){
           }
         }
         l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
+//        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
-//if(i==55){cout<<i<<" main(): test 1 gi "<<gi<<" "<<d.at(gi)<<" "<<detJ0.at(gi)<<" "<<detJ.at(gi)<<endl;}
-//if(i==61){cout<<i<<" main(): test 2 gi "<<gi<<" "<<d.at(gi)<<" "<<detJ0.at(gi)<<" "<<detJ.at(gi)<<endl;}
-
         p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
         q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
