@@ -972,9 +972,9 @@ void Mesh::InitLength(VD &l,int const &p,VD const &V) const{
 
 // for psuedo 1D we can use this
 
-  for(int i=0;i<NCells();i++){
-    l.at(i)=1.0/(NCells()*p);
-  }
+//  for(int i=0;i<NCells();i++){
+//    l.at(i)=1.0/(NCells()*p);
+//  }
 
   return;
 
