@@ -28,13 +28,13 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.6      // insert a macro for the end time
+#define DTSTART 0.0001     // insert a macro for the first time step
+#define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
-#define VISFREQ 0.05      // frequency of the graphics dump times
+#define VISFREQ 0.02      // frequency of the graphics dump times
 #define OUTFREQ 0.01      // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
@@ -85,6 +85,7 @@ string date();                                                                  
 void header();                                                                                                       // header part
 void vempty(vector<double>&v);                                                                                       // empty a vector
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ);                          // calculate a jacobian and determinant
+void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &Js);               // calculate a jacobian for the Lagrangian motion
 void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xinit,                                  // sum the global kinetic energy field
             VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);
 void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,                                   // sum the global internal energy field
@@ -93,7 +94,7 @@ void initial_data(int const n, long const nknodes,long const ntnodes,Shape const
                   int const ndims, int const nmats,Mesh const &M);
 void lineouts(Mesh const &M, Shape const &S,VD const &dinit,VD const &e,VVD const &x,                                // line-outs
               VVD const &u, int const &test_problem);
-void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &e,                           // silo graphics output
+void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,               // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g,Shape const &S,Shape const &T);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,                                        // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
@@ -126,15 +127,16 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-9x9.mesh");                                  // load a new mesh from file
-  Shape S(3,4,CONTINUOUS);                                       // load a shape function for the kinematics
-  Shape T(2,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
+  Mesh M("mesh/noh-24x24-non-uniform.mesh");                     // load a new mesh from file
+  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
   long const ntnodes(M.NNodes(T.order(),T.type()));              // insert shape functions in to the mesh
   int const nmats(M.NMaterials());                               // number of materials
-  double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
+//  double const cl(1.0),cq(3.0);                                  // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.25),cq(2.0/3.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> dinit(n),V0(n),V1(n),m(n);                      // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
@@ -144,7 +146,8 @@ int main(){
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
   vector<vector<double> > xinit(ndims);                          // initial node coordinates
-  vector<double> detJ0(S.ngi()),detJ(S.ngi());                   // determinant of jacobian at each integration point at time 0 and time-t
+  vector<double> detJ0(S.ngi()),detJ(S.ngi()),detJs(S.ngi());    // determinant of jacobian at each integration point at time 0 and time-t
+  vector<vector<vector<double> > > Js(S.ngi());                  // jacobian of the lagrangian motion to map from time-t to time-0
   vector<vector<vector<double> > > detDJ0(ndims),detDJ(ndims);   // determinant of jacobian for each derivative at time 0 and time-t
   vector<double> dt_cfl(NGI);                                    // time-step at each integration point
   vector<double> dts(2);                                         // time-step for each condition (0=CFL, 1=graphics hits)
@@ -152,6 +155,8 @@ int main(){
   vector<double> b0(M.NDims()*nknodes);                          // boundary conditions on the acceleration field
   vector<double> b1(M.NDims()*nknodes);                          // rows eliminated from the mass matrix
   vector<double> linit(n);                                       // initial length of each element
+//  vector<double> l0(ndims),ls(ndims);                            // initial length scale based on average zone size rather than local zone size
+  double l0(0.0),ls(0.0);                                        // initial length scale based on average zone size rather than local zone size
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
@@ -163,6 +168,7 @@ int main(){
   vector<long> frow(nzeroes);                                    // row addresses in the force matrix
   vector<long> fcol(nzeroes);                                    // column addresses in the force matrix
   vector<int> fdim(nzeroes);                                     // dimension addresses in the force matrix
+  double s(1.0);                                                 // direction used in definition of length scale
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
@@ -239,6 +245,8 @@ int main(){
   for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}                                                                                             // initial time-step
 
   M.InitLength(linit,S.order(),V0);  // initialise element length scale
+  for(int i=0;i<M.NCells();i++){l0+=V0.at(i);}l0=sqrt(l0/M.NCells())/S.order(); // initialise element length scale to average zone size
+//  l0[0]=0.0;l0[1]=0.0;for(int i=0;i<M.NCells();i++){l0[1]+=V0.at(i);}l0[1]=sqrt(l0[1]/M.NCells())/S.order(); // initialise element length scale
 
 // allocate a determinant for each derivative
 
@@ -248,6 +256,15 @@ int main(){
     for(int j=0;j<S.nloc();j++){
       detDJ0.at(idim).at(j).resize(S.ngi());
       detDJ.at(idim).at(j).resize(S.ngi());
+    }
+  }
+
+// allocate jacobian of the lagrangian motion
+
+  for(int gi=0;gi<S.ngi();gi++){
+    Js.at(gi).resize(ndims);
+    for(int idim=0;idim<ndims;idim++){
+      Js.at(gi).at(idim).resize(2);
     }
   }
 
@@ -333,6 +350,48 @@ int main(){
     }
   }
 
+// debug
+//  cout<<"length scale check"<<endl;
+//  int i(0);
+////  l0=sqrt(V0.at(i))/S.order();
+//  l0=0.125;
+//  for(int iloc=0;iloc<S.nloc();iloc++){
+//    cout<<"xinit= "<<iloc<<" "<<fixed<<setprecision(17)<<xinit.at(0).at(M.GlobalNode_CFEM(i,iloc))<<" "<<xinit.at(1).at(M.GlobalNode_CFEM(i,iloc))<<endl;
+//  }
+
+//  x1=xinit;
+//  x1.at(0).at(M.GlobalNode_CFEM(i,0))=5.0;
+//  x1.at(0).at(M.GlobalNode_CFEM(i,1))=12.0;
+//  x1.at(0).at(M.GlobalNode_CFEM(i,2))=9.0;
+//  x1.at(0).at(M.GlobalNode_CFEM(i,3))=16.0;
+
+//  x1.at(1).at(M.GlobalNode_CFEM(i,0))=6.0;
+//  x1.at(1).at(M.GlobalNode_CFEM(i,1))=6.0;
+//  x1.at(1).at(M.GlobalNode_CFEM(i,2))=8.0;
+//  x1.at(1).at(M.GlobalNode_CFEM(i,3))=8.0;
+
+//  V1.resize(1);
+//  M.UpdateVolume(V1,x1,S.order());
+
+//  jacobian(i,xinit,x1,M,S,detJs,Js);
+//  jacobian(i,x1,M,S,detJ,detDJ);
+//  jacobian(i,xinit,M,S,detJ0,detDJ0);
+
+//  ls=0.0;
+//  for(int gi=0;gi<S.ngi();gi++){
+//    cout<<"detJ0 detJ detJs= "<<gi<<" "<<detJ0.at(gi)<<" "<<detJ.at(gi)<<" "<<detJs.at(gi)<<endl;
+//    ls+=l0*s*detJs.at(gi)*S.wgt(gi);
+//  }
+
+//  cout<<"V0= "<<V0.at(i)<<endl;
+//  cout<<"V1= "<<V1.at(i)<<endl;
+//  cout<<"l0= "<<fixed<<setprecision(17)<<l0<<endl;
+//  cout<<"ls= "<<fixed<<setprecision(17)<<ls<<endl;
+//  cout<<"ls*ls= "<<fixed<<setprecision(17)<<ls*ls<<endl;
+
+//  exit(1);
+// debug
+
 // set number of non-zeroes
 
   nzeroes=frow.size();
@@ -403,8 +462,9 @@ int main(){
         for(int idim=0;idim<M.NDims();idim++){
           for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
-        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
-//        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));     // method 1: bad imprinting on non-uniform meshes, reproduces Fig 6.2 right asymmetries
+//        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi); // method 2: uses local initial mesh size rather than average initial mesh size
+//        l.at(gi)=l0*detJ.at(gi)/detJ0.at(gi);          // method 3: less imprinting than method 1 but bad in centre, symmetry OK but not as good as Fig 6.2 left
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=M.UpdatePressure(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -448,11 +508,11 @@ int main(){
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,xt0,xinit,dinit,linit,e0,u0,mat,step,time,M,gamma,S,T);
+      silo(x0,xt0,xinit,dinit,linit,V0,e0,u0,mat,step,time,M,gamma,S,T);
     }else{
       if(abs(remainder(step,VISFREQ))==0){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,xt0,xinit,dinit,linit,e0,u0,mat,step,time,M,gamma,S,T);
+      silo(x0,xt0,xinit,dinit,linit,V0,e0,u0,mat,step,time,M,gamma,S,T);
       }
     }
 
@@ -520,6 +580,7 @@ int main(){
 
     for(long k=0;k<nzeroes;k++){F.at(k)=0.0;}
     for(int i=0, k=0;i<n;i++){
+      jacobian(i,xinit,x1,M,S,detJs,Js);
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x1,M,S,detJ,detDJ);
 
@@ -537,8 +598,12 @@ int main(){
             divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
           }
         }
-        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));
-//        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);
+//        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));     // method 1: bad imprinting on non-uniform meshes, reproduces Fig 6.2 right asymmetries
+//        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);   // method 2: uses local initial mesh size rather than average initial mesh size
+//        l.at(gi)=l0*detJ.at(gi)/detJ0.at(gi);            // method 3: less imprinting than method 1 but bad in centre, symmetry OK but not as good as Fig 6.2 left
+        l.at(gi)=l0*s*detJs.at(gi);                        // method 4: same as method 3 ?
+//        l.at(gi)=l0;                                     // method 5: almost the same as method 4, significant symmetry improvement in u and d but mesh is bad in centre
+
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -1127,11 +1192,108 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VV
 // determinants for the deriavtives at the quadrature points
 
     for(int iloc=0;iloc<S.nloc();iloc++){
-//      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dydu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
-      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dxdv*S.dvalue(1,iloc,gi))/detJ[gi]; // Noh/triple run better ??
-//      detDJ.at(1).at(iloc).at(gi)=(-dxdv*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
-      detDJ.at(1).at(iloc).at(gi)=(-dydu*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi];// Noh/triple run better ??
+      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dydu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
+//      detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dxdv*S.dvalue(1,iloc,gi))/detJ[gi]; // Noh/triple run better ??
+      detDJ.at(1).at(iloc).at(gi)=(-dxdv*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi]; // original, Taylor runs better ??
+//      detDJ.at(1).at(iloc).at(gi)=(-dydu*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ[gi];// Noh/triple run better ??
     }
+
+  }
+
+  return;
+
+}
+
+// calculate a jacobian for the Lagrangian motion and return the determinant
+
+void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const &S,VD &detJs,VVVD &Js){
+
+// loop over quadrature points and calculate jacobians J0 and J
+
+  for(int gi=0;gi<S.ngi();gi++){
+
+    double dx0du(0.0),dy0du(0.0),dx0dv(0.0),dy0dv(0.0);
+    double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+
+// derivatives of the physical coordinates at the quadrature points
+
+    for(int iloc=0;iloc<S.nloc();iloc++){
+
+      long gloc=(S.type()==CONTINUOUS)?M.GlobalNode_CFEM(i,iloc):M.GlobalNode_DFEM(i,iloc);
+
+// at time 0
+
+//      dx0du+=x0.at(0).at(gloc)*S.dvalue(0,iloc,gi); // dx0/du
+//      dx0dv+=x0.at(0).at(gloc)*S.dvalue(1,iloc,gi); // dx0/dv
+//      dy0du+=x0.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy0/du
+//      dy0dv+=x0.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy0/dv
+
+//      dx0du=1.0; // mod for direction s
+//      dx0dv=1.0; // mod for direction s
+//      dy0du+=x0.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy0/du
+//      dy0dv+=x0.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy0/dv
+
+      dx0du=1.0; // mod for direction s
+      dx0dv=1.0; // mod for direction s
+      dy0du=1.0;
+      dy0dv+=x0.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy0/dv
+
+
+// at time t
+
+//      dxdu+=x.at(0).at(gloc)*S.dvalue(0,iloc,gi); // dx/du
+//      dxdv+=x.at(0).at(gloc)*S.dvalue(1,iloc,gi); // dx/dv
+//      dydu+=x.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy/du
+//      dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy/dv
+
+//      dxdu=1.0; // mod for direction s
+//      dxdv=1.0; // mod for direction s
+//      dydu+=x.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy/du
+//      dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy/dv
+
+      dxdu=1.0; // mod for direction s
+      dxdv=1.0; // mod for direction s
+      dydu=1.0;
+      dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy/dv
+
+    }
+
+// define the jacobian for time-0, this maps to the isoparametric element from the time-0 element
+
+    vector<vector<double> > J0{{dx0du,dx0dv},
+                               {dy0du,dy0dv}};
+
+// determinant of J0
+
+    double detJ0(dx0du*dy0dv-dx0dv*dy0du);
+
+// the inverse of J0 is simply the adjugate divided by the determinant
+
+    vector<vector<double> > invJ0{{ dy0dv/detJ0,-dx0dv/detJ0},
+                                  {-dy0du/detJ0, dx0du/detJ0}};
+
+// define the jacobian for time-t, this maps to the isoparametric element from the time-t element
+
+    vector<vector<double> > J{{dxdu,dxdv},
+                              {dydu,dydv}};
+
+// determinant of J
+
+    double detJ(dxdu*dydv-dxdv*dydu);
+
+// define a jacobian of the lagrangian motion, this maps to the time-0 element from the time-t element
+
+//    vector<vector<double> > Js{{invJ0[0][0]*J[0][0]+invJ0[0][1]*J[1][0],invJ0[0][0]*J[0][1]+invJ0[0][1]*J[1][1]},
+//                               {invJ0[1][0]*J[0][0]+invJ0[1][1]*J[1][0],invJ0[1][0]*J[0][1]+invJ0[1][1]*J[1][1]}};
+
+    Js.at(gi)[0][0]=invJ0[0][0]*J[0][0]+invJ0[0][1]*J[1][0];
+    Js.at(gi)[0][1]=invJ0[0][0]*J[0][1]+invJ0[0][1]*J[1][1];
+    Js.at(gi)[1][0]=invJ0[1][0]*J[0][0]+invJ0[1][1]*J[1][0];
+    Js.at(gi)[1][1]=invJ0[1][0]*J[0][1]+invJ0[1][1]*J[1][1];
+
+// determinant of Js
+
+    detJs.at(gi)=(Js.at(gi)[0][0]*Js.at(gi)[1][1]-Js.at(gi)[0][1]*Js.at(gi)[1][0]);
 
   }
 

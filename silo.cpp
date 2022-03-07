@@ -31,7 +31,7 @@ std::string date();
 
 using namespace std;
 
-void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &e,
+void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,
           VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g,Shape const &S,Shape const &T){
 
 // local function signatures
@@ -40,6 +40,7 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
   void sample(Mesh const &M,int const &nsubs,Shape const &T, vector<double> const &vin,double vout[]); // interpolate vin to obtain vout at the sample points
   void J(Mesh const &M,Shape const &S,VVD const &x,int const &i,int const &nsubs,vector<double> &detj); //compute a jacobian and return the determinant at the sample points
   void J(Mesh const &M,Shape const &S,VVD const &x,int const &i,vector<double> &detj); //compute a jacobian and return the determinant at the integration points
+  void J(Mesh const &M,Shape const &S,VVD const &x0,VVD const &x,int const &i,int const &nsubs,VD &detJs); //compute a jacobian for the lagrangian motion and return the determinant at the sample points
 
   DBfile*dbfile;
   DBoptlist *optlist=NULL;
@@ -90,7 +91,7 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
   double *var1;                     // nodal/zonal variable to output against the mesh
   vector<vector<long> > SampleNode; // global numbers of the sample points
   vector<double> vin;               // vector to sample at the mesh sample points
-  vector<double> detj0,detj;        // determinant at the sample point for writing out d as a function
+  vector<double> detj0,detj,detjs;  // determinants at the sample points for writing out d and l as functions
 
 // disengage deprecation signalling
 
@@ -469,7 +470,7 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 
 // draw a mesh called "Sample" to support sampled data
 
-  nsubs=25;                                           // number of sub-cells
+  nsubs=1;                                            // number of sub-cells
   nsubx=sqrt(nsubs);                                  // number of sub-cells on x-axis
   nsuby=sqrt(nsubs);                                  // number of sub-cells on y-axis
   nzones=M.NCells()*nsubs;                            // number of cells
@@ -502,17 +503,11 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 
 // aquire the global vertices of sub-cell isub from a finite element method
 
-//        double xsum(0.0),ysum(0.0);
-//        for(int iloc=0;iloc<T.nloc();iloc++){
-//          xsum+=T.value(iloc,xloc,yloc)*xt.at(0).at(M.GlobalNode_DFEM(i,iloc));
-//          ysum+=T.value(iloc,xloc,yloc)*xt.at(1).at(M.GlobalNode_DFEM(i,iloc));
-//        }
         double xsum(0.0),ysum(0.0);
         for(int iloc=0;iloc<S.nloc();iloc++){
           xsum+=S.value(iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
           ysum+=S.value(iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
         }
-
 
 // store the coordinates of sample point isub
 
@@ -611,6 +606,22 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
   dberr=DBPutUcdvar1(dbfile,"gamma","Sampling",var1,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
+// length
+
+  for(int i=0,k=0;i<M.NCells();i++){J(M,S,xinit,x,i,nsubs,detjs);for(int isub=0;isub<nsubs;isub++,k++){var1[k]=l.at(i)*detjs.at(isub);}}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm");
+  dberr=DBPutUcdvar1(dbfile,"length","Sampling",var1,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
+// volume
+
+  for(int i=0,k=0;i<M.NCells();i++){J(M,S,xinit,x,i,nsubs,detjs);for(int isub=0;isub<nsubs;isub++,k++){var1[k]=sqrt(V.at(i))/S.order();}}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cc");
+  dberr=DBPutUcdvar1(dbfile,"volume","Sampling",var1,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
   delete[] nodelist;
@@ -796,6 +807,95 @@ void J(Mesh const &M,Shape const &N,VVD const &x, int const &i,vector<double> &d
 
     detj.push_back(dxdu*dydv-dxdv*dydu);
 
+  }
+
+  return;
+
+}
+
+// calculate a jacobian for the Lagrangian motion and return the determinant
+
+void J(Mesh const &M,Shape const &S,VVD const &x0,VVD const &x,int const &i,int const &nsubs,VD &detJs){
+
+// clear out the vector passed in so it is safe to push
+
+  vector<double> vempty;
+  detJs=vempty;
+
+// subdivide the element i
+
+  int nsubx=sqrt(nsubs),nsuby=nsubx;
+
+  for(int isuby=0,isub=0;isuby<nsuby;isuby++){
+    for(int isubx=0;isubx<nsubx;isubx++,isub++){
+
+      double dx(2.0/nsubx),dy(2.0/nsuby);
+
+// aquire the parametric coordinates isubx,isuby of local node isub
+
+      double xloc(-1.0+0.5*dx+isubx*dx);
+      double yloc(-1.0+0.5*dy+isuby*dy);
+
+// compute the deriavtives
+
+      double dx0du(0.0),dy0du(0.0),dx0dv(0.0),dy0dv(0.0);
+      double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+
+// derivatives of the physical coordinates at the quadrature points
+
+      for(int iloc=0;iloc<S.nloc();iloc++){
+
+        long gloc=(S.type()==CONTINUOUS)?M.GlobalNode_CFEM(i,iloc):M.GlobalNode_DFEM(i,iloc);
+
+// at time 0
+
+        dx0du+=x0.at(0).at(gloc)*S.dvalue(0,iloc,xloc,yloc); // dx0/du
+        dx0dv+=x0.at(0).at(gloc)*S.dvalue(1,iloc,xloc,yloc); // dx0/dv
+        dy0du+=x0.at(1).at(gloc)*S.dvalue(0,iloc,xloc,yloc); // dy0/du
+        dy0dv+=x0.at(1).at(gloc)*S.dvalue(1,iloc,xloc,yloc); // dy0/dv
+
+// at time t
+
+        dxdu+=x.at(0).at(gloc)*S.dvalue(0,iloc,xloc,yloc); // dx/du
+        dxdv+=x.at(0).at(gloc)*S.dvalue(1,iloc,xloc,yloc); // dx/dv
+        dydu+=x.at(1).at(gloc)*S.dvalue(0,iloc,xloc,yloc); // dy/du
+        dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,xloc,yloc); // dy/dv
+
+      }
+
+// define the jacobian for time-0, this maps to the isoparametric element from the time-0 element
+
+      vector<vector<double> > J0{{dx0du,dx0dv},
+                                 {dy0du,dy0dv}};
+
+// determinant of J0
+
+      double detJ0(dx0du*dy0dv-dx0dv*dy0du);
+
+// the inverse of J0 is simply the adjugate divided by the determinant
+
+      vector<vector<double> > invJ0{{ dy0dv/detJ0,-dx0dv/detJ0},
+                                    {-dy0du/detJ0, dx0du/detJ0}};
+
+// define the jacobian for time-t, this maps to the isoparametric element from the time-t element
+
+      vector<vector<double> > J{{dxdu,dxdv},
+                                {dydu,dydv}};
+
+// determinant of J
+
+      double detJ(dxdu*dydv-dxdv*dydu);
+
+// define a jacobian of the lagrangian motion, this maps to the time-0 element from the time-t element
+
+      vector<vector<double> > Js{{invJ0[0][0]*J[0][0]+invJ0[0][1]*J[1][0],invJ0[0][0]*J[0][1]+invJ0[0][1]*J[1][1]},
+                                 {invJ0[1][0]*J[0][0]+invJ0[1][1]*J[1][0],invJ0[1][0]*J[0][1]+invJ0[1][1]*J[1][1]}};
+
+// determinant of Js
+
+      detJs.push_back(Js[0][0]*Js[1][1]-Js[0][1]*Js[1][0]);
+
+    }
   }
 
   return;
