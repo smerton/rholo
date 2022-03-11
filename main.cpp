@@ -41,7 +41,7 @@
 #define VVVD vector<VVD>  // vector of VVD
 #define VI vector<int>    // vector of ints
 #define COURANT 0.333     // Courant number for CFL condition
-#define DTSFACTOR 0.5     // safety factor on time-step control
+#define DTSFACTOR 0.1     // safety factor on time-step control
 #define NROWS nknodes     // number of rows in the global matrix
 #define NCOLS nknodes     // number of columns in the global matrix
 #define NGI S.ngi()*n     // number of integration points on the mesh
@@ -128,7 +128,7 @@ int main(){
 // global data
 
   Mesh M("mesh/noh-24x24-non-uniform.mesh");                     // load a new mesh from file
-  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape S(1,5,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -168,7 +168,7 @@ int main(){
   vector<long> frow(nzeroes);                                    // row addresses in the force matrix
   vector<long> fcol(nzeroes);                                    // column addresses in the force matrix
   vector<int> fdim(nzeroes);                                     // dimension addresses in the force matrix
-  double s(1.0);                                                 // direction used in definition of length scale
+  double s(2.0);                                                 // direction used in definition of length scale
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
@@ -598,11 +598,10 @@ int main(){
             divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
           }
         }
-//        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));     // method 1: bad imprinting on non-uniform meshes, reproduces Fig 6.2 right asymmetries
-//        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi);   // method 2: uses local initial mesh size rather than average initial mesh size
-//        l.at(gi)=l0*detJ.at(gi)/detJ0.at(gi);            // method 3: less imprinting than method 1 but bad in centre, symmetry OK but not as good as Fig 6.2 left
-        l.at(gi)=l0*s*detJs.at(gi);                        // method 4: same as method 3 ?
-//        l.at(gi)=l0;                                     // method 5: almost the same as method 4, significant symmetry improvement in u and d but mesh is bad in centre
+//        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));     // method 1: l=sqrt(zone size)/p, bad imprinting on non-uniform meshes, reproduces Fig 6.2 right asymmetries
+//        l.at(gi)=l0;                                     // method 2: average initial zone size/p, better symmetry but not as good as Fig 6.2 left (bad near centre)
+        l.at(gi)=l0*detJs.at(gi);                        // method 3: very similar to method 2, less imprinting than method 1 but bad in centre, symmetry OK but not as good as Fig 6.2 left
+//        l.at(gi)=l0*s*detJs.at(gi);                        // method 4: method 3 with s included but we are not sure how |s| should be defined
 
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
@@ -1233,11 +1232,20 @@ void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const 
 //      dy0du+=x0.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy0/du
 //      dy0dv+=x0.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy0/dv
 
-      dx0du=1.0; // mod for direction s
-      dx0dv=1.0; // mod for direction s
-      dy0du=1.0;
-      dy0dv+=x0.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy0/dv
+//      dx0du+=x0.at(0).at(gloc)*S.dvalue(0,iloc,gi); // dx0/du
+//      dx0dv=1.0; // mod for direction s
+//      dy0du=1.0; // mod for direction s
+//      dy0dv+=x0.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy0/dv
 
+//      dx0du=1.0; // mod for direction s
+//      dx0dv=1.0; // mod for direction s
+//      dy0du=1.0;
+//      dy0dv+=x0.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy0/dv
+
+      dx0du=1.0; // mod for direction s
+      dx0dv+=x0.at(0).at(gloc)*S.dvalue(1,iloc,gi); // dx0/dv
+      dy0du+=x0.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy0/du
+      dy0dv=1.0; // mod for direction s
 
 // at time t
 
@@ -1251,10 +1259,20 @@ void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const 
 //      dydu+=x.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy/du
 //      dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy/dv
 
+//      dxdu+=x.at(0).at(gloc)*S.dvalue(0,iloc,gi); // dx/du
+//      dxdv=1.0; // mod for direction s
+//      dydu=1.0; // mod for direction s
+//      dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy/dv
+
+//      dxdu=1.0; // mod for direction s
+//      dxdv=1.0; // mod for direction s
+//      dydu=1.0;
+//      dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy/dv
+
       dxdu=1.0; // mod for direction s
-      dxdv=1.0; // mod for direction s
-      dydu=1.0;
-      dydv+=x.at(1).at(gloc)*S.dvalue(1,iloc,gi); // dy/dv
+      dxdv+=x.at(0).at(gloc)*S.dvalue(1,iloc,gi); // dx/dv
+      dydu+=x.at(1).at(gloc)*S.dvalue(0,iloc,gi); // dy/du
+      dydv=1.0; // mod for direction s
 
     }
 
