@@ -962,19 +962,69 @@ void Mesh::MapCoords(VVD const &xp,VVD &xq,int const &p,int const &q) const{
 
 // initial node displacement
 
-void Mesh::InitLength(VD &l,int const &p,VD const &V) const{
+void Mesh::InitLength(VD &l0,int const &p,VD const &V,int const &ls_type) const{
 
-// partition each cell volume based on p - this will normalise it to the element order
+// select definition of element length scale and partition with p - this will normalise it to the element order
+// note directional case and average case have the same initial length
 
-  for(int i=0;i<NCells();i++){
-    l.at(i)=sqrt(V.at(i))/p;
+  double vbar(0.0); // average volume of a cell
+
+  switch(ls_type){
+
+    case(LS_LOCAL):
+
+// compute length of cell locally based on cell volume
+
+      for(int i=0;i<NCells();i++){
+        l0.at(i)=sqrt(V.at(i))/p;
+      }
+
+      break;
+
+    case(LS_AVERAGE):
+
+// compute average cell volume for a smooth representation
+
+      for(int i=0;i<NCells();i++){
+        vbar+=V.at(i);
+      }
+
+      vbar=vbar/NCells();
+
+// normalise to element order
+
+      for(int i=0;i<NCells();i++){
+        l0.at(i)=sqrt(vbar)/p;
+      }
+
+      break;
+
+    case(LS_DIRECTIONAL):
+
+// compute average cell volume for a smooth representation
+
+      for(int i=0;i<NCells();i++){
+        vbar+=V.at(i);
+      }
+      vbar=vbar/NCells();
+
+// normalise to element order
+
+      for(int i=0;i<NCells();i++){
+        l0.at(i)=sqrt(vbar)/p;
+      }
+
+      break;
+
+    case(LS_PSEUDO_1D):
+
+      for(int i=0;i<NCells();i++){
+        l0.at(i)=(Max(0)-Min(0))/((NCells()+2)*p);
+      }
+
+      break;
+
   }
-
-// for psuedo 1D we can use this
-
-//  for(int i=0;i<NCells();i++){
-//    l.at(i)=1.0/(NCells()*p);
-//  }
 
   return;
 
@@ -982,7 +1032,47 @@ void Mesh::InitLength(VD &l,int const &p,VD const &V) const{
 
 // update element length scale, just use the same definition as for the initial length until we understand how to normalise it properly for high-order
 
-double Mesh::UpdateLength(int const &p,double const &V){return sqrt(V)/p;}
+double Mesh::UpdateLength(int const &p,double const &V,double const &l0,double const &detJs,int const &ls_type){
+
+  double ls(0.0),s(1.0);
+
+  switch(ls_type){
+
+    case(LS_LOCAL):
+
+// compute length of cell locally based on cell volume
+
+      ls=sqrt(V)/p;
+
+      break;
+
+    case(LS_AVERAGE):
+
+// use initial average zone size as a smooth representation
+
+      ls=l0;
+
+      break;
+
+    case(LS_DIRECTIONAL):
+
+// use deformation of a circle into an ellipse via the lagrangian motion
+
+      ls=l0*s*detJs;
+
+      break;
+
+    case(LS_PSEUDO_1D):
+
+      ls=l0*detJs;
+
+      break;
+
+  }
+
+  return ls;
+
+}
 
 // update volume field
 

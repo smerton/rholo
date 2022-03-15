@@ -3,7 +3,7 @@
 // making assessments of high-order methods and developing an implementation strategy for
 // high-order methods.
 // This code solves the Euler equations in their non-conservative form in the fluid frame (the Lagrangian frame)
-// using a high-order finite element method (node-centred thermodynamic variables p,rho,e and node 
+// using a high-order finite element method (discontinuous thermodynamic variables p,rho,e and node 
 // centred kinematic variables x,u,a) and bulk viscosity q to increase entropy across element boundaries, initial 
 // implementation is only first order in time
 //
@@ -123,8 +123,6 @@ using namespace std;
 
 int main(){
 
-  cout<<"main(): Starting up main loop..."<<endl;
-
 // global data
 
   Mesh M("mesh/noh-24x24-non-uniform.mesh");                     // load a new mesh from file
@@ -154,9 +152,8 @@ int main(){
   vector<int> mat(n);                                            // element material numbers
   vector<double> b0(M.NDims()*nknodes);                          // boundary conditions on the acceleration field
   vector<double> b1(M.NDims()*nknodes);                          // rows eliminated from the mass matrix
-  vector<double> linit(n);                                       // initial length of each element
-//  vector<double> l0(ndims),ls(ndims);                            // initial length scale based on average zone size rather than local zone size
-  double l0(0.0),ls(0.0);                                        // initial length scale based on average zone size rather than local zone size
+  vector<double> l0(n);                                          // initial length of each element
+  double ls(0.0);                                                // element length scale at the quadrature point
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
@@ -168,41 +165,37 @@ int main(){
   vector<long> frow(nzeroes);                                    // row addresses in the force matrix
   vector<long> fcol(nzeroes);                                    // column addresses in the force matrix
   vector<int> fdim(nzeroes);                                     // dimension addresses in the force matrix
-  double s(2.0);                                                 // direction used in definition of length scale
+  int length_scale_type(LS_LOCAL);                               // length scale definition: LS_AVERAGE,LS_LOCAL or LS_DIRECTIONAL (LS_PSEUDO_1D for 1D tests on 2D meshes)
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-//  test_problem=SOD;                                                    // set overides needed to run this problem
+//  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;                     // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
-//  test_problem=SODSOD;                                                 // set overides needed to run this problem
+//  test_problem=SODSOD;length_scale_type=LS_PSEUDO_1D;                  // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for double shock problem 
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
 //                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-//  test_problem=R2R;                                                    // set overides needed to run this problem
+//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;                     // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},      // initial flux state in each material for the 123 problem 
 //                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
-//  test_problem=BLASTWAVE;                                              // set overides needed to run this problem
+//  test_problem=BLASTWAVE;length_scale_type=LS_PSEUDO_1D;               // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},      // initial flux state in each material for the blast wave
 //                                 {1.000,0.000,0.000, 0.0100,1.4}};
 
-//  test_problem=VACUUMBC;                                               // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4},      // initial flux state in each material for vacuum boundary test
-//                                 {1.000, 0.000,0.000, 1.000,1.4}};
-
-//  test_problem=TAYLOR;                                                 // set overides needed to run this problem
+//  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;                    // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-  test_problem=NOH;                                                      // set overides needed to run this problem
+  test_problem=NOH;length_scale_type=LS_LOCAL;                           // set overides needed to run this problem
   vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
 
-//  test_problem=SEDOV;                                                  // set overides needed to run this problem
+//  test_problem=SEDOV;length_scale_type=LS_AVERAGE;                     // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
 
-//  test_problem=TRIPLE;                                                 // set overides needed to run this problem
+//  test_problem=TRIPLE;length_scale_type=LS_AVERAGE;                    // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},      // initial flux state in each material for triple-point problem
 //                                 {1.000, 0.000,0.000, 0.100,1.4},
 //                                 {0.125, 0.000,0.000, 0.100,1.5}};
@@ -244,9 +237,9 @@ int main(){
   for(int i=0;i<e0.size();i++){e1.at(i)=e0.at(i);}
   for(int i=0;i<dt_cfl.size();i++){dt_cfl.at(i)=DTSTART;}                                                                                             // initial time-step
 
-  M.InitLength(linit,S.order(),V0);  // initialise element length scale
-  for(int i=0;i<M.NCells();i++){l0+=V0.at(i);}l0=sqrt(l0/M.NCells())/S.order(); // initialise element length scale to average zone size
-//  l0[0]=0.0;l0[1]=0.0;for(int i=0;i<M.NCells();i++){l0[1]+=V0.at(i);}l0[1]=sqrt(l0[1]/M.NCells())/S.order(); // initialise element length scale
+// initial element length
+
+  M.InitLength(l0,S.order(),V0,length_scale_type);                                                                                                    // initialise element length scale
 
 // allocate a determinant for each derivative
 
@@ -440,6 +433,8 @@ int main(){
 
   cout<<fixed<<setprecision(17);
 
+  cout<<"main(): Starting up main loop..."<<endl;
+
 // time integration
 
   while(time<=ENDTIME){
@@ -449,6 +444,7 @@ int main(){
     for(int i=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x0,M,S,detJ,detDJ);
+      jacobian(i,xinit,x1,M,S,detJs,Js);
 
 // evaluate energy, divergence, length, density, pressure, sound speed and q at each integration point
 
@@ -462,9 +458,7 @@ int main(){
         for(int idim=0;idim<M.NDims();idim++){
           for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
-        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));     // method 1: bad imprinting on non-uniform meshes, reproduces Fig 6.2 right asymmetries
-//        l.at(gi)=linit.at(i)*detJ.at(gi)/detJ0.at(gi); // method 2: uses local initial mesh size rather than average initial mesh size
-//        l.at(gi)=l0*detJ.at(gi)/detJ0.at(gi);          // method 3: less imprinting than method 1 but bad in centre, symmetry OK but not as good as Fig 6.2 left
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type); // update element length scale at the quadrature point
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=M.UpdatePressure(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -508,11 +502,11 @@ int main(){
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,xt0,xinit,dinit,linit,V0,e0,u0,mat,step,time,M,gamma,S,T);
+      silo(x0,xt0,xinit,dinit,l0,V0,e0,u0,mat,step,time,M,gamma,S,T);
     }else{
       if(abs(remainder(step,VISFREQ))==0){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,xt0,xinit,dinit,linit,V0,e0,u0,mat,step,time,M,gamma,S,T);
+      silo(x0,xt0,xinit,dinit,l0,V0,e0,u0,mat,step,time,M,gamma,S,T);
       }
     }
 
@@ -598,11 +592,9 @@ int main(){
             divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
           }
         }
-//        l.at(gi)=M.UpdateLength(S.order(),V1.at(i));     // method 1: l=sqrt(zone size)/p, bad imprinting on non-uniform meshes, reproduces Fig 6.2 right asymmetries
-//        l.at(gi)=l0;                                     // method 2: average initial zone size/p, better symmetry but not as good as Fig 6.2 left (bad near centre)
-        l.at(gi)=l0*detJs.at(gi);                        // method 3: very similar to method 2, less imprinting than method 1 but bad in centre, symmetry OK but not as good as Fig 6.2 left
-//        l.at(gi)=l0*s*detJs.at(gi);                        // method 4: method 3 with s included but we are not sure how |s| should be defined
 
+
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type); // update element length scale at the quadrature point
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
