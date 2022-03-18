@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.15      // insert a macro for the end time
+#define DTSTART 0.0005     // insert a macro for the first time step
+#define ENDTIME 0.2      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -87,14 +87,15 @@ void header();                                                                  
 void vempty(vector<double>&v);                                                                                       // empty a vector
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ);                          // calculate a jacobian and determinant
 void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &Js);               // calculate a jacobian for the Lagrangian motion
+void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ);                                      // calculate a jacobian at the local nodes
 void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xinit,                                  // sum the global kinetic energy field
             VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);
 void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,                                   // sum the global internal energy field
             VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);
 void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,                                  // echo some initial information
                   int const ndims, int const nmats,Mesh const &M);
-void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &x,                  // line-outs
-              VVD const &xt,VVD const &u, int const &test_problem);
+void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // line-outs
+              VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
 void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,               // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g,Shape const &S,Shape const &T);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,                                        // output material states
@@ -127,8 +128,8 @@ int main(){
 // global data
 
   Mesh M("mesh/sod-20x1.mesh");                                  // load a new mesh from file
-  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
-  Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
+  Shape S(3,4,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape T(2,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
@@ -473,7 +474,7 @@ int main(){
     }
 
 // debug
-//  lineouts(M,S,T,d1,p,e1,q,x1,xt1,u1,test_problem);
+//  lineouts(M,S,T,d1,p,e1,q,xinit,x1,xt1,u1,test_problem,mat,gamma);
 //  exit(1);
 // debug
 
@@ -633,7 +634,7 @@ int main(){
 
 // some output
 
-  lineouts(M,S,T,dinit,e1,x1,xt1,u1,test_problem);
+  lineouts(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
 
@@ -679,7 +680,7 @@ int main(){
 
 // this function codes for some line-outs
 
-void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &x,VVD const &xt,VVD const &u, int const &test_problem){
+void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,VVD const &xt,VVD const &u, int const &test_problem,vector<int> const &mat,VD const &g){
 
 // file handle for output
 
@@ -920,20 +921,26 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
       vector<double> nodal_value(Gk.nloc()); // values at node j
       double interpolated_value[6]={0.0,0.0,0.0,0.0,0.0,0.0}; // values interpolated at point ri(x,y)
 
+      {
+        vector<double> detJ0(S.nloc()),detJ(S.nloc()),d(S.nloc()); 
+        jacobian(i,xinit,M,S,detJ0);
+        jacobian(i,x,M,S,detJ);
+
 // evaluate density field at global coordinate ri(x,y)
 
-      for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=dinit.at(i);}
-      for(int j=0;j<Gt.nloc();j++){interpolated_value[0]+=Gt.value(j,ri)*nodal_value.at(j);}
-
-// evaluate pressure field at global coordinate ri(x,y)
-
-      for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=p;}
-      for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*nodal_value.at(j);}
+        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=dinit.at(i)*detJ0.at(j)/detJ.at(j);}
+        for(int j=0;j<Gk.nloc();j++){interpolated_value[0]+=Gk.value(j,ri)*nodal_value.at(j);}
 
 // evaluate energy field at global coordinate ri(x,y)
 
-      for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=e.at(M.GlobalNode_DFEM(i,j));}
-      for(int j=0;j<Gt.nloc();j++){interpolated_value[2]+=Gt.value(j,ri)*nodal_value.at(j);}
+        for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=e.at(M.GlobalNode_DFEM(i,j));}
+        for(int j=0;j<Gt.nloc();j++){interpolated_value[2]+=Gt.value(j,ri)*nodal_value.at(j);}
+
+// evaluate pressure field at global coordinate ri(x,y)
+
+        interpolated_value[1]=P(interpolated_value[0],interpolated_value[2],g.at(mat.at(i)-1));
+
+      }
 
 // evaluate artificial viscosity field at global coordinate ri(x,y)
 
@@ -1280,6 +1287,47 @@ void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const 
 // determinant of Js
 
     detJs.at(gi)=(Js.at(gi)[0][0]*Js.at(gi)[1][1]-Js.at(gi)[0][1]*Js.at(gi)[1][0]);
+
+  }
+
+  return;
+
+}
+
+// calculate a jacobian at the local nodes
+
+void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ){
+
+// node positions and displacement in local coordinates
+
+  double xpos[S.nloc()],ypos[S.nloc()],disp(2.0/S.order());
+
+  for(int jsloc=0,kloc=0;jsloc<S.sloc();jsloc++){
+    for(int isloc=0;isloc<S.sloc();isloc++,kloc++){
+      xpos[kloc]=-1.0+isloc*disp;
+      ypos[kloc]=-1.0+jsloc*disp;
+    }
+  }
+
+// loop over local nodes and calculate the jacobian
+
+  for(int iloc=0;iloc<S.nloc();iloc++){
+
+    double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+
+// derivatives of the physical coordinates at the nodes
+
+    for(int jloc=0;jloc<S.nloc();jloc++){
+      long gloc=(S.type()==CONTINUOUS)?M.GlobalNode_CFEM(i,jloc):M.GlobalNode_DFEM(i,jloc);
+      dxdu+=x.at(0).at(gloc)*S.dvalue(0,jloc,xpos[iloc],ypos[iloc]); // dx/du
+      dxdv+=x.at(0).at(gloc)*S.dvalue(1,jloc,xpos[iloc],ypos[iloc]); // dx/dv
+      dydu+=x.at(1).at(gloc)*S.dvalue(0,jloc,xpos[iloc],ypos[iloc]); // dy/du
+      dydv+=x.at(1).at(gloc)*S.dvalue(1,jloc,xpos[iloc],ypos[iloc]); // dy/dv
+    }
+
+// calculate the determinant at the quadrature point and commit to the vector
+
+    detJ.at(iloc)=dxdu*dydv-dxdv*dydu;
 
   }
 
