@@ -207,14 +207,6 @@ Shape::Shape(int n,int ngi,int t){
 
 Shape::Shape(int n,vector<vector<double> > x){
 
-// this is only coded for bilinear case
-
-  if(n!=1){
-    cout<<"Shape::Shape(): Only bilinear shapes can be constructed in global coordinates, n= "<<n<<endl;
-    cout<<"Shape::Shape(): Stopping"<<endl;
-    exit(1);
-  }
-
 // set the polyhedral order
 
   morder=n;
@@ -274,11 +266,15 @@ Shape::Shape(int n,vector<vector<double> > x){
 
   Matrix A(mnloc),AI(mnloc);
 
+// loop over powers of x and y for each column of the matrix
+
   for(int iloc=0;iloc<mnloc;iloc++){
-    A.write(iloc,0,1.0);
-    A.write(iloc,1,mr.at(0).at(iloc));
-    A.write(iloc,2,mr.at(1).at(iloc));
-    A.write(iloc,3,mr.at(0).at(iloc)*mr.at(1).at(iloc));
+    for(int i=0,jloc=0;i<=morder;i++){
+      for(int j=0;j<=morder;j++,jloc++){
+        A.write(iloc,jloc,pow(mr.at(0).at(iloc),i)*pow(mr.at(1).at(iloc),j));
+      }
+    }
+
   }
 
 // check for singularities which are expected if x1=x3 and y1=y4
@@ -403,7 +399,23 @@ int Shape::pos(int idim,int iloc) const {return mpos[idim][iloc];} // node posit
 double Shape::wgt(int gi) const {return mwgt[gi];} // quadrature weight of integration point gi
 double Shape::value(int i,int gi) const {return mvalue[i][gi];} // shape i value at Gauss point gi
 double Shape::value(int i,double u,double v) const {Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);return P1.value(u)*P2.value(v);} // shape i value at coordinate x,y
-double Shape::value(int i,vector<double> x) const {return(mcoeff.at(i).at(0)+mcoeff.at(i).at(1)*x.at(0)+mcoeff.at(i).at(2)*x.at(1)+mcoeff.at(i).at(3)*x.at(0)*x.at(1));}
+
+//double Shape::value(int i,vector<double> x) const {return(mcoeff.at(i).at(0)+mcoeff.at(i).at(1)*x.at(0)+mcoeff.at(i).at(2)*x.at(1)+mcoeff.at(i).at(3)*x.at(0)*x.at(1));}
+
+double Shape::value(int iloc,vector<double> x) const {
+
+  double pval(0.0);
+
+  for(int i=0,k=0;i<=morder;i++){
+    for(int j=0;j<=morder;j++,k++){
+      pval+=mcoeff.at(iloc).at(k)*pow(x.at(0),i)*pow(x.at(1),j);
+    }
+  }
+
+  return pval;
+
+}
+
 double Shape::dvalue(int idim,int i,int gi) const {return mdvalue[idim][i][gi];} // derivative i value at Gauss point gi
 double Shape::dvalue(int idim,int i,double u,double v) const {Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);double dval[2];dval[0]=P1.dvalue(u)*P2.value(v);dval[1]=P1.value(u)*P2.dvalue(v);return dval[idim];}// shape i derivative value at coordinate x
 double Shape::dvalue(int idim,int i,vector<double> x) const {double dx(mcoeff.at(i).at(1)+mcoeff.at(i).at(3)*x.at(1)),dy(mcoeff.at(i).at(2)+mcoeff.at(i).at(3)*x.at(0));return((idim==0)?dx:dy);} // shape i derivative value at global coordinate x
