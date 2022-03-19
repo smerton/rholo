@@ -934,34 +934,29 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 // evaluate energy field at global coordinate ri(x,y)
 
         for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=e.at(M.GlobalNode_DFEM(i,j));}
-        for(int j=0;j<Gt.nloc();j++){interpolated_value[2]+=Gt.value(j,ri)*nodal_value.at(j);}
+        for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*nodal_value.at(j);}
+
+// evaluate velocity field x-component at global coordinate ri(x,y)
+
+        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(0).at(M.GlobalNode_CFEM(i,j));}
+        for(int j=0;j<Gk.nloc();j++){interpolated_value[2]+=Gk.value(j,ri)*nodal_value.at(j);}
+
+// evaluate velocity field y-component at global coordinate ri(x,y)
+
+        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(1).at(M.GlobalNode_CFEM(i,j));}
+        for(int j=0;j<Gk.nloc();j++){interpolated_value[3]+=Gk.value(j,ri)*nodal_value.at(j);}
 
 // evaluate pressure field at global coordinate ri(x,y)
 
-        interpolated_value[1]=P(interpolated_value[0],interpolated_value[2],g.at(mat.at(i)-1));
+        interpolated_value[4]=P(interpolated_value[0],interpolated_value[1],g.at(mat.at(i)-1));
 
       }
-
-// evaluate artificial viscosity field at global coordinate ri(x,y)
-
-      for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=q;}
-      for(int j=0;j<Gt.nloc();j++){interpolated_value[3]+=Gt.value(j,ri)*nodal_value.at(j);}
-
-// evaluate velocity field at global coordinate ri(x,y)
-
-      for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(0).at(M.GlobalNode_CFEM(i,j));}
-      for(int j=0;j<Gk.nloc();j++){interpolated_value[4]+=Gk.value(j,ri)*nodal_value.at(j);}
-
-// evaluate velocity field at global coordinate ri(x,y)
-
-      for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(1).at(M.GlobalNode_CFEM(i,j));}
-      for(int j=0;j<Gk.nloc();j++){interpolated_value[5]+=Gk.value(j,ri)*nodal_value.at(j);}
 
 // output the interpolated values along the line AB
 
       double xx(sqrt(ri.at(0)*ri.at(0)+ri.at(1)*ri.at(1))); // distance along line-out
       f1<<fixed<<setprecision(10)<<xx<<" ";
-      for(int j=0;j<6;j++){
+      for(int j=0;j<4;j++){
         f1<<interpolated_value[j]<<" ";
       }
       f1<<endl;
