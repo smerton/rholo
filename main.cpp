@@ -28,7 +28,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0005     // insert a macro for the first time step
+#define DTSTART 0.005     // insert a macro for the first time step
 #define ENDTIME 0.20      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -130,8 +130,8 @@ int main(){
 // global data
 
   Mesh M("mesh/sod-20x1.mesh");                                  // load a new mesh from file
-  Shape S(3,5,CONTINUOUS);                                       // load a shape function for the kinematics
-  Shape T(2,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
+  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
@@ -971,7 +971,6 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
 // output the interpolated values along the line AB
 
-//      double xx(sqrt(ri.at(0)*ri.at(0)+ri.at(1)*ri.at(1))); // distance along line-out
       double xx(sqrt(pow((AB.coord(0,0)-ri.at(0)),2)+pow((AB.coord(1,0)-ri.at(1)),2))); // distance along line-out
       f1<<fixed<<setprecision(10)<<xx<<" ";
       for(int j=0;j<5;j++){
@@ -1072,7 +1071,8 @@ void exact(VVD const &s,VVD const &x,int const &test_problem){
         double r[4]={s.at(1)[0],s.at(1)[1],s.at(1)[3],s.at(1)[4]}; // right flux state
         Riemann R(Riemann::exact,l,r); // start Riemann solver from initial flux states
         vector<double> rx;vempty(rx); // sample point coordinates for the Riemann solver
-        for(int i=0;i<NSAMPLES;i++){rx.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points for the Riemann solver
+//        for(int i=0;i<NSAMPLES;i++){rx.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points for the Riemann solver
+        for(int i=0;i<NSAMPLES;i++){rx.push_back(i*(xmax-xmin)/NSAMPLES);} // sample points for the Riemann solver
         R.profile(&rx,ENDTIME); // Riemann solution at NSAMPLE sample points
 
 // append to the data structure
@@ -1120,7 +1120,7 @@ void exact(VVD const &s,VVD const &x,int const &test_problem){
         double r[4]={s.at(1)[0],s.at(1)[1],s.at(1)[3],s.at(1)[4]}; // right flux state
         Riemann R(Riemann::exact,l,r); // start Riemann solver from initial flux states
         vector<double> rx;vempty(rx); // sample point coordinates for the Riemann solver
-        for(int i=0;i<NSAMPLES;i++){rx.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points for the Riemann solver
+        for(int i=0;i<NSAMPLES;i++){rx.push_back(i*(xmax-xmin)/NSAMPLES);} // sample points for the Riemann solver
         R.profile(&rx,ENDTIME); // Riemann solution at NSAMPLE sample points
 
 // append to the data structure
