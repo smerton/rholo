@@ -35,12 +35,32 @@ Riemann::Riemann(solver s,double*l,double*r){
   mDl=l[0];
   mul=l[1];
   mPl=l[2];
+  mgl=l[3];
 
 // set up the right state
 
   mDr=r[0];
   mur=r[1];
   mPr=r[2];
+  mgr=l[3];
+
+// gamma values
+
+  if(mgl!=mgr){
+    cout<<"Riemann::Riemann(): left and right states have a different gamma, stopping."<<endl;
+    exit(1);
+  }
+
+  g0=mgl;
+  g1=(mgl-1.0)/(2.0*mgl);
+  g2=(mgl+1.0)/(2.0*mgl);
+  g3=2.0*mgl/(mgl-1.0);
+  g4=2.0/(mgl-1.0);
+  g5=2.0/(mgl+1.0);
+  g6=(mgl-1.0)/(mgl+1.0);
+  g7=0.5*(mgl-1.0);
+  g8=1.0/mgl;
+  g9=mgl-1.0;
 
 //  cout<<"Riemann::Riemann(): left state (d,u,p) = "<<mDl<<","<<mul<<","<<mPl<<endl;
 //  cout<<"Riemann::Riemann(): right state (d,u,p) = "<<mDr<<","<<mur<<","<<mPr<<endl;

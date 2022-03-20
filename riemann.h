@@ -4,7 +4,6 @@
 // Author S. R. Merton
 
 #include <vector>
-#define GAMMA 1.4
 
 using namespace std;
 
@@ -36,10 +35,12 @@ class Riemann{
   double mPl; // left state pressure field
   double mDl; // left state density field
   double mul; // left state velocity field
+  double mgl; // left state adiabatic constant
 
   double mPr; // right state pressure field
   double mDr; // right state density field
   double mur; // right state velocity field
+  double mgr; // right state adiabatic constant
 
   double cl,cr; // sound speeds left and right
 
@@ -60,16 +61,15 @@ class Riemann{
 
 // gammas
 
-  double g0=GAMMA;
-  double g1=(GAMMA-1.0)/(2.0*GAMMA);
-  double g2=(GAMMA+1.0)/(2.0*GAMMA);
-  double g3=2.0*GAMMA/(GAMMA-1.0);
-  double g4=2.0/(GAMMA-1.0);
-  double g5=2.0/(GAMMA+1.0);
-  double g6=(GAMMA-1.0)/(GAMMA+1.0);
-  double g7=0.5*(GAMMA-1.0);
-  double g8=1.0/GAMMA;
-  double g9=GAMMA-1.0;
-
+  double g0;
+  double g1;
+  double g2;
+  double g3;
+  double g4;
+  double g5;
+  double g6;
+  double g7;
+  double g8;
+  double g9;
 
 };
