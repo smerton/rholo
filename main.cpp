@@ -29,7 +29,7 @@
 //
 
 #define DTSTART 0.0005     // insert a macro for the first time step
-#define ENDTIME 0.2      // insert a macro for the end time
+#define ENDTIME 0.20      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -79,6 +79,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "line.h"
+#include "riemann.h"
 
 // function signatures
 
@@ -96,6 +97,7 @@ void initial_data(int const n, long const nknodes,long const ntnodes,Shape const
                   int const ndims, int const nmats,Mesh const &M);
 void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // line-outs
               VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
+void exact(VVD const &s,VVD const &x,int const &test_problem);                                                       // exact solution where applicable
 void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,               // silo graphics output
           VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g,Shape const &S,Shape const &T);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,                                        // output material states
@@ -128,7 +130,7 @@ int main(){
 // global data
 
   Mesh M("mesh/sod-20x1.mesh");                                  // load a new mesh from file
-  Shape S(3,4,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape S(3,5,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(2,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -635,6 +637,7 @@ int main(){
 // some output
 
   lineouts(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
+  exact(state,x1,test_problem);
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
 
@@ -804,7 +807,21 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
       lineout.y1=0.5*(ymin+ymax);
       lineout.y2=lineout.y1;
       lineout.filename="lineout_1.dat";
-      lineout.filehead="# Sod lineout from (0.0,0.5) to (1.0,0.5) : Columns are x d p e q u";
+      lineout.filehead="# Sod lineout from (0.0,0.5) to (1.0,0.5) : Columns are x d e vx vy p";
+      lineout.nsamples=100;
+
+      break;
+
+    case(R2R):
+
+// 123 problem
+
+      lineout.x1=xmin;
+      lineout.x2=xmax;
+      lineout.y1=0.5*(ymin+ymax);
+      lineout.y2=lineout.y1;
+      lineout.filename="lineout_1.dat";
+      lineout.filehead="# 123 problem lineout from (xmin,0.5) to (xmax,0.5) : Columns are x d e vx vy p";
       lineout.nsamples=100;
 
       break;
@@ -954,9 +971,10 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
 // output the interpolated values along the line AB
 
-      double xx(sqrt(ri.at(0)*ri.at(0)+ri.at(1)*ri.at(1))); // distance along line-out
+//      double xx(sqrt(ri.at(0)*ri.at(0)+ri.at(1)*ri.at(1))); // distance along line-out
+      double xx(sqrt(pow((AB.coord(0,0)-ri.at(0)),2)+pow((AB.coord(1,0)-ri.at(1)),2))); // distance along line-out
       f1<<fixed<<setprecision(10)<<xx<<" ";
-      for(int j=0;j<4;j++){
+      for(int j=0;j<5;j++){
         f1<<interpolated_value[j]<<" ";
       }
       f1<<endl;
@@ -967,6 +985,169 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
     f1.close();
 
+  }
+
+  return;
+
+}
+
+// generate an exact solution where applicable
+
+void exact(VVD const &s,VVD const &x,int const &test_problem){
+
+// file handle for output
+
+  ofstream f1;
+
+// establish the mesh limits
+
+  double xmin(*min_element(x.at(0).begin(),x.at(0).end()));
+  double xmax(*max_element(x.at(0).begin(),x.at(0).end()));
+  double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
+  double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
+
+// decalre the line-out structure
+
+  struct lineout_type {
+    double x1,y1; // start point of each line
+    double x2,y2; // end point of each line
+    string filename; //filename to output
+    string filehead; // file header
+    int nsamples; // number of sample points on each line
+  } lineout;
+
+  vector<lineout_type> Lineout;
+
+// set up an exact solution for each problems that has one
+
+  switch(test_problem){
+
+    case(TAYLOR):
+
+// Taylor Green vortex
+
+      return;;
+
+      break;
+
+    case(RAYLEIGH):
+
+// Rayleigh-Taylor instability
+
+      return;
+
+      break;
+
+    case(NOH):
+
+// Noh stagnation shock
+
+      return;;
+
+      break;
+
+    case(SEDOV):
+
+// Sedov expanding shock
+
+      return;;
+
+      break;
+
+    case(SOD):
+
+// Sod's shock tube
+
+      lineout.x1=xmin;
+      lineout.x2=xmax;
+      lineout.y1=0.5*(ymin+ymax);
+      lineout.y2=lineout.y1;
+      lineout.filename="exact.dat";
+      lineout.filehead="# Sod exact solution from (0.0,0.5) to (1.0,0.5) : Columns are x d p e u";
+      lineout.nsamples=NSAMPLES;
+
+      {
+
+        double l[4]={s.at(0)[0],s.at(0)[1],s.at(0)[3],s.at(0)[4]}; // left flux state
+        double r[4]={s.at(1)[0],s.at(1)[1],s.at(1)[3],s.at(1)[4]}; // right flux state
+        Riemann R(Riemann::exact,l,r); // start Riemann solver from initial flux states
+        vector<double> rx;vempty(rx); // sample point coordinates for the Riemann solver
+        for(int i=0;i<NSAMPLES;i++){rx.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points for the Riemann solver
+        R.profile(&rx,ENDTIME); // Riemann solution at NSAMPLE sample points
+
+// append to the data structure
+
+        Lineout.push_back(lineout);
+
+        cout<<"exact(): exact solution writing to file "<<Lineout.at(0).filename<<" ..."<<endl;
+
+// open the output file for the exact solution and write the header part
+
+        f1.open(Lineout.at(0).filename);
+        f1<<Lineout.at(0).filehead<<endl;
+
+// output the exact solution
+
+        f1<<fixed<<setprecision(10);
+        for(int j=0;j<rx.size();j++){
+          f1<<rx.at(j)<<" "<<R.density(j)<<" "<<R.pressure(j)<<" "<<R.energy(j)<<" "<<R.velocity(j)<<endl;
+        }
+
+// close the output file
+
+        f1.close();
+
+      }
+
+      break;
+
+
+    case(R2R):
+
+// 123 problem
+
+      lineout.x1=xmin;
+      lineout.x2=xmax;
+      lineout.y1=0.5*(ymin+ymax);
+      lineout.y2=lineout.y1;
+      lineout.filename="exact.dat";
+      lineout.filehead="# 123 problem solution from (0.0,0.5) to (1.0,0.5) : Columns are x d p e u";
+      lineout.nsamples=NSAMPLES;
+
+      {
+
+        double l[4]={s.at(0)[0],s.at(0)[1],s.at(0)[3],s.at(0)[4]}; // left flux state
+        double r[4]={s.at(1)[0],s.at(1)[1],s.at(1)[3],s.at(1)[4]}; // right flux state
+        Riemann R(Riemann::exact,l,r); // start Riemann solver from initial flux states
+        vector<double> rx;vempty(rx); // sample point coordinates for the Riemann solver
+        for(int i=0;i<NSAMPLES;i++){rx.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points for the Riemann solver
+        R.profile(&rx,ENDTIME); // Riemann solution at NSAMPLE sample points
+
+// append to the data structure
+
+        Lineout.push_back(lineout);
+
+        cout<<"exact(): exact solution writing to file "<<Lineout.at(0).filename<<" ..."<<endl;
+
+// open the output file for the exact solution and write the header part
+
+        f1.open(Lineout.at(0).filename);
+        f1<<Lineout.at(0).filehead<<endl;
+
+// output the exact solution
+
+        f1<<fixed<<setprecision(10);
+        for(int j=0;j<rx.size();j++){
+          f1<<rx.at(j)<<" "<<R.density(j)<<" "<<R.pressure(j)<<" "<<R.energy(j)<<" "<<R.velocity(j)<<endl;
+        }
+
+// close the output file
+
+        f1.close();
+
+      }
+
+      break;
   }
 
   return;
