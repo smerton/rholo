@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0005     // insert a macro for the first time step
-#define ENDTIME 0.20      // insert a macro for the end time
+#define DTSTART 0.001     // insert a macro for the first time step
+#define ENDTIME 0.15      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -129,9 +129,9 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-20x1.mesh");                                  // load a new mesh from file
-  Shape S(3,4,CONTINUOUS);                                       // load a shape function for the kinematics
-  Shape T(2,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
+  Mesh M("mesh/r2r-20x1.mesh");                                  // load a new mesh from file
+  Shape S(4,5,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape T(3,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
@@ -172,18 +172,18 @@ int main(){
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
-                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+//  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;    // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for double shock problem 
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
 //                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.25;cq=2.0/3.0;      // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
-//                                 {1.000, 2.000,0.000, 0.400,1.4}};
+  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.25;cq=2.0/3.0;      // set overides needed to run this problem
+  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
+                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
 //  test_problem=BLASTWAVE;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0; // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},          // initial flux state in each material for the blast wave
@@ -209,10 +209,10 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
@@ -221,10 +221,10 @@ int main(){
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -935,50 +935,105 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
 // interpolate using a global finite element method
 
+      Shape Sk(S.order(),S.order()+1,CONTINUOUS); // use same number of points as there are nodes so we can use to get nodal densities
+      double dgi[Sk.ngi()];for(int gi=0;gi<Sk.ngi();gi++){dgi[gi]=0.0;}
+      double diloc[Sk.nloc()];for(int iloc=0;iloc<Sk.nloc();iloc++){diloc[iloc]=0.0;}
       vector<double> nodal_value(Gk.nloc()); // values at node j
       double interpolated_value[6]={0.0,0.0,0.0,0.0,0.0,0.0}; // values interpolated at point ri(x,y)
 
       {
-        vector<double> detJ0(S.nloc()),detJ(S.nloc()),d(S.nloc()); 
-        jacobian(i,xinit,M,S,detJ0);
-        jacobian(i,x,M,S,detJ);
+
+// declare jacobians on Sk
+
+        vector<double> detJ0(Sk.ngi()),detJ(Sk.ngi());
+        vector<vector<vector<double> > > detDJ0(2),detDJ(2);
+
+        for(int idim=0;idim<detDJ.size();idim++){
+          detDJ0.at(idim).resize(Sk.nloc());
+          detDJ.at(idim).resize(Sk.nloc());
+          for(int j=0;j<Sk.nloc();j++){
+            detDJ0.at(idim).at(j).resize(Sk.ngi());
+            detDJ.at(idim).at(j).resize(Sk.ngi());
+          }
+        }
+
+// update jacobians
+
+        jacobian(i,xinit,M,Sk,detJ0,detDJ0);
+        jacobian(i,x,M,Sk,detJ,detDJ);
+
+// density at each integration point on Sk
+
+        for(int gi=0;gi<Sk.ngi();gi++){
+          dgi[gi]=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
+        }
+
+// scatter densities from integration points to nodes on Sk
+
+        Matrix NMAT(Sk.nloc()),NMATI(Sk.nloc()); // this is why Sk.nloc() and Sk.ngi() need to be the same
+        for(int gi=0;gi<Sk.ngi();gi++){
+          for(int iloc=0;iloc<Sk.nloc();iloc++){
+            NMAT.write(gi,iloc,Sk.value(iloc,gi));
+          }
+        }
+
+        NMATI.inverse2(&NMAT);
+
+        for(int iloc=0;iloc<Sk.nloc();iloc++){
+          diloc[iloc]=0.0;
+          for(int gi=0;gi<Sk.ngi();gi++){
+            diloc[iloc]+=dgi[gi]*NMATI.read(iloc,gi);
+          }
+        }
+
+//        vector<double> detJ0(S.nloc()),detJ(S.nloc()),d(S.nloc()); 
+//        jacobian(i,xinit,M,S,detJ0);
+//        jacobian(i,x,M,S,detJ);
 
 // evaluate density field at global coordinate ri(x,y)
 
-        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=dinit.at(i)*detJ0.at(j)/detJ.at(j);}
-        for(int j=0;j<Gk.nloc();j++){interpolated_value[0]+=Gk.value(j,ri)*nodal_value.at(j);}
+//        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=dinit.at(i)*detJ0.at(j)/detJ.at(j);}
+//        for(int j=0;j<Gk.nloc();j++){interpolated_value[0]+=Gk.value(j,ri)*nodal_value.at(j);}
 
 // evaluate energy field at global coordinate ri(x,y)
 
-        for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=e.at(M.GlobalNode_DFEM(i,j));}
-        for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*nodal_value.at(j);}
+//        for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=e.at(M.GlobalNode_DFEM(i,j));}
+//        for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*nodal_value.at(j);}
 
 // evaluate velocity field x-component at global coordinate ri(x,y)
 
-        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(0).at(M.GlobalNode_CFEM(i,j));}
-        for(int j=0;j<Gk.nloc();j++){interpolated_value[2]+=Gk.value(j,ri)*nodal_value.at(j);}
+//        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(0).at(M.GlobalNode_CFEM(i,j));}
+//        for(int j=0;j<Gk.nloc();j++){interpolated_value[2]+=Gk.value(j,ri)*nodal_value.at(j);}
 
 // evaluate velocity field y-component at global coordinate ri(x,y)
 
-        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(1).at(M.GlobalNode_CFEM(i,j));}
-        for(int j=0;j<Gk.nloc();j++){interpolated_value[3]+=Gk.value(j,ri)*nodal_value.at(j);}
+//        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(1).at(M.GlobalNode_CFEM(i,j));}
+//        for(int j=0;j<Gk.nloc();j++){interpolated_value[3]+=Gk.value(j,ri)*nodal_value.at(j);}
 
 // evaluate pressure field at global coordinate ri(x,y)
 
-        interpolated_value[4]=P(interpolated_value[0],interpolated_value[1],g.at(mat.at(i)-1));
+//        interpolated_value[4]=P(interpolated_value[0],interpolated_value[1],g.at(mat.at(i)-1));
 
       }
 
 // output the interpolated values along the line AB
 
-//      double xx(sqrt(pow((AB.coord(0,0)-ri.at(0)),2)+pow((AB.coord(1,0)-ri.at(1)),2))); // distance along line-out
-//      double xx(xmin+ri.at(0)); // distance along line-out
       double xx(sqrt(pow((AB.coord(0,0)-ri.at(0)),2)+pow((AB.coord(1,0)-ri.at(1)),2))+(AB.coord(0,1)-AB.coord(0,0))); // distance along line-out from end of the first segment
       f1<<fixed<<setprecision(10)<<xx<<" ";
       for(int j=0;j<5;j++){
         f1<<interpolated_value[j]<<" ";
       }
       f1<<endl;
+
+//      for(int iloc=0;iloc<T.nloc();iloc++){
+//        double xx(0.5*(xmax-xmin)+xt.at(0).at(M.GlobalNode_DFEM(i,iloc)));
+//        if(iloc<T.order()){f1<<fixed<<setprecision(10)<<xx<<" "<<nodal_value.at(iloc)<<endl;}
+//      }
+
+//      for(int iloc=0;iloc<Sk.nloc();iloc++){
+//        double xx(0.5*(xmax-xmin)+x.at(0).at(M.GlobalNode_CFEM(i,iloc)));
+//        if(iloc<Sk.order()){f1<<fixed<<setprecision(10)<<xx<<" "<<diloc[iloc]<<endl;}
+//      }
 
     }
 
