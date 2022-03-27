@@ -129,9 +129,9 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/r2r-20x1.mesh");                                  // load a new mesh from file
-  Shape S(4,5,CONTINUOUS);                                       // load a shape function for the kinematics
-  Shape T(3,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
+  Mesh M("mesh/r2r-100x1.mesh");                                  // load a new mesh from file
+  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
@@ -822,7 +822,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
       lineout.y2=lineout.y1;
       lineout.filename="lineout_1.dat";
       lineout.filehead="# 123 problem lineout from (xmin,0.5) to (xmax,0.5) : Columns are x d e vx vy p";
-      lineout.nsamples=100;
+      lineout.nsamples=20;
 
       break;
 
@@ -902,11 +902,14 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
     }
 
 // traverse the mesh along the line AB and interpolate data onto each segment end point
+// Note we ignore last segment to avoid an extra point at end of line-out
 
     int i(0);
-    for(int iseg=0;iseg<AB.nsegments();iseg++){
+    for(int iseg=0;iseg<AB.nsegments()-1;iseg++){
 
       if(celllist[iseg]>=0){i=celllist[iseg];} // update cell number, <0 means iseg is fully contained within the cell
+
+      double interpolated_value[5];
 
 // cell vertices
 
@@ -933,88 +936,61 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
       ri.push_back(AB.coord(0,iseg));
       ri.push_back(AB.coord(1,iseg));
 
-// interpolate using a global finite element method
+// local node positions
 
-      Shape Sk(S.order(),S.order()+1,CONTINUOUS); // use same number of points as there are nodes so we can use to get nodal densities
-      double dgi[Sk.ngi()];for(int gi=0;gi<Sk.ngi();gi++){dgi[gi]=0.0;}
-      double diloc[Sk.nloc()];for(int iloc=0;iloc<Sk.nloc();iloc++){diloc[iloc]=0.0;}
-      vector<double> nodal_value(Gk.nloc()); // values at node j
-      double interpolated_value[6]={0.0,0.0,0.0,0.0,0.0,0.0}; // values interpolated at point ri(x,y)
+      double xpos[S.nloc()],ypos[S.nloc()],dx(2.0/S.order()),dy(2.0/S.order());
 
-      {
-
-// declare jacobians on Sk
-
-        vector<double> detJ0(Sk.ngi()),detJ(Sk.ngi());
-        vector<vector<vector<double> > > detDJ0(2),detDJ(2);
-
-        for(int idim=0;idim<detDJ.size();idim++){
-          detDJ0.at(idim).resize(Sk.nloc());
-          detDJ.at(idim).resize(Sk.nloc());
-          for(int j=0;j<Sk.nloc();j++){
-            detDJ0.at(idim).at(j).resize(Sk.ngi());
-            detDJ.at(idim).at(j).resize(Sk.ngi());
-          }
+      for(int isuby=0,k=0;isuby<S.order()+1;isuby++){
+        for(int isubx=0;isubx<S.order()+1;isubx++,k++){
+          xpos[k]=-1.0+isubx*dx;
+          ypos[k]=-1.0+isuby*dy;
         }
+      }
 
-// update jacobians
+// map global coordinates to local coordinates
 
-        jacobian(i,xinit,M,Sk,detJ0,detDJ0);
-        jacobian(i,x,M,Sk,detJ,detDJ);
+      double xloc(0.0),yloc(0.0);
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        xloc+=Gk.value(iloc,ri)*xpos[iloc];
+        yloc+=Gk.value(iloc,ri)*ypos[iloc];
+      }
 
-// density at each integration point on Sk
+// jacobian and determinant at local coordinates
 
-        for(int gi=0;gi<Sk.ngi();gi++){
-          dgi[gi]=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
-        }
+      double dxdu(0.0),dxdv(0.0),dydu(0.0),dydv(0.0),dxdu0(0.0),dxdv0(0.0),dydu0(0.0),dydv0(0.0);
 
-// scatter densities from integration points to nodes on Sk
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        dxdu0+=S.dvalue(0,iloc,xloc,yloc)*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dxdv0+=S.dvalue(1,iloc,xloc,yloc)*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dydu0+=S.dvalue(0,iloc,xloc,yloc)*xinit.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        dydv0+=S.dvalue(1,iloc,xloc,yloc)*xinit.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        dxdu+=S.dvalue(0,iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dxdv+=S.dvalue(1,iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dydu+=S.dvalue(0,iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        dydv+=S.dvalue(1,iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+      }
 
-        Matrix NMAT(Sk.nloc()),NMATI(Sk.nloc()); // this is why Sk.nloc() and Sk.ngi() need to be the same
-        for(int gi=0;gi<Sk.ngi();gi++){
-          for(int iloc=0;iloc<Sk.nloc();iloc++){
-            NMAT.write(gi,iloc,Sk.value(iloc,gi));
-          }
-        }
+      double detJ0(dxdu0*dydv0-dxdv0*dydu0),detJ(dxdu*dydv-dxdv*dydu);
 
-        NMATI.inverse2(&NMAT);
+// density at interpolation point in local coordinates
 
-        for(int iloc=0;iloc<Sk.nloc();iloc++){
-          diloc[iloc]=0.0;
-          for(int gi=0;gi<Sk.ngi();gi++){
-            diloc[iloc]+=dgi[gi]*NMATI.read(iloc,gi);
-          }
-        }
-
-//        vector<double> detJ0(S.nloc()),detJ(S.nloc()),d(S.nloc()); 
-//        jacobian(i,xinit,M,S,detJ0);
-//        jacobian(i,x,M,S,detJ);
-
-// evaluate density field at global coordinate ri(x,y)
-
-//        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=dinit.at(i)*detJ0.at(j)/detJ.at(j);}
-//        for(int j=0;j<Gk.nloc();j++){interpolated_value[0]+=Gk.value(j,ri)*nodal_value.at(j);}
+      interpolated_value[0]=dinit.at(i)*detJ0/detJ;
 
 // evaluate energy field at global coordinate ri(x,y)
 
-//        for(int j=0;j<Gt.nloc();j++){nodal_value.at(j)=e.at(M.GlobalNode_DFEM(i,j));}
-//        for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*nodal_value.at(j);}
+      for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*e.at(M.GlobalNode_DFEM(i,j));}
 
 // evaluate velocity field x-component at global coordinate ri(x,y)
 
-//        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(0).at(M.GlobalNode_CFEM(i,j));}
-//        for(int j=0;j<Gk.nloc();j++){interpolated_value[2]+=Gk.value(j,ri)*nodal_value.at(j);}
+      for(int j=0;j<Gk.nloc();j++){interpolated_value[2]+=Gk.value(j,ri)*u.at(0).at(M.GlobalNode_CFEM(i,j));}
 
 // evaluate velocity field y-component at global coordinate ri(x,y)
 
-//        for(int j=0;j<Gk.nloc();j++){nodal_value.at(j)=u.at(1).at(M.GlobalNode_CFEM(i,j));}
-//        for(int j=0;j<Gk.nloc();j++){interpolated_value[3]+=Gk.value(j,ri)*nodal_value.at(j);}
+      for(int j=0;j<Gk.nloc();j++){interpolated_value[3]+=Gk.value(j,ri)*u.at(1).at(M.GlobalNode_CFEM(i,j));}
 
 // evaluate pressure field at global coordinate ri(x,y)
 
-//        interpolated_value[4]=P(interpolated_value[0],interpolated_value[1],g.at(mat.at(i)-1));
-
-      }
+      interpolated_value[4]=P(interpolated_value[0],interpolated_value[1],g.at(mat.at(i)-1));
 
 // output the interpolated values along the line AB
 
@@ -1024,16 +1000,6 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
         f1<<interpolated_value[j]<<" ";
       }
       f1<<endl;
-
-//      for(int iloc=0;iloc<T.nloc();iloc++){
-//        double xx(0.5*(xmax-xmin)+xt.at(0).at(M.GlobalNode_DFEM(i,iloc)));
-//        if(iloc<T.order()){f1<<fixed<<setprecision(10)<<xx<<" "<<nodal_value.at(iloc)<<endl;}
-//      }
-
-//      for(int iloc=0;iloc<Sk.nloc();iloc++){
-//        double xx(0.5*(xmax-xmin)+x.at(0).at(M.GlobalNode_CFEM(i,iloc)));
-//        if(iloc<Sk.order()){f1<<fixed<<setprecision(10)<<xx<<" "<<diloc[iloc]<<endl;}
-//      }
 
     }
 
