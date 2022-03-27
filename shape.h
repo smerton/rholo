@@ -41,6 +41,7 @@ class Shape{
     double coeff(int i,int j) const;                               // coefficient j in the polynomial expansion of shape i
     double integrate(int i) const;                                 // integrate shape i in global coordinates
     double integrate(int idim,int i) const;                        // integrate derivative idim of shape i in global coordinates
+    vector<double> values(vector<double> const &v) const;          // scatter values at the integration points to the nodes
 
 // accessor function to prolongation operator
 

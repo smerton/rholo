@@ -400,6 +400,46 @@ double Shape::wgt(int gi) const {return mwgt[gi];} // quadrature weight of integ
 double Shape::value(int i,int gi) const {return mvalue[i][gi];} // shape i value at Gauss point gi
 double Shape::value(int i,double u,double v) const {Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);return P1.value(u)*P2.value(v);} // shape i value at coordinate x,y
 
+// scatter values at the integration points to the nodes
+// example: vector<double> arr_iloc(S.values(arr_gi));
+
+vector<double> Shape::values(vector<double> const &v) const{
+
+// no. integrations must match the no. nodes as we need a square matrix to invert
+
+  if(nloc()!=ngi()){
+    cout<<"Shape::node_values(): Number of nodes ("<<nloc()<<") does not match the number of integration points("<<ngi()<<"), stopping."<<endl;
+    exit(1);
+  }
+
+  vector<double> u(v);
+
+// store shape value at integration points in a square matrix
+
+  Matrix NMAT(nloc()),NMATI(nloc());
+  for(int gi=0;gi<ngi();gi++){
+    for(int iloc=0;iloc<nloc();iloc++){
+      NMAT.write(gi,iloc,value(iloc,gi));
+    }
+  }
+
+// invert the matrix
+
+  NMATI.inverse2(&NMAT);
+
+// perform a mat-vec to recover the nodal values
+
+  for(int iloc=0;iloc<nloc();iloc++){
+    u.at(iloc)=0.0;
+    for(int gi=0;gi<ngi();gi++){
+      u.at(iloc)+=v.at(gi)*NMATI.read(iloc,gi);
+    }
+  }
+
+  return u;
+
+}
+
 //double Shape::value(int i,vector<double> x) const {return(mcoeff.at(i).at(0)+mcoeff.at(i).at(1)*x.at(0)+mcoeff.at(i).at(2)*x.at(1)+mcoeff.at(i).at(3)*x.at(0)*x.at(1));}
 
 double Shape::value(int iloc,vector<double> x) const {
