@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.15      // insert a macro for the end time
+#define DTSTART 0.0001     // insert a macro for the first time step
+#define ENDTIME 0.20      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -129,7 +129,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/r2r-100x1.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/sod-100x1.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -172,18 +172,18 @@ int main(){
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-//  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
+                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;    // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for double shock problem 
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
 //                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.25;cq=2.0/3.0;      // set overides needed to run this problem
-  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
-                                 {1.000, 2.000,0.000, 0.400,1.4}};
+//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;      // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
+//                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
 //  test_problem=BLASTWAVE;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0; // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},          // initial flux state in each material for the blast wave
@@ -209,10 +209,10 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
@@ -221,10 +221,10 @@ int main(){
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -822,7 +822,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
       lineout.y2=lineout.y1;
       lineout.filename="lineout_1.dat";
       lineout.filehead="# 123 problem lineout from (xmin,0.5) to (xmax,0.5) : Columns are x d e vx vy p";
-      lineout.nsamples=20;
+      lineout.nsamples=101; // odd avoids a sample at the stationary centre node which would give zero determinant
 
       break;
 
@@ -909,7 +909,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
       if(celllist[iseg]>=0){i=celllist[iseg];} // update cell number, <0 means iseg is fully contained within the cell
 
-      double interpolated_value[5];
+      double interpolated_value[5]={0.0,0.0,0.0,0.0,0.0};
 
 // cell vertices
 
@@ -972,21 +972,28 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
       double detJ0(dxdu0*dydv0-dxdv0*dydu0),detJ(dxdu*dydv-dxdv*dydu);
 
+// avoid sample point close to a stationary node as the density field will be difficult to sample here due to the discontinuity (zero determinant)
+
+      if(abs(detJ0*detJ)<1.0e-20){continue;}
+
 // density at interpolation point in local coordinates
 
       interpolated_value[0]=dinit.at(i)*detJ0/detJ;
 
 // evaluate energy field at global coordinate ri(x,y)
 
-      for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*e.at(M.GlobalNode_DFEM(i,j));}
+//      for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*e.at(M.GlobalNode_DFEM(i,j));}
+      for(int j=0;j<T.nloc();j++){interpolated_value[1]+=T.value(j,xloc,yloc)*e.at(M.GlobalNode_DFEM(i,j));}
 
 // evaluate velocity field x-component at global coordinate ri(x,y)
 
-      for(int j=0;j<Gk.nloc();j++){interpolated_value[2]+=Gk.value(j,ri)*u.at(0).at(M.GlobalNode_CFEM(i,j));}
+//      for(int j=0;j<Gk.nloc();j++){interpolated_value[2]+=Gk.value(j,ri)*u.at(0).at(M.GlobalNode_CFEM(i,j));}
+      for(int j=0;j<S.nloc();j++){interpolated_value[2]+=S.value(j,xloc,yloc)*u.at(0).at(M.GlobalNode_CFEM(i,j));}
 
 // evaluate velocity field y-component at global coordinate ri(x,y)
 
-      for(int j=0;j<Gk.nloc();j++){interpolated_value[3]+=Gk.value(j,ri)*u.at(1).at(M.GlobalNode_CFEM(i,j));}
+//      for(int j=0;j<Gk.nloc();j++){interpolated_value[3]+=Gk.value(j,ri)*u.at(1).at(M.GlobalNode_CFEM(i,j));}
+      for(int j=0;j<S.nloc();j++){interpolated_value[3]+=S.value(j,xloc,yloc)*u.at(1).at(M.GlobalNode_CFEM(i,j));}
 
 // evaluate pressure field at global coordinate ri(x,y)
 
