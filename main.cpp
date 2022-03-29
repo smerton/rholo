@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001     // insert a macro for the first time step
-#define ENDTIME 0.20      // insert a macro for the end time
+#define DTSTART 0.0005     // insert a macro for the first time step
+#define ENDTIME 1.0        // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -129,7 +129,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-100x1.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/sedov-24x24.mesh");                                 // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -172,9 +172,9 @@ int main(){
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
-                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+//  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;    // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for double shock problem 
@@ -195,8 +195,8 @@ int main(){
 //  test_problem=NOH;length_scale_type=LS_LOCAL;cl=0.5;cq=4.0/3.0;             // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
 
-//  test_problem=SEDOV;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};         // initial flux state in each material for Sedov problem
+  test_problem=SEDOV;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};         // initial flux state in each material for Sedov problem
 
 //  test_problem=TRIPLE;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;      // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},          // initial flux state in each material for triple-point problem
@@ -732,7 +732,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
 // Noh stagnation shock
 
-      return;;
+      return;
 
       break;
 
@@ -1626,6 +1626,17 @@ void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD
 
   for(long i=0;i<M.NCells();i++){
 
+// find cells to be sourced by checking for nodes at the origin
+
+    bool zcentre(false);
+
+    for(int iloc=0;iloc<S.nloc();iloc++){
+      if( abs(x.at(0).at(M.GlobalNode_CFEM(i,iloc)))<1.0e-7 && abs(x.at(1).at(M.GlobalNode_CFEM(i,iloc)))<1.0e-7  ){
+        zcentre=true;
+      }
+    }
+
+
     for(int iloc=0;iloc<T.nloc();iloc++){
 
     e0.at(M.GlobalNode_DFEM(i,iloc))=0.0;
@@ -1633,7 +1644,7 @@ void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD
 
 // delta function at domain origin
 
-      if( abs(x.at(0).at(M.GlobalNode_DFEM(i,iloc)))<1.0e-7 && abs(x.at(1).at(M.GlobalNode_DFEM(i,iloc)))<1.0e-7  ){
+      if(zcentre){
 //        e0.at(i)=0.3014676/0.025; // drive ~ 12.058704, from another code see ref. paper for numbers
         e0.at(M.GlobalNode_DFEM(i,iloc))=0.25/m[i]; // place 1/4 of the drive in each of the 4 cells at the origin per unit mass
         e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc));
