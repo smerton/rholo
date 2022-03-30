@@ -28,7 +28,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0005     // insert a macro for the first time step
+#define DTSTART 0.0001     // insert a macro for the first time step
 #define ENDTIME 1.0        // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -130,8 +130,8 @@ int main(){
 // global data
 
   Mesh M("mesh/sedov-24x24.mesh");                                 // load a new mesh from file
-  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
-  Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
+  Shape S(3,4,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape T(2,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
@@ -181,7 +181,7 @@ int main(){
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
 //                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;      // set overides needed to run this problem
+//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
 //                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
@@ -192,11 +192,11 @@ int main(){
 //  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
 
-//  test_problem=NOH;length_scale_type=LS_LOCAL;cl=0.5;cq=4.0/3.0;             // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
+//  test_problem=NOH;length_scale_type=LS_LOCAL;cl=0.5;cq=4.0/3.0;           // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
 
-  test_problem=SEDOV;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};         // initial flux state in each material for Sedov problem
+  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.5;cq=4.0/3.0;           // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};           // initial flux state in each material for Sedov problem
 
 //  test_problem=TRIPLE;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;      // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},          // initial flux state in each material for triple-point problem
