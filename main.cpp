@@ -34,7 +34,7 @@
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
-#define VISFREQ 0.02      // frequency of the graphics dump times
+#define VISFREQ 0.05      // frequency of the graphics dump times
 #define OUTFREQ 0.01      // frequency of the output print times
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
@@ -527,12 +527,6 @@ int main(){
 
     timers.Stop(TIMER_MOTION);
 
-    timers.Start(TIMER_LOCATE);
-
-    M.MapCoords(x1,xt1,S.order(),T.order()); // thermodynamics
-
-    timers.Stop(TIMER_LOCATE);
-
 // update volume field at the full-step
 
     M.UpdateVolume(V1,x1,S.order());
@@ -680,7 +674,6 @@ int main(){
 
     u0=u1;   // velocity field
     x0=x1;   // kinematic node coordinates
-    xt0=xt1; // thermodynamic node coordinates
     e0=e1;   // internal energy
     V0=V1;   // cell volumes
 
@@ -697,7 +690,7 @@ int main(){
 // some output
 
   timers.Start(TIMER_OUTPUT);
-
+  M.MapCoords(x1,xt1,S.order(),T.order()); // thermodynamic node positions
   lineouts(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
   exact(state,x1,test_problem);
 
@@ -780,7 +773,7 @@ int main(){
   cout<<"    total timed                         "<<total<<"s "<<total*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
   cout<<"    unknown                             "<<unknown<<"s "<<unknown*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
 
-  cout<<endl<<"  Run took "<<timers.Span(0)<<" seconds."<<endl;
+  cout<<endl<<"  Run took "<<timers.Span(0)<<" seconds."<<endl<<endl;
 
   cout<<"Normal termination."<<endl;
 
