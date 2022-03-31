@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0002     // insert a macro for the first time step
-#define ENDTIME 1.001        // insert a macro for the end time
+#define DTSTART 0.0005    // insert a macro for the first time step
+#define ENDTIME 1.001     // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -63,6 +63,19 @@
 #define SOD 6                 // Sod's shock tube problem
 #define R2R 7                 // 123 problem
 
+#define TIMER_MAIN 0          // timer for main
+#define TIMER_ASSEMBLY 1      // timer for acceleration field assembly
+#define TIMER_INVERSE 2       // timer for matrix inverter
+#define TIMER_ENERGY 3        // timer for energy field assembly
+#define TIMER_FORCE 4         // timer for force assembly
+#define TIMER_KSOLVE 5        // timer for kinematic solve
+#define TIMER_GRAPHICS 6      // timer for graphics output
+#define TIMER_CFL 7           // timer for CFL calculation
+#define TIMER_MOTION 8        // timer for Lagrangian motion
+#define TIMER_ECHECK 9        // timer for energy conservation check
+#define TIMER_OUTPUT 10       // timer for output
+#define TIMER_LOCATE 11       // timer to locate untimed stuff
+
 #include <iostream>
 #include <vector>
 #include <iomanip>
@@ -80,6 +93,7 @@
 #include <unistd.h>
 #include "line.h"
 #include "riemann.h"
+#include "timer.h"
 
 // function signatures
 
@@ -129,7 +143,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sedov-quarter-12x12.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/sedov-24x24.mesh");                               // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -169,6 +183,15 @@ int main(){
   vector<long> fcol(nzeroes);                                    // column addresses in the force matrix
   vector<int> fdim(nzeroes);                                     // dimension addresses in the force matrix
   int length_scale_type(LS_LOCAL);                               // length scale definition: LS_AVERAGE,LS_LOCAL or LS_DIRECTIONAL (LS_PSEUDO_1D for 1D tests on 2D meshes)
+  Timer timers(20);                                              // time acccumulated in different parts of code
+
+// initialise the high res timers
+
+  timers.Init();
+
+// start a timer for main
+
+  timers.Start(TIMER_MAIN);
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
@@ -359,6 +382,8 @@ int main(){
 
 // assemble mass matrix for acceleration field
 
+  timers.Start(TIMER_ASSEMBLY);
+
   cout<<"Mass matrix for acceleration field assembly: ";
   for(int idim=0;idim<M.NDims();idim++){
     for(int i=0;i<M.NCells();i++){
@@ -380,6 +405,9 @@ int main(){
       }
     }
   }
+
+  timers.Stop(TIMER_ASSEMBLY);
+
   cout<<"Done."<<endl;
 
 // impose boundary constraints via row elimination
@@ -390,7 +418,11 @@ int main(){
 
   cout<<"Inverting the mass matrix: ";
 
+  timers.Start(TIMER_INVERSE);
+
   KMASSI.inverse2(&KMASS); // lapack drivers dgetrf_ and dgetri_
+
+  timers.Stop(TIMER_INVERSE);
 
   cout<<"Done."<<endl;
 
@@ -405,6 +437,8 @@ int main(){
   while(time<=ENDTIME){
 
 // calculate a new stable time step that will impose the CFL limit on each integration point
+
+    timers.Start(TIMER_CFL);
 
     for(int i=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
@@ -451,6 +485,8 @@ int main(){
       }
     }
 
+    timers.Stop(TIMER_CFL);
+
 // choose the smallest time step
 
 //    dt=(*min_element(dts.begin(), dts.end()));
@@ -458,12 +494,18 @@ int main(){
 
 // sum kinetic/internal energy fields for conservation checks
 
+    timers.Start(TIMER_ECHECK);
+
     sum_ke(ke,u1,dinit,M,xinit,x1,S,T,detJ0,detDJ0,detJ,detDJ);
     sum_ie(ie,e1,dinit,M,xinit,x1,S,T,detJ0,detDJ0,detJ,detDJ);
+
+    timers.Stop(TIMER_ECHECK);
 
     cout<<fixed<<setprecision(5)<<"  step "<<step<<" time= "<<time<<" dt= "<<dt<<fixed<<setprecision(5)<<" energy (i/k/tot)= "<<ie<<" "<<ke<<" "<<ie+ke<<endl;
 
 // graphics output
+
+    timers.Start(TIMER_GRAPHICS);
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
 //      state_print(n,ndims,nmats,mat,dinit,V0,m,e0,p,x0,u0,step,time,gamma);
@@ -475,21 +517,29 @@ int main(){
       }
     }
 
-// debug
-//  lineouts(M,S,T,d1,p,e1,q,xinit,x1,xt1,u1,test_problem,mat,gamma);
-//  exit(1);
-// debug
+    timers.Stop(TIMER_GRAPHICS);
 
 // advect the nodes to the full-step position
 
+    timers.Start(TIMER_MOTION);
+
     M.UpdateCoords(x1,u0,dt);  // kinematics
+
+    timers.Stop(TIMER_MOTION);
+
+    timers.Start(TIMER_LOCATE);
+
     M.MapCoords(x1,xt1,S.order(),T.order()); // thermodynamics
+
+    timers.Stop(TIMER_LOCATE);
 
 // update volume field at the full-step
 
     M.UpdateVolume(V1,x1,S.order());
 
 // assemble finite element energy field
+
+    timers.Start(TIMER_ENERGY);
 
     {Matrix A(T.nloc());vector<double> b(ntnodes);double bloc[T.nloc()],edot[T.nloc()];for(long i=0;i<b.size();i++){b.at(i)=0.0;}
 
@@ -535,7 +585,11 @@ int main(){
 
     }
 
+    timers.Stop(TIMER_ENERGY);
+
 // assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both energy and momentum equations
+
+    timers.Start(TIMER_FORCE);
 
     for(long k=0;k<nzeroes;k++){F.at(k)=0.0;}
     for(int i=0, k=0;i<n;i++){
@@ -580,7 +634,11 @@ int main(){
 
     }
 
+    timers.Stop(TIMER_FORCE);
+
 // assemble acceleration field
+
+    timers.Start(TIMER_KSOLVE);
 
     vector<double> b(M.NDims()*nknodes);
     {for(long i=0;i<b.size();i++){b.at(i)=-b1.at(i);}
@@ -611,6 +669,8 @@ int main(){
 
     }
 
+    timers.Stop(TIMER_KSOLVE);
+
 // advance the time step
 
     time+=dt;
@@ -636,8 +696,12 @@ int main(){
 
 // some output
 
+  timers.Start(TIMER_OUTPUT);
+
   lineouts(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
   exact(state,x1,test_problem);
+
+  timers.Stop(TIMER_OUTPUT);
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
 
@@ -675,6 +739,48 @@ int main(){
 //  cout<<"  L2 norm= "<<l2<<" (relative error= "<<l2r<<")"<<endl;
 //  cout<<"  No. points sampled= "<<ii<<endl;
 //  cout<<"  Range sampled= "<<xstart<<","<<xstop<<endl;
+
+  timers.Stop(TIMER_MAIN);
+
+// output high resolution timings
+
+  cout<<endl<<"  Breakdown of time accumulated in each part of the calculation:"<<endl<<endl;
+
+//  cout<<"    Matrix Inverter                     "<<timers.Span(1)<<"s "<<timers.Span(1)*100.0/timers.Span(0)<<"%"<<endl;
+//  cout<<"    Riemann Solvers                     "<<timers.Span(2)<<"s "<<timers.Span(2)*100.0/timers.Span(0)<<"%"<<endl;
+//  cout<<"    Energy Field Assembly               "<<timers.Span(3)<<"s "<<timers.Span(3)*100.0/timers.Span(0)<<"%"<<endl;
+//  cout<<"    Force Calculation                   "<<timers.Span(4)<<"s "<<timers.Span(4)*100.0/timers.Span(0)<<"%"<<endl;
+//  cout<<"    Acceleration Field Assembly         "<<timers.Span(5)<<"s "<<timers.Span(5)*100.0/timers.Span(0)<<"%"<<endl;
+//  cout<<"    Output                              "<<timers.Span(6)<<"s "<<timers.Span(6)*100.0/timers.Span(0)<<"%"<<endl;
+
+
+  cout<<"    Main                                "<<timers.Span(TIMER_MAIN)<<"s "<<timers.Span(TIMER_MAIN)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Acceleration Field Assembly         "<<timers.Span(TIMER_ASSEMBLY)<<"s "<<timers.Span(TIMER_ASSEMBLY)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Matrix Inversion                    "<<timers.Span(TIMER_INVERSE)<<"s "<<timers.Span(TIMER_INVERSE)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Energy Field Assembly               "<<timers.Span(TIMER_ENERGY)<<"s "<<timers.Span(TIMER_ENERGY)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Force Calculation                   "<<timers.Span(TIMER_FORCE)<<"s "<<timers.Span(TIMER_FORCE)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Momentum Solve                      "<<timers.Span(TIMER_KSOLVE)<<"s "<<timers.Span(TIMER_KSOLVE)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    CFL Calculation                     "<<timers.Span(TIMER_CFL)<<"s "<<timers.Span(TIMER_CFL)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Graphics                            "<<timers.Span(TIMER_GRAPHICS)<<"s "<<timers.Span(TIMER_GRAPHICS)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Mesh Movement                       "<<timers.Span(TIMER_MOTION)<<"s "<<timers.Span(TIMER_MOTION)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Conservation Check                  "<<timers.Span(TIMER_ECHECK)<<"s "<<timers.Span(TIMER_ECHECK)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Output                              "<<timers.Span(TIMER_OUTPUT)<<"s "<<timers.Span(TIMER_OUTPUT)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Locating                            "<<timers.Span(TIMER_LOCATE)<<"s "<<timers.Span(TIMER_LOCATE)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+
+// total timed excluding main
+
+  double total(timers.Total()-timers.Span(TIMER_MAIN));
+
+// subtracting total timed from main gives us an estimate of what has not been timed, this is unknown
+
+  double unknown(timers.Span(TIMER_MAIN)-total);
+
+  cout<<endl;
+
+  cout<<"    total timed                         "<<total<<"s "<<total*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    unknown                             "<<unknown<<"s "<<unknown*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+
+  cout<<endl<<"  Run took "<<timers.Span(0)<<" seconds."<<endl;
 
   cout<<"Normal termination."<<endl;
 
