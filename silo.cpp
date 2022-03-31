@@ -470,7 +470,7 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 
 // draw a mesh called "Sample" to support sampled data
 
-  nsubs=25;                                           // number of sub-cells
+  nsubs=1;                                            // number of sub-cells
   nsubx=sqrt(nsubs);                                  // number of sub-cells on x-axis
   nsuby=sqrt(nsubs);                                  // number of sub-cells on y-axis
   nzones=M.NCells()*nsubs;                            // number of cells
