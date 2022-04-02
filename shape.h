@@ -42,6 +42,7 @@ class Shape{
     double integrate(int i) const;                                 // integrate shape i in global coordinates
     double integrate(int idim,int i) const;                        // integrate derivative idim of shape i in global coordinates
     vector<double> values(vector<double> const &v) const;          // scatter values at the integration points to the nodes
+    bool contains(vector<double> const &v) const;                  // test if the point v lies inside the element
 
 // accessor function to prolongation operator
 
@@ -65,5 +66,19 @@ class Shape{
     vector<vector<double > > mdvalue[3];                // derivative values
     vector<vector<double> > mcoeff;                     // coefficients of the polynomial
     vector<vector<double> > mr;                         // coordinates of the shape function nodes
+
+// structure to define a point
+
+    struct Point{
+      double x;
+      double y;
+    };
+
+// functions to determine if a point lies inside an element
+
+    bool onSegment(Point p, Point q, Point r) const;                // check if p lies on qr
+    int orientation(Point p, Point q, Point r) const;               // orientation of triplet (p,q,r)
+    bool doIntersect(Point p1, Point q1, Point p2, Point q2) const; // p1q1 and p2q2 intersect
+    bool isInside(Point p) const;                                   // returns true if point p lies inside the element
 
 };

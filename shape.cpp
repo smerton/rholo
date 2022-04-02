@@ -70,6 +70,18 @@ Shape::Shape(int n){
     }
   }
 
+// node coordinates
+
+  mr.resize(ndims());
+
+  double dx(2.0/morder),dy(2.0/morder);
+  for(int isuby=0,k=0;isuby<morder+1;isuby++){
+    for(int isubx=0;isubx<morder+1;isubx++,k++){
+      mr.at(0).push_back(-1.0+isubx*dx);
+      mr.at(1).push_back(-1.0+isuby*dy);
+    }
+  }
+
 // load a quadrature rule for the numerical integration of the polynomials Px
 
   QuadratureRule Q(this->order()+1);
@@ -1143,6 +1155,117 @@ double Shape::integrate(int i) const {
 // debug
 
   return(I1+I2+I3);
+
+}
+
+// given three collinear points (p,q,r) this function checks if point q lies on line pr
+
+bool Shape::onSegment(Point p,Point q,Point r) const {return (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) &&q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y));}
+
+// orientation of ordered triplet (p,q,r) to return 0 (p,q,r colinear), 1 (clockwise), 2 (counter-clockwise)
+
+int Shape::orientation(Point p,Point q,Point r) const{
+
+  double val((q.y-p.y)*(r.x-q.x)-(q.x-p.x)*(r.y-q.y));
+
+  return (val==0.0)?0:((val>0.0)?1:2);
+
+}
+
+// returns true if line segment 'p1q1' and 'p2q2' intersect
+
+bool Shape::doIntersect(Point p1,Point q1,Point p2,Point q2) const {
+
+// four orientations needed for general and special cases
+
+  int o1 = orientation(p1, q1, p2);
+  int o2 = orientation(p1, q1, q2);
+  int o3 = orientation(p2, q2, p1);
+  int o4 = orientation(p2, q2, q1);
+ 
+// general case
+
+  if (o1 != o2 && o3 != o4) return true;
+ 
+// special case: p1, q1 and p2 are collinear and p2 lies on segment p1q1
+
+  if (o1 == 0 && onSegment(p1, p2, q1)) return true;
+ 
+// special case: p1, q1 and p2 are collinear and q2 lies on segment p1q1
+
+  if (o2 == 0 && onSegment(p1, q2, q1)) return true;
+ 
+// special case: p2, q2 and p1 are collinear and p1 lies on segment p2q2
+
+  if (o3 == 0 && onSegment(p2, p1, q2)) return true;
+ 
+// special case: p2, q2 and q1 are collinear and q1 lies on segment p2q2
+
+  if (o4 == 0 && onSegment(p2, q1, q2)) return true;
+
+// none of the above
+
+  return false;
+
+}
+
+
+// returns true if point p lies inside the element
+// ref: geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon
+
+bool Shape::isInside(Point p) const {
+
+// form a polygon from the node positions
+
+  Point polygon[nfaces()*(order()+1)];
+  int k=0;
+
+  for(int iloc=0;iloc<=order();iloc++,k++){polygon[k]={mr.at(0).at(iloc),mr.at(1).at(iloc)};}
+  for(int iloc=order();iloc<nloc();iloc+=(order()+1),k++){polygon[k]={mr.at(0).at(iloc),mr.at(1).at(iloc)};}
+  for(int iloc=nloc()-1;iloc>=nloc()-order()-1;iloc--,k++){polygon[k]={mr.at(0).at(iloc),mr.at(1).at(iloc)};}
+  for(int iloc=nloc()-order()-1;iloc>=0;iloc-=(order()+1),k++){polygon[k]={mr.at(0).at(iloc),mr.at(1).at(iloc)};}
+
+// create a point for line segment from p to infinity
+
+  Point extreme={10000.0, p.y};
+ 
+// sum intersections of the above line with sides of the element
+
+  int count=0,i=0;
+  do{
+
+    int next=(i+1)%mnloc;
+ 
+// check if the line segment from 'p' to 'extreme' intersects the line segment from 'polygon[i]' to 'polygon[next]'
+
+    if (doIntersect(polygon[i], polygon[next], p, extreme)){
+
+// if the point 'p' is collinear with line segment 'i-next' check if it lies on segment
+
+      if (orientation(polygon[i], p, polygon[next]) == 0)
+      return onSegment(polygon[i], p, polygon[next]);
+ 
+      count++;
+
+    }
+
+    i=next;
+
+  } while(i!=0);
+ 
+// return true if count is odd, false otherwise
+
+  return count&1; // Same as (count%2 == 1)
+
+}
+
+// tests if point v lies inside the element
+
+bool Shape::contains(vector<double> const &v) const{
+
+  Point pp{v.at(0),v.at(1)};
+
+  return isInside(pp);
 
 }
 
