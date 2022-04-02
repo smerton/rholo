@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0005    // insert a macro for the first time step
-#define ENDTIME 1.001     // insert a macro for the end time
+#define DTSTART 0.001     // insert a macro for the first time step
+#define ENDTIME 0.1501     // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -143,7 +143,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sedov-24x24.mesh");                               // load a new mesh from file
+  Mesh M("mesh/r2r-100x1.mesh");                               // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -204,9 +204,9 @@ int main(){
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
 //                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
-//                                 {1.000, 2.000,0.000, 0.400,1.4}};
+  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
+  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
+                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
 //  test_problem=BLASTWAVE;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0; // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},          // initial flux state in each material for the blast wave
@@ -218,8 +218,8 @@ int main(){
 //  test_problem=NOH;length_scale_type=LS_LOCAL;cl=0.5;cq=4.0/3.0;           // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
 
-  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;               // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};           // initial flux state in each material for Sedov problem
+//  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;               // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};           // initial flux state in each material for Sedov problem
 
 //  test_problem=TRIPLE;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;      // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},          // initial flux state in each material for triple-point problem
@@ -232,10 +232,10 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
@@ -244,10 +244,10 @@ int main(){
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -794,6 +794,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
   double xmax(*max_element(x.at(0).begin(),x.at(0).end()));
   double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
   double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
+  double delta(0.001);
 
 // decalre the line-out structure
 
@@ -845,53 +846,55 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
           case(0):
 
-            lineout.x1=0.5*(xmin+xmax);
+            lineout.x1=0.0+delta;
             lineout.x2=xmax;
-            lineout.y1=0.5*(ymin+ymax);
-            lineout.y2=ymax;
+            lineout.y1=0.0+delta;
+            lineout.y2=ymax-delta;
             lineout.filename="lineout_1.dat";
-            lineout.filehead="# Sedov lineout from (0.0,0.0) to (1.2,1.2) : Columns are x d p e q u";
+            lineout.filehead="# Sedov lineout from (0.0,0.0) to (1.2,1.2) : Columns are x d e p ux uy";
             lineout.nsamples=100;
 
             break;
 
           case(1):
 
-            lineout.x1=0.5*(xmin+xmax);
+            lineout.x1=0.0-delta;
             lineout.x2=xmin;
-            lineout.y1=0.5*(ymin+ymax);
-            lineout.y2=ymax;
+            lineout.y1=0.0+delta;
+            lineout.y2=ymax-delta;
             lineout.filename="lineout_2.dat";
-            lineout.filehead="# Sedov lineout from (0.0,0.0) to (-1.2,1.2) : Columns are x d p e q u";
+            lineout.filehead="# Sedov lineout from (0.0,0.0) to (-1.2,1.2) : Columns are x d e p ux uy";
             lineout.nsamples=100;
 
             break;
 
           case(2):
 
-            lineout.x1=0.5*(xmin+xmax);
+            lineout.x1=0.0-delta;
             lineout.x2=xmin;
-            lineout.y1=0.5*(ymin+ymax);
-            lineout.y2=ymin;
+            lineout.y1=0.0-delta;
+            lineout.y2=ymin+delta;
             lineout.filename="lineout_3.dat";
-            lineout.filehead="# Sedov lineout from (0.0,0.0) to (-1.2,-1.2) : Columns are x d p e q u";
+            lineout.filehead="# Sedov lineout from (0.0,0.0) to (-1.2,-1.2) : Columns are x d e p ux uy";
             lineout.nsamples=100;
 
             break;
 
           case(3):
 
-            lineout.x1=0.5*(xmin+xmax);
+            lineout.x1=0.0+delta;
             lineout.x2=xmax;
-            lineout.y1=0.5*(ymin+ymax);
-            lineout.y2=ymin;
+            lineout.y1=0.0-delta;
+            lineout.y2=ymin+delta;
             lineout.filename="lineout_4.dat";
-            lineout.filehead="# Sedov lineout from (0.0,0.0) to (1.2,-1.2) : Columns are x d p e q u";
+            lineout.filehead="# Sedov lineout from (0.0,0.0) to (1.2,-1.2) : Columns are x d e p ux uy";
             lineout.nsamples=100;
 
             break;
 
         }
+
+        Lineout.push_back(lineout);
 
       }
 
@@ -906,8 +909,10 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
       lineout.y1=0.5*(ymin+ymax);
       lineout.y2=lineout.y1;
       lineout.filename="lineout_1.dat";
-      lineout.filehead="# Sod lineout from (0.0,0.5) to (1.0,0.5) : Columns are x d e vx vy p";
+      lineout.filehead="# Sod lineout from (0.0,0.5) to (1.0,0.5) : Columns are x d e p ux uy";
       lineout.nsamples=100;
+
+      Lineout.push_back(lineout);
 
       break;
 
@@ -920,34 +925,40 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
       lineout.y1=0.5*(ymin+ymax);
       lineout.y2=lineout.y1;
       lineout.filename="lineout_1.dat";
-      lineout.filehead="# 123 problem lineout from (xmin,0.5) to (xmax,0.5) : Columns are x d e vx vy p";
+      lineout.filehead="# 123 problem lineout from (xmin,0.5) to (xmax,0.5) : Columns are x d e p ux uy";
       lineout.nsamples=101; // odd avoids a sample at the stationary centre node which would give zero determinant
+
+      Lineout.push_back(lineout);
 
       break;
 
   }
 
-// append to the data structure
-
-  Lineout.push_back(lineout);
-
 // loop over the lineouts and produce the output
 
   for(int iline=0;iline<Lineout.size();iline++){
 
-    cout<<"lineouts(): Lineout "<<iline<<" writing to file "<<Lineout.at(iline).filename<<" ..."<<endl;
-
-    double p(0.0),q(0.0),d(0.0);
+    cout<<"lineouts(): Line-out "<<iline+1<<" of "<<Lineout.size()<<" writing to file "<<Lineout.at(iline).filename<<" ..."<<endl;
 
 // open the output file for the lineout and write the header part
 
     f1.open(Lineout.at(iline).filename);
     f1<<Lineout.at(iline).filehead<<endl;
 
+// local node positions
+
+    double xpos[S.nloc()],ypos[S.nloc()],dx(2.0/S.order()),dy(2.0/S.order());
+
+    for(int isuby=0,k=0;isuby<S.order()+1;isuby++){
+      for(int isubx=0;isubx<S.order()+1;isubx++,k++){
+        xpos[k]=-1.0+isubx*dx;
+        ypos[k]=-1.0+isuby*dy;
+      }
+    }
+
 // set up line AB to sample along
 
     vector<double> A(2),B(2); // A and B are the two end points of the line
-    vector<double> E(2),F(2); // E and F are the two end points of a segment EF on the line AB
 
     A.at(0)=Lineout.at(iline).x1;A.at(1)=Lineout.at(iline).y1;
     B.at(0)=Lineout.at(iline).x2;B.at(1)=Lineout.at(iline).y2;
@@ -955,157 +966,104 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
     Line AB(A,B);
     AB.divide(Lineout.at(iline).nsamples);
 
-// search for cells that AB intersects
+// place segment end points in a vector
 
-    E.at(0)=A.at(0);E.at(1)=A.at(1); // start of segment 1 is origin of AB
-    int celllist[AB.nsegments()];fill_n(celllist,AB.nsegments(),-1); // cell transit list
+    vector<vector<double> > end_point(AB.nsegments()+1);
 
+    end_point.at(0).push_back(A.at(0));end_point.at(0).push_back(A.at(1));
     for(int iseg=0;iseg<AB.nsegments();iseg++){
+      end_point.at(iseg+1).push_back(AB.coord(0,iseg));
+      end_point.at(iseg+1).push_back(AB.coord(1,iseg));
+    }
 
-// create a line to represent this segment
+// search mesh for each point along the line
 
-      F.at(0)=AB.coord(0,iseg);F.at(1)=AB.coord(1,iseg); // segment end point
-      Line EF(E,F); // this line is the segment
+    for(int ipt=0;ipt<end_point.size();ipt++){
+
+// set sample point coordinates and distance along the line-out from line-out origin
+
+      double xpt(end_point.at(ipt).at(0)),ypt(end_point.at(ipt).at(1));
+      double xdist(xpt-end_point.at(0).at(0)),ydist(ypt-end_point.at(0).at(1));
+
+// sweep mesh and search for a cell that contains this point
 
       for(int i=0;i<M.NCells();i++){
 
-// set up line CD to represent each cell side in turn
-
-        vector<double> C(2),D(2); // C and D are the two end points of a cell side
-        int endloc[5]={0,S.sloc()-1,S.nloc()-1,S.nloc()-S.sloc(),0}; // node at end of face
-        int nsides(0); // number of sides of i that are crossed by AB
-
-        for(int j=0;j<S.nfaces();j++){
-
-          C.at(0)=x[0].at(M.GlobalNode_CFEM(i,endloc[j])),C.at(1)=x[1].at(M.GlobalNode_CFEM(i,endloc[j]));
-          D.at(0)=x[0].at(M.GlobalNode_CFEM(i,endloc[j+1])),D.at(1)=x[1].at(M.GlobalNode_CFEM(i,endloc[j+1]));
-
-// create a line CD that is coincident with the cell side and check if it is intersected by the segment EF on the line AB
-
-          Line CD(C,D);
-
-          if(EF.intersects(CD)) {nsides++;}
-
-        }
-
-// if at least 1 side was crossed store the cell number against this segment
-
-        if(nsides!=0){celllist[iseg]=i;}
-
-      }
-
-// update start of next segment
-
-      E.at(0)=F.at(0);E.at(1)=F.at(1);
-
-    }
-
-// traverse the mesh along the line AB and interpolate data onto each segment end point
-// Note we ignore last segment to avoid an extra point at end of line-out
-
-    int i(0);
-    for(int iseg=0;iseg<AB.nsegments()-1;iseg++){
-
-      if(celllist[iseg]>=0){i=celllist[iseg];} // update cell number, <0 means iseg is fully contained within the cell
-
-      double interpolated_value[5]={0.0,0.0,0.0,0.0,0.0};
-
 // cell vertices
 
-      vector<vector<double> > rk(2);
-      for(int j=0;j<S.nloc();j++){
-        rk.at(0).push_back(x.at(0).at(M.GlobalNode_CFEM(i,j)));
-        rk.at(1).push_back(x.at(1).at(M.GlobalNode_CFEM(i,j)));
-      }
-
-      vector<vector<double> > rt(2);
-      for(int j=0;j<T.nloc();j++){
-        rt.at(0).push_back(xt.at(0).at(M.GlobalNode_DFEM(i,j)));
-        rt.at(1).push_back(xt.at(1).at(M.GlobalNode_DFEM(i,j)));
-      }
-
-// instantiate a shape function in global coordinates for each space
-
-      Shape Gk(S.order(),rk);
-      Shape Gt(T.order(),rt);
-
-// global coordinates of interpolation
-
-      vector<double> ri;
-      ri.push_back(AB.coord(0,iseg));
-      ri.push_back(AB.coord(1,iseg));
-
-// local node positions
-
-      double xpos[S.nloc()],ypos[S.nloc()],dx(2.0/S.order()),dy(2.0/S.order());
-
-      for(int isuby=0,k=0;isuby<S.order()+1;isuby++){
-        for(int isubx=0;isubx<S.order()+1;isubx++,k++){
-          xpos[k]=-1.0+isubx*dx;
-          ypos[k]=-1.0+isuby*dy;
+        vector<vector<double> > rk(2);
+        for(int j=0;j<S.nloc();j++){
+          rk.at(0).push_back(x.at(0).at(M.GlobalNode_CFEM(i,j)));
+          rk.at(1).push_back(x.at(1).at(M.GlobalNode_CFEM(i,j)));
         }
-      }
 
-// map global coordinates to local coordinates
+// declare a shape function in global coordinates
 
-      double xloc(0.0),yloc(0.0);
-      for(int iloc=0;iloc<S.nloc();iloc++){
-        xloc+=Gk.value(iloc,ri)*xpos[iloc];
-        yloc+=Gk.value(iloc,ri)*ypos[iloc];
-      }
+        Shape Gk(S.order(),rk);
+
+// if point ipt is not inside this cell cycle the loop
+
+        if(!Gk.contains(end_point.at(ipt))){continue;}
+
+// use global shape to map global coordinates to local coordinates
+
+        double xloc(0.0),yloc(0.0);
+
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          xloc+=Gk.value(iloc,end_point.at(ipt))*xpos[iloc];
+          yloc+=Gk.value(iloc,end_point.at(ipt))*ypos[iloc];
+        }
 
 // jacobian and determinant at local coordinates
 
-      double dxdu(0.0),dxdv(0.0),dydu(0.0),dydv(0.0),dxdu0(0.0),dxdv0(0.0),dydu0(0.0),dydv0(0.0);
+        double dxdu(0.0),dxdv(0.0),dydu(0.0),dydv(0.0),dxdu0(0.0),dxdv0(0.0),dydu0(0.0),dydv0(0.0);
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          dxdu0+=S.dvalue(0,iloc,xloc,yloc)*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
+          dxdv0+=S.dvalue(1,iloc,xloc,yloc)*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
+          dydu0+=S.dvalue(0,iloc,xloc,yloc)*xinit.at(1).at(M.GlobalNode_CFEM(i,iloc));
+          dydv0+=S.dvalue(1,iloc,xloc,yloc)*xinit.at(1).at(M.GlobalNode_CFEM(i,iloc));
+          dxdu+=S.dvalue(0,iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+          dxdv+=S.dvalue(1,iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+          dydu+=S.dvalue(0,iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+          dydv+=S.dvalue(1,iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        }
 
-      for(int iloc=0;iloc<S.nloc();iloc++){
-        dxdu0+=S.dvalue(0,iloc,xloc,yloc)*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
-        dxdv0+=S.dvalue(1,iloc,xloc,yloc)*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
-        dydu0+=S.dvalue(0,iloc,xloc,yloc)*xinit.at(1).at(M.GlobalNode_CFEM(i,iloc));
-        dydv0+=S.dvalue(1,iloc,xloc,yloc)*xinit.at(1).at(M.GlobalNode_CFEM(i,iloc));
-        dxdu+=S.dvalue(0,iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
-        dxdv+=S.dvalue(1,iloc,xloc,yloc)*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
-        dydu+=S.dvalue(0,iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
-        dydv+=S.dvalue(1,iloc,xloc,yloc)*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        double detJ0(dxdu0*dydv0-dxdv0*dydu0),detJ(dxdu*dydv-dxdv*dydu);
+
+// initialise values for interpolation
+
+        double interpolated_value[6]={0.0,0.0,0.0,0.0,0.0,0.0}; // ordering is x d e p ux uy
+
+// coordinate of sample point along the line-out
+
+        interpolated_value[0]=sqrt(xdist*xdist+ydist*ydist);
+
+// sample density field at the interpolation point
+
+        interpolated_value[1]=dinit.at(i)*detJ0/detJ;
+
+// sample energy field at the interpolation point
+
+        for(int iloc=0;iloc<T.nloc();iloc++){interpolated_value[2]+=T.value(iloc,xloc,yloc)*e.at(M.GlobalNode_DFEM(i,iloc));}
+
+// sample pressure field at the interpolation point
+
+        interpolated_value[3]=P(interpolated_value[1],interpolated_value[2],g.at(mat.at(i)-1));
+
+// sample velocity field x-component at global coordinate ri(x,y)
+
+        for(int iloc=0;iloc<S.nloc();iloc++){interpolated_value[4]+=S.value(iloc,xloc,yloc)*u.at(0).at(M.GlobalNode_CFEM(i,iloc));}
+
+// sample velocity field y-component at global coordinate ri(x,y)
+
+        for(int iloc=0;iloc<S.nloc();iloc++){interpolated_value[5]+=S.value(iloc,xloc,yloc)*u.at(1).at(M.GlobalNode_CFEM(i,iloc));}
+
+// output interpolated data along the line-out
+
+        for(int j=0;j<6;j++){f1<<fixed<<setprecision(10)<<interpolated_value[j]<<" ";}
+        f1<<endl;
+
       }
-
-      double detJ0(dxdu0*dydv0-dxdv0*dydu0),detJ(dxdu*dydv-dxdv*dydu);
-
-// avoid sample point close to a stationary node as the density field will be difficult to sample here due to the discontinuity (zero determinant)
-
-      if(abs(detJ0*detJ)<1.0e-20){continue;}
-
-// density at interpolation point in local coordinates
-
-      interpolated_value[0]=dinit.at(i)*detJ0/detJ;
-
-// evaluate energy field at global coordinate ri(x,y)
-
-//      for(int j=0;j<Gt.nloc();j++){interpolated_value[1]+=Gt.value(j,ri)*e.at(M.GlobalNode_DFEM(i,j));}
-      for(int j=0;j<T.nloc();j++){interpolated_value[1]+=T.value(j,xloc,yloc)*e.at(M.GlobalNode_DFEM(i,j));}
-
-// evaluate velocity field x-component at global coordinate ri(x,y)
-
-//      for(int j=0;j<Gk.nloc();j++){interpolated_value[2]+=Gk.value(j,ri)*u.at(0).at(M.GlobalNode_CFEM(i,j));}
-      for(int j=0;j<S.nloc();j++){interpolated_value[2]+=S.value(j,xloc,yloc)*u.at(0).at(M.GlobalNode_CFEM(i,j));}
-
-// evaluate velocity field y-component at global coordinate ri(x,y)
-
-//      for(int j=0;j<Gk.nloc();j++){interpolated_value[3]+=Gk.value(j,ri)*u.at(1).at(M.GlobalNode_CFEM(i,j));}
-      for(int j=0;j<S.nloc();j++){interpolated_value[3]+=S.value(j,xloc,yloc)*u.at(1).at(M.GlobalNode_CFEM(i,j));}
-
-// evaluate pressure field at global coordinate ri(x,y)
-
-      interpolated_value[4]=P(interpolated_value[0],interpolated_value[1],g.at(mat.at(i)-1));
-
-// output the interpolated values along the line AB
-
-      double xx(sqrt(pow((AB.coord(0,0)-ri.at(0)),2)+pow((AB.coord(1,0)-ri.at(1)),2))+(AB.coord(0,1)-AB.coord(0,0))); // distance along line-out from end of the first segment
-      f1<<fixed<<setprecision(10)<<xx<<" ";
-      for(int j=0;j<5;j++){
-        f1<<interpolated_value[j]<<" ";
-      }
-      f1<<endl;
 
     }
 
@@ -1114,6 +1072,8 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
     f1.close();
 
   }
+
+  if(Lineout.size()==0){cout<<"lineouts(): No line-outs defined for this problem."<<endl;}
 
   return;
 
