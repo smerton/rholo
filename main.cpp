@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.1501     // insert a macro for the end time
+#define DTSTART 0.0001    // insert a macro for the first time step
+#define ENDTIME 0.6      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -143,7 +143,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/r2r-100x1.mesh");                               // load a new mesh from file
+  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -204,9 +204,9 @@ int main(){
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
 //                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
-                                 {1.000, 2.000,0.000, 0.400,1.4}};
+//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
+//                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
 //  test_problem=BLASTWAVE;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0; // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},          // initial flux state in each material for the blast wave
@@ -215,11 +215,11 @@ int main(){
 //  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
 
-//  test_problem=NOH;length_scale_type=LS_LOCAL;cl=0.5;cq=4.0/3.0;           // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
+  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;              // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
 
-//  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;               // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};           // initial flux state in each material for Sedov problem
+//  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;             // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};         // initial flux state in each material for Sedov problem
 
 //  test_problem=TRIPLE;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;      // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},          // initial flux state in each material for triple-point problem
@@ -236,18 +236,18 @@ int main(){
 //  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -648,8 +648,9 @@ int main(){
 // solve global system
 
       for(int idim=0;idim<M.NDims();idim++){
+        long ladd(idim*nknodes);
         for(long i=0;i<nknodes;i++){
-          double udot(0.0);long ladd(idim*nknodes);
+          double udot(0.0);
           for(long j=0;j<nknodes;j++){
             udot+=KMASSI.read(ladd+i,ladd+j)*b.at(ladd+j);
           }
@@ -832,7 +833,63 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
 // Noh stagnation shock
 
-      return;
+      for(int iline=0;iline<4;iline++){
+
+        switch(iline){
+
+          case(0):
+
+            lineout.x1=0.5*(xmin+xmax);
+            lineout.x2=0.5;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=0.5;
+            lineout.filename="lineout_1.dat";
+            lineout.filehead="# Noh lineout from (0.0,0.0) to (0.5,0.05) : Columns are x d e p ux uy";
+            lineout.nsamples=100;
+
+            break;
+
+          case(1):
+
+            lineout.x1=0.5*(xmin+xmax);
+            lineout.x2=-0.5;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=0.5;
+            lineout.filename="lineout_2.dat";
+            lineout.filehead="# Noh lineout from (0.0,0.0) to (-0.5,0.5) : Columns are x d e p ux uy";
+            lineout.nsamples=100;
+
+            break;
+
+          case(2):
+
+            lineout.x1=0.5*(xmin+xmax);
+            lineout.x2=-0.5;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=-0.5;
+            lineout.filename="lineout_3.dat";
+            lineout.filehead="# Noh lineout from (0.0,0.0) to (-0.5,-0.5) : Columns are x d e p ux uy";
+            lineout.nsamples=100;
+
+            break;
+
+          case(3):
+
+            lineout.x1=0.5*(xmin+xmax);
+            lineout.x2=0.5;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=-0.5;
+            lineout.filename="lineout_4.dat";
+            lineout.filehead="# Noh lineout from (0.0,0.0) to (0.5,-0.5) : Columns are x d e p ux uy";
+            lineout.nsamples=100;
+
+            break;
+
+        }
+
+        Lineout.push_back(lineout);
+
+      }
 
       break;
 
