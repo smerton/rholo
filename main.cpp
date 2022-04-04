@@ -108,7 +108,8 @@ void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xin
 void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,                                   // sum the global internal energy field
             VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);
 void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,Shape const T,                    // echo some initial information
-                  int const ndims, int const nmats,Mesh const &M,int const length_scale_type);
+                  int const ndims, int const nmats,Mesh const &M,int const length_scale_type,
+                  double const cl,double const cq);
 void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // line-outs
               VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
 void exact(VVD const &s,VVD const &x,int const &test_problem);                                                       // exact solution where applicable
@@ -355,7 +356,7 @@ int main(){
 
 // echo some initial information
 
-  initial_data(n,nknodes,ntnodes,S,T,ndims,nmats,M,length_scale_type);
+  initial_data(n,nknodes,ntnodes,S,T,ndims,nmats,M,length_scale_type,cl,cq);
 
 // assign storage to the force matrix - use a compressed coordinate format
 
@@ -1349,7 +1350,8 @@ void header(){
 
 // output some initial data
 
-void initial_data(int const n,long const nknodes,long const ntnodes,Shape const S,Shape const T,int const ndims, int const nmats, Mesh const &M,int const length_scale_type){
+void initial_data(int const n,long const nknodes,long const ntnodes,Shape const S,Shape const T,int const ndims,
+                  int const nmats,Mesh const &M,int const length_scale_type,double const cl,double const cq){
 
   cout<<"Initial data for the simulation"<<endl;
 
@@ -1363,6 +1365,7 @@ void initial_data(int const n,long const nknodes,long const ntnodes,Shape const 
   cout<<"Kinematic element order:          "<<S.order()<<endl;
   cout<<"Thermodynamic element order:      "<<T.order()<<endl;
   cout<<"Length scale choice:              "<<length_scale_type<<endl;
+  cout<<"Artificial viscosity parameters:  "<<cl<<","<<cq<<endl;
   cout<<"Boundary conditions have been set on "<<M.nbcs()<<" edges :"<<endl;
 
   for(int i=0;i<M.nbcs();i++){
