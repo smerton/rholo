@@ -28,7 +28,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001     // insert a macro for the first time step
+#define DTSTART 0.00005     // insert a macro for the first time step
 #define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -636,7 +636,7 @@ int main(){
             }
           }
 
-// divergence of the cell
+// divergence of the velocity field
 
           double divu(0.0);
           for(int idim=0;idim<M.NDims();idim++){
@@ -644,6 +644,16 @@ int main(){
               divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
             }
           }
+          double Cz(divu);
+
+// curl of the velocity field
+
+          double curlu(0.0);
+          for(int jloc=0;jloc<S.nloc();jloc++){
+            curlu+=detDJ[0][jloc][gi]*u1.at(1).at(M.GlobalNode_CFEM(i,jloc));
+            curlu-=detDJ[1][jloc][gi]*u1.at(0).at(M.GlobalNode_CFEM(i,jloc));
+          }
+          double Vz(abs(curlu));
 
 // smoothness sensor
 
@@ -651,15 +661,15 @@ int main(){
 
 // compression switch
 
-          double psi1((divu>=0.0)?0.0:1.0);
+          double psi1((Cz>=0.0)?0.0:1.0);
 
 // vorticity switch
 
-          double psi2(1.0);
+          double psi2(Cz/(Cz+1.0*Vz));
 
 // coefficient
 
-          mu.at(gi)=psi0*psi1*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(divu)+psi2*cl*c.at(gi));
+          mu.at(gi)=psi0*psi1*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(Cz)+psi2*cl*c.at(gi));
 
 // viscous forces
 
