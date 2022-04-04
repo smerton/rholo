@@ -30,6 +30,8 @@ Block resolveBlock(string line);
 
 Mesh::Mesh(char* meshfile){
 
+  mmeshfile=meshfile;
+
   cout<<"  Mesh::Mesh(): Loading a mesh from file "<<meshfile<<endl;
 
   long lines(0);
@@ -1227,6 +1229,10 @@ double Mesh::Min(int idim) const {return *min_element(mCoord.at(idim).begin(),mC
 // member function to return mesh boundary maximum in dimension idim
 
 double Mesh::Max(int idim) const {return *max_element(mCoord.at(idim).begin(),mCoord.at(idim).end());}
+
+// member function to return the filename of the mesh
+
+char* Mesh::Meshfile() const {return mmeshfile;}
 
 // Destructor function to release storage associated with a mesh class object
 

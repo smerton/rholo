@@ -70,11 +70,13 @@ class Mesh{
   double UpdateQ(double const&l,double const&d,double const&c,double const&cq,double const&cl,double const&divu); // returns artificial viscosity at a point
   long GlobalNode_CFEM(int const i,int const j) const; // global node number of local node j in element i in a continuous finite element method
   long GlobalNode_DFEM(int const i,int const j) const; // global node number of local node j in element i in a discontinuous finite element method
+  char* Meshfile() const; // returns the filename of the mesh
 
   private:
 
 // member data
 
+  char* mmeshfile; // filename of the mesh
   int mNDims; // number of mesh dimensions
   long mNNodes; // number of nodes on the mesh read in from the generator
   long mNNodes_CFEM; // number of nodes on the mesh in a continuous finite element method after polyhedral order has been set (may differ from generator)
