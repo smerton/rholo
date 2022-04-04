@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001    // insert a macro for the first time step
-#define ENDTIME 0.6      // insert a macro for the end time
+#define DTSTART 0.0001     // insert a macro for the first time step
+#define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -158,6 +158,7 @@ int main(){
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
   vector<double> l(S.ngi()),d(S.ngi()),c(S.ngi());               // length scale, density and sound speed as functions
   vector<double> p(S.ngi()),q(S.ngi());                          // pressure and artificial viscosity as functions
+  VVVD Fv(M.NDims(),VVD(S.nloc(),VD(S.ngi(),0.0)));              // viscous forces for tensor q implementation
   vector<vector<double> > u0(ndims),u1(ndims);                   // node velocity
   vector<vector<double> > x0(ndims),x1(ndims);                   // kinematic node coordinates
   vector<vector<double> > xt0(ndims),xt1(ndims);                 // thermodynamic node coordinates
@@ -185,6 +186,7 @@ int main(){
   vector<int> fdim(nzeroes);                                     // dimension addresses in the force matrix
   int length_scale_type(LS_LOCAL);                               // length scale definition: LS_AVERAGE,LS_LOCAL or LS_DIRECTIONAL (LS_PSEUDO_1D for 1D tests on 2D meshes)
   Timer timers(20);                                              // time acccumulated in different parts of code
+  bool tensorq(false);                                           // use artificial viscosity tensor
 
 // initialise the high res timers
 
@@ -216,7 +218,7 @@ int main(){
 //  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
 
-  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;              // set overides needed to run this problem
+  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;               // set overides needed to run this problem
   vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
 
 //  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;             // set overides needed to run this problem
@@ -600,19 +602,93 @@ int main(){
           egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
         }
         egi=max(ECUT,egi);
-        double divu(0.0);
-        for(int idim=0;idim<M.NDims();idim++){
-          for(int jloc=0;jloc<S.nloc();jloc++){
-            divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
-          }
-        }
-
 
         l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type); // update element length scale at the quadrature point
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
-        q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
+
+      }
+
+// artificial viscosity term
+
+      for(int gi=0;gi<S.ngi();gi++){q.at(gi)=0.0;}
+
+      if(tensorq){
+
+// tensor q implementation
+
+        vector<double> mu(S.ngi());
+
+        for(int gi=0;gi<S.ngi();gi++){
+
+// finite element discretisation of (grad u) dot (grad u) stiffness matrix
+
+          vector<vector<double> > sxy(S.nloc(),vector<double> (S.nloc(),0.0));
+
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            for(int jloc=0;jloc<S.nloc();jloc++){
+              double sij(0.0);
+              for(int idim=0;idim<M.NDims();idim++){
+                sij+=detDJ[idim][iloc][gi]*detDJ[idim][jloc][gi];
+              }
+              sxy.at(iloc).at(jloc)=sij;
+            }
+          }
+
+// divergence of the cell
+
+          double divu(0.0);
+          for(int idim=0;idim<M.NDims();idim++){
+            for(int jloc=0;jloc<S.nloc();jloc++){
+              divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+            }
+          }
+
+// smoothness sensor
+
+          double psi0(1.0);
+
+// compression switch
+
+          double psi1((divu>=0.0)?0.0:1.0);
+
+// vorticity switch
+
+          double psi2(1.0);
+
+// coefficient
+
+          mu.at(gi)=psi0*psi1*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(divu)+psi2*cl*c.at(gi));
+
+// viscous forces
+
+          for(int idim=0;idim<M.NDims();idim++){
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              double Fviloc(0.0);
+              for(int jloc=0;jloc<S.nloc();jloc++){
+                Fviloc-=mu.at(gi)*sxy.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+              }
+              Fv.at(idim).at(iloc).at(gi)=Fviloc;
+            }
+          }
+
+        }
+
+      }else{
+
+// bulk q
+
+        for(int gi=0;gi<S.ngi();gi++){
+          double divu(0.0);
+          for(int idim=0;idim<M.NDims();idim++){
+            for(int jloc=0;jloc<S.nloc();jloc++){
+              divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+            }
+          }
+          q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
+        }
+
       }
 
 // construct force terms
@@ -620,9 +696,11 @@ int main(){
       for(int idim=0;idim<M.NDims();idim++){
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int jloc=0;jloc<T.nloc();jloc++,k++){
+            double Fk(0.0);
             for(int gi=0;gi<S.ngi();gi++){
-              F.at(k)+=(p.at(gi)+q.at(gi))*detDJ[idim][iloc][gi]*T.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+              Fk+=(Fv.at(idim).at(iloc).at(gi)+(p.at(gi)+q.at(gi))*detDJ[idim][iloc][gi]*T.value(jloc,gi))*detJ[gi]*S.wgt(gi);
             }
+            F.at(k)+=Fk;
           }
         }
       }
