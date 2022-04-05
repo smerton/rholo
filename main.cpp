@@ -28,7 +28,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.00005     // insert a macro for the first time step
+#define DTSTART 0.0001     // insert a macro for the first time step
 #define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -151,7 +151,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/noh-24x24-non-uniform.mesh");                                 // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -193,7 +193,7 @@ int main(){
   vector<int> fdim(nzeroes);                                     // dimension addresses in the force matrix
   int length_scale_type(LS_LOCAL);                               // length scale definition: LS_AVERAGE,LS_LOCAL or LS_DIRECTIONAL (LS_PSEUDO_1D for 1D tests on 2D meshes)
   Timer timers(20);                                              // time acccumulated in different parts of code
-  bool tensorq(false);                                           // use artificial viscosity tensor
+  bool tensorq(false);                                            // use artificial viscosity tensor
 
 // initialise the high res timers
 
@@ -691,11 +691,13 @@ int main(){
 
 // vorticity switch
 
-          double psi2(Cz/(Cz+1.0*Vz));
+          double alpha(1.0),tmp(Vz/max(abs(Cz),1.0e-10));
+          double psi2(1.0/(1.0+alpha*tmp));
 
 // coefficient
 
           mu.at(gi)=psi0*psi1*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(Cz)+psi2*cl*c.at(gi));
+//          mu.at(gi)=(psi0*psi1*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(Cz)+psi2*cl*c.at(gi)))*abs(Cz);
 
 // viscous forces
 
