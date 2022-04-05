@@ -62,6 +62,7 @@
 #define TRIPLE 5              // Triple point problem
 #define SOD 6                 // Sod's shock tube problem
 #define R2R 7                 // 123 problem
+#define SALTZMANN 8           // Saltzmann piston problem
 
 #define TIMER_MAIN 0          // timer for main
 #define TIMER_ASSEMBLY 1      // timer for acceleration field assembly
@@ -120,6 +121,7 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
                   VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,                                    // insert boundary conditions in to the mass matrix via row elimination
                VVD &u0,VVD &u1,VD &b0,VD &b1,long const &nnodes);
+
 void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                            // input overides for the Taylor-Green vortex
                  VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
                  vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
@@ -136,6 +138,11 @@ void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD
                 VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
                 vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                 VVVD &detDJ,VD const &m);
+void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                         // input overides for the Saltzmann piston
+                VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &x,VD const &gamma,
+                vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+                VVVD &detDJ,VD const &m);
+
 template <typename T> int sgn(T val);                                                                                // return type safe sign of the argument
 
 using namespace std;
@@ -229,6 +236,9 @@ int main(){
 //                                 {1.000, 0.000,0.000, 0.100,1.4},
 //                                 {0.125, 0.000,0.000, 0.100,1.5}};
 
+//  test_problem=SALTZMANN;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;       // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
+
 // acquire adiabatic constant for each material
 
   for(int imat=0;imat<M.NMaterials();imat++){gamma.at(imat)=state[imat][4];}
@@ -239,18 +249,26 @@ int main(){
 //  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+
   M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
   M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
   M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
   M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VELOCITY,2.0);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
+
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,1.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -347,6 +365,14 @@ int main(){
 // Sedov expanding shock
 
       init_SEDOV(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+
+      break;
+
+    case(SALTZMANN):
+
+// Saltzmann piston
+
+      init_SALTZMANN(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -1078,6 +1104,14 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
       break;
 
+    case(SALTZMANN):
+
+// Saltzmann piston
+
+      return;
+
+      break;
+
   }
 
 // loop over the lineouts and produce the output
@@ -1383,6 +1417,15 @@ void exact(VVD const &s,VVD const &x,int const &test_problem){
       }
 
       break;
+
+    case(SALTZMANN):
+
+// Saltzmann piston
+
+      return;
+
+      break;
+
   }
 
   return;
@@ -1860,6 +1903,46 @@ void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD
         e0.at(M.GlobalNode_DFEM(i,iloc))=0.25/m[i]; // place 1/4 of the drive in each of the 4 cells at the origin per unit mass
         e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc));
       }
+
+    }
+
+  }
+
+  return;
+
+}
+
+// input overides for the Saltzmann piston
+
+void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+
+  cout<<"init_SALTZMANN(): Input overides for Saltzmann..."<<endl;
+
+// set some tolerances to be used here
+
+  double tol(1.0e-6);
+  double dx1(0.01);
+  double dy1(0.01);
+
+// perturb the mesh
+
+  for(int i=0;i<M.NCells();i++){
+
+    for(int iloc=0;iloc<S.nloc();iloc++){
+
+// original node position
+
+      double xorig(x.at(0).at(M.GlobalNode_CFEM(i,iloc)));
+      double yorig(x.at(1).at(M.GlobalNode_CFEM(i,iloc)));
+
+// perturbation
+
+      double w1(100.0*xorig+tol);
+      double w2(100.0*yorig+tol);
+
+// set new node position
+
+      x.at(0).at(M.GlobalNode_CFEM(i,iloc))=w1*dx1+(10.0-w2)*dy1*sin(dpi*w1*0.01);
 
     }
 
