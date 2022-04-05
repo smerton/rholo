@@ -151,7 +151,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24-non-uniform.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/saltzmann-100x10.mesh");                          // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -225,8 +225,8 @@ int main(){
 //  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
 
-  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;               // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
+//  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;               // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
 
 //  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;             // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};         // initial flux state in each material for Sedov problem
@@ -236,8 +236,8 @@ int main(){
 //                                 {1.000, 0.000,0.000, 0.100,1.4},
 //                                 {0.125, 0.000,0.000, 0.100,1.5}};
 
-//  test_problem=SALTZMANN;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;       // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
+  test_problem=SALTZMANN;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;       // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
 
 // acquire adiabatic constant for each material
 
@@ -250,10 +250,10 @@ int main(){
 //  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 
-  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
@@ -265,10 +265,10 @@ int main(){
 //  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
 
-//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VELOCITY,1.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,1.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -372,7 +372,9 @@ int main(){
 
 // Saltzmann piston
 
-      init_SALTZMANN(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+// mesh distortion handled by generator so we don't need to call this
+
+//      init_SALTZMANN(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -1928,25 +1930,21 @@ void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dp
 
 // perturb the mesh
 
-  for(int i=0;i<M.NCells();i++){
-
-    for(int iloc=0;iloc<S.nloc();iloc++){
+  for(long i=0;i<x.at(0).size();i++){
 
 // original node position
 
-      double xorig(x.at(0).at(M.GlobalNode_CFEM(i,iloc)));
-      double yorig(x.at(1).at(M.GlobalNode_CFEM(i,iloc)));
+    double xorig(x.at(0).at(i));
+    double yorig(x.at(1).at(i));
 
 // perturbation
 
-      double w1(100.0*xorig+tol);
-      double w2(100.0*yorig+tol);
+    double w1(100.0*xorig+tol);
+    double w2(100.0*yorig+tol);
 
 // set new node position
 
-      x.at(0).at(M.GlobalNode_CFEM(i,iloc))=w1*dx1+(10.0-w2)*dy1*sin(dpi*w1*0.01);
-
-    }
+    x.at(0).at(i)=w1*dx1+(10.0-w2)*dy1*sin(dpi*w1*0.01);
 
   }
 
