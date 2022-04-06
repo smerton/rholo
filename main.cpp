@@ -28,7 +28,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001     // insert a macro for the first time step
+#define DTSTART 0.0001    // insert a macro for the first time step
 #define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -193,7 +193,7 @@ int main(){
   vector<int> fdim(nzeroes);                                     // dimension addresses in the force matrix
   int length_scale_type(LS_LOCAL);                               // length scale definition: LS_AVERAGE,LS_LOCAL or LS_DIRECTIONAL (LS_PSEUDO_1D for 1D tests on 2D meshes)
   Timer timers(20);                                              // time acccumulated in different parts of code
-  bool tensorq(false);                                            // use artificial viscosity tensor
+  bool tensorq(false);                                           // use artificial viscosity tensor
 
 // initialise the high res timers
 
@@ -372,9 +372,7 @@ int main(){
 
 // Saltzmann piston
 
-// mesh distortion handled by generator so we don't need to call this
-
-//      init_SALTZMANN(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_SALTZMANN(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -1944,8 +1942,21 @@ void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dp
 
 // set new node position
 
-    x.at(0).at(i)=w1*dx1+(10.0-w2)*dy1*sin(dpi*w1*0.01);
+// mesh distortion handled by generator so we don't need to do this
+// also detJ0 has already been used so will need to move a few things
+// around if we were to distort the mesh here...
 
+//    x.at(0).at(i)=w1*dx1+(10.0-w2)*dy1*sin(dpi*w1*0.01);
+
+  }
+
+// set initial energy field
+
+  for(int i=0;i<M.NCells();i++){
+    for(int iloc=0;iloc<T.nloc();iloc++){
+      e0.at(M.GlobalNode_DFEM(i,iloc))=0.0001;
+      e1.at(M.GlobalNode_DFEM(i,iloc))=0.0001;
+    }
   }
 
   return;
