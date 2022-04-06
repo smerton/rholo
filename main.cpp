@@ -28,7 +28,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001    // insert a macro for the first time step
+#define DTSTART 0.0005     // insert a macro for the first time step
 #define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -151,7 +151,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/saltzmann-100x10.mesh");                          // load a new mesh from file
+  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -225,8 +225,8 @@ int main(){
 //  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
 
-//  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;               // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
+  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;               // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
 
 //  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;             // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};         // initial flux state in each material for Sedov problem
@@ -236,8 +236,8 @@ int main(){
 //                                 {1.000, 0.000,0.000, 0.100,1.4},
 //                                 {0.125, 0.000,0.000, 0.100,1.5}};
 
-  test_problem=SALTZMANN;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;       // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
+//  test_problem=SALTZMANN;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;       // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
 
 // acquire adiabatic constant for each material
 
@@ -250,10 +250,10 @@ int main(){
 //  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
 
-//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
@@ -265,10 +265,10 @@ int main(){
 //  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
 //  M.bc_set(3,VELOCITY,-2.0);  // set boundary condition on left edge of mesh
 
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,1.0);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,1.0);  // set boundary condition on left edge of mesh
 
 // initialise the problem
 
@@ -683,21 +683,40 @@ int main(){
 
 // smoothness sensor
 
-          double psi0(1.0);
+          vector<double> fp(M.NDims()),fpnorm(S.nloc());
+          for(int idim=0;idim<M.NDims();idim++){
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              fp.at(idim)=0.0;fpnorm.at(iloc)=0.0;
+              for(int jloc=0;jloc<S.nloc();jloc++){
+                fp.at(idim)+=sxy.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+              }
+              fpnorm.at(iloc)+=fp.at(idim)*fp.at(idim);
+            }
+          }
+
+          double gp(detJ.at(gi)*S.wgt(gi)*c.at(gi)/(l.at(gi)*l.at(gi)));
+          double alpha0(1.0);
+          vector<double> psi0z(S.nloc());
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            psi0z.at(iloc)=(1.0-exp(-sqrt(fpnorm.at(iloc))/(alpha0*abs(gp))));
+          }
+
+          double psi0( *max_element(psi0z.begin(),psi0z.end()));
+          psi0=1.0;
 
 // compression switch
 
-          double psi1((Cz>=0.0)?0.0:1.0);
+          double psi1((Cz<0.0)?1.0:0.0);
 
 // vorticity switch
 
-          double alpha(1.0),tmp(Vz/max(abs(Cz),1.0e-10));
-          double psi2(1.0/(1.0+alpha*tmp));
+          double alpha2(1.0),tmp(Vz/max(abs(Cz),1.0e-10));
+          double psi2(1.0/(1.0+alpha2*tmp));
 
-// coefficient
+// coefficients
 
-          mu.at(gi)=psi0*psi1*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(Cz)+psi2*cl*c.at(gi));
-//          mu.at(gi)=(psi0*psi1*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(Cz)+psi2*cl*c.at(gi)))*abs(Cz);
+          mu.at(gi)=psi1*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(Cz)+psi2*cl*c.at(gi));
+          double qz((mu.at(gi))*abs(Cz)); // scalar coefficient, see eqn (42)
 
 // viscous forces
 
@@ -707,7 +726,7 @@ int main(){
               for(int jloc=0;jloc<S.nloc();jloc++){
                 Fviloc-=mu.at(gi)*sxy.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
               }
-              Fv.at(idim).at(iloc).at(gi)=Fviloc;
+              Fv.at(idim).at(iloc).at(gi)=psi0*Fviloc;
             }
           }
 
