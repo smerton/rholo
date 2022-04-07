@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0005     // insert a macro for the first time step
-#define ENDTIME 0.6       // insert a macro for the end time
+#define DTSTART 0.0001     // insert a macro for the first time step
+#define ENDTIME 0.60      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -151,7 +151,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/noh-24x24-non-uniform.mesh");                     // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -630,6 +630,7 @@ int main(){
         egi=max(ECUT,egi);
 
         l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type); // update element length scale at the quadrature point
+//        l.at(gi)=sqrt(V1.at(i))/S.order();
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -683,26 +684,41 @@ int main(){
 
 // smoothness sensor
 
-          vector<double> fp(M.NDims()),fpnorm(S.nloc());
+          vector<vector<double> > Fz(M.NDims(),vector<double> (S.nloc(),0.0));
+
           for(int idim=0;idim<M.NDims();idim++){
             for(int iloc=0;iloc<S.nloc();iloc++){
-              fp.at(idim)=0.0;fpnorm.at(iloc)=0.0;
+              double fzij(0.0);
               for(int jloc=0;jloc<S.nloc();jloc++){
-                fp.at(idim)+=sxy.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+                fzij+=sxy.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
               }
-              fpnorm.at(iloc)+=fp.at(idim)*fp.at(idim);
+              Fz.at(idim).at(iloc)=fzij;
             }
           }
 
-          double gp(detJ.at(gi)*S.wgt(gi)*c.at(gi)/(l.at(gi)*l.at(gi)));
-          double alpha0(1.0);
-          vector<double> psi0z(S.nloc());
-          for(int iloc=0;iloc<S.nloc();iloc++){
-            psi0z.at(iloc)=(1.0-exp(-sqrt(fpnorm.at(iloc))/(alpha0*abs(gp))));
+          vector<double> fp(vector<double> (M.NDims(),0.0));
+
+          for(int idim=0;idim<M.NDims();idim++){
+            double fpi(0.0);
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              fpi+=Fz.at(idim).at(iloc);
+            }
+            fp.at(idim)=fpi;
           }
 
-          double psi0( *max_element(psi0z.begin(),psi0z.end()));
-          psi0=1.0;
+          vector<double> fpnorm(vector<double> (S.nloc(),0.0));
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            fpnorm.at(iloc)=sqrt((Fz.at(0).at(iloc)*Fz.at(0).at(iloc)+Fz.at(1).at(iloc)*Fz.at(1).at(iloc)));
+          }
+//          double fpnorm(sqrt(fp.at(0)*fp.at(0)+fp.at(1)*fp.at(1)));
+
+          double gp(detJ.at(gi)*S.wgt(gi)*c.at(gi)/(l.at(gi)*l.at(gi))),alpha0(1.0);
+          vector<double> psi0v(S.nloc());
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            psi0v.at(iloc)=(1.0-exp(-fpnorm.at(iloc)/(alpha0*abs(gp))));
+          }
+          double psi0( *max_element(psi0v.begin(),psi0v.end()));
+//          double psi0((1.0-exp(-fpnorm/(alpha0*abs(gp)))));
 
 // compression switch
 
@@ -722,11 +738,11 @@ int main(){
 
           for(int idim=0;idim<M.NDims();idim++){
             for(int iloc=0;iloc<S.nloc();iloc++){
-              double Fviloc(0.0);
+              double Fvi(0.0);
               for(int jloc=0;jloc<S.nloc();jloc++){
-                Fviloc-=mu.at(gi)*sxy.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+                Fvi-=mu.at(gi)*sxy.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
               }
-              Fv.at(idim).at(iloc).at(gi)=psi0*Fviloc;
+              Fv.at(idim).at(iloc).at(gi)=psi0*Fvi;
             }
           }
 
@@ -753,11 +769,11 @@ int main(){
       for(int idim=0;idim<M.NDims();idim++){
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int jloc=0;jloc<T.nloc();jloc++,k++){
-            double Fk(0.0);
+            double fgi(0.0);
             for(int gi=0;gi<S.ngi();gi++){
-              Fk+=(Fv.at(idim).at(iloc).at(gi)+(p.at(gi)+q.at(gi))*detDJ[idim][iloc][gi]*T.value(jloc,gi))*detJ[gi]*S.wgt(gi);
+              fgi+=(Fv.at(idim).at(iloc).at(gi)+(p.at(gi)+q.at(gi))*detDJ[idim][iloc][gi]*T.value(jloc,gi))*detJ[gi]*S.wgt(gi);
             }
-            F.at(k)+=Fk;
+            F.at(k)+=fgi;
           }
         }
       }
