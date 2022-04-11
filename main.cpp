@@ -26,8 +26,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.601     // insert a macro for the end time
+#define DTSTART 0.0001     // insert a macro for the first time step
+#define ENDTIME 0.201     // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -74,6 +74,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "line.h"
+#include <numeric>   // accumulate
 
 // function signatures
 
@@ -88,7 +89,8 @@ void initial_data(int const n, int const nnodes, int const ndims, int const nmat
 void lineouts(Mesh const &M, Shape const &S, VD const &d,VD const &p,VD const &e,           // line-outs
               VD const &q, VVD const &x, VVD const &u, int const &test_problem);
 void silo(VVD const &x, VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,        // silo graphics output
-          VVD const &u,VI const &mat,int s, double t,Mesh const &M,VD const &g);
+          VVD const &u,VVD const &f,VI const &mat,int s, double t,Mesh const &M,
+          VD const &g,VVD const &eshock);
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,               // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
@@ -109,13 +111,13 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/sod-100x1.mesh");                                 // load a new mesh from file
   Shape S(1);                                                    // load a p1 shape function
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
   int const nmats(M.NMaterials());                               // number of materials
-  double const cl(0.3),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
+  double const cl(0.1),cq(1.0);                                  // linear & quadratic coefficients for bulk viscosity
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> d0(n),d1(n),V0(n),V1(n),m(n);                   // density, volume & mass
   vector<double> e0(n),e1(n);                                    // cell-centred energy field
@@ -135,12 +137,16 @@ int main(){
   int test_problem(0);                                           // set later for specific test cases that may need some overides
   double dpi(4.0*atan(1.0));                                     // definition of pi to double precision
   vector<double> gamma(M.NMaterials());                          // ratio of specific heats, set from material definition
+  vector<vector<double> > Fv(ndims,vector<double>(nnodes,0.0));  // viscous forces
+  VVVD Fc(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));           // corner forces on each cell
+  VVD eshock(n,vector<double> (S.nloc(),0.0));                   // shock heating
+  bool tensorq(true);                                            // use tensor q
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-//  test_problem=SOD;                                                    // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+  test_problem=SOD;                                                    // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
+                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for double shock problem 
@@ -162,8 +168,8 @@ int main(){
 //  test_problem=TAYLOR;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-  test_problem=NOH;                                                      // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
+//  test_problem=NOH;                                                      // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
 
 //  test_problem=SEDOV;                                                  // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
@@ -179,14 +185,14 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
@@ -372,11 +378,11 @@ int main(){
 
     if(abs(remainder(time,VISFREQ))<1.0e-12){
 //      state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time,gamma);
-      silo(x0,d0,p,e0,q,c,u0,mat,step,time,M,gamma);
+      silo(x0,d0,p,e0,q,c,u0,Fv,mat,step,time,M,gamma,eshock);
     }else{
       if(abs(remainder(step,VISFREQ))==0){
 //        state_print(n,ndims,nmats,mat,d0,V0,m,e0,p,x0,u0,step,time,gamma);
-        silo(x0,d0,p,e0,q,c,u0,mat,step,time,M,gamma);
+        silo(x0,d0,p,e0,q,c,u0,Fv,mat,step,time,M,gamma,eshock);
       }
     }
 // debug
@@ -404,6 +410,12 @@ int main(){
 
     M.UpdateEnergy(e0,e1,p,q,V0,V1,m);
 
+// add on shock heating
+
+    for(int i=0;i<M.NCells();i++){
+      e1.at(i)+=dt*accumulate(eshock.at(i).begin(),eshock.at(i).end(),0.0)/m.at(i);
+    }
+
 // update cell pressures at the full-step
 
     M.UpdatePressure(p,d1,e1,gamma,mat);
@@ -412,15 +424,204 @@ int main(){
 
     M.UpdateSoundSpeed(c,gamma,mat,p,d1);
 
+// artificial viscosity
+
+    if(tensorq){
+
+// tensor q
+
+      for(int i=0;i<q.size();i++){q.at(i)=0.0;}
+
+      vector<double> Vz(M.NCells()),Cz(M.NCells());
+
+      Fv.at(0)=vector<double> (nnodes,0.0);
+      Fv.at(1)=vector<double> (nnodes,0.0);
+
+      for(int i=0;i<M.NCells();i++){
+
+// compute a jacobian and determinant for the element
+
+        double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          dxdu+=x1.at(0).at(M.Vertex(i,iloc))*S.dvalue(0,iloc,0.0,0.0); // dx/du
+          dydu+=x1.at(1).at(M.Vertex(i,iloc))*S.dvalue(0,iloc,0.0,0.0); // dy/du
+          dxdv+=x1.at(0).at(M.Vertex(i,iloc))*S.dvalue(1,iloc,0.0,0.0); // dx/dv
+          dydv+=x1.at(1).at(M.Vertex(i,iloc))*S.dvalue(1,iloc,0.0,0.0); // dy/dv
+        }
+
+        double detJ(dxdu*dydv-dxdv*dydu);
+
+// deriavtives
+
+        vector<vector<double> > detDJ(ndims,vector<double> (S.nloc(),0.0));
+
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          detDJ.at(0).at(iloc)=(dydv*S.dvalue(0,iloc,0.0,0.0)-dydu*S.dvalue(1,iloc,0.0,0.0))/detJ;
+          detDJ.at(1).at(iloc)=(-dxdv*S.dvalue(0,iloc,0.0,0.0)+dxdu*S.dvalue(1,iloc,0.0,0.0))/detJ;
+        }
+
+// calculate element divergence field
+
+        Cz.at(i)=0.0;
+        for(int idim=0;idim<ndims;idim++){
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            Cz.at(i)+=u1.at(idim).at(M.Vertex(i,iloc))*detDJ.at(idim).at(iloc);
+          }
+        }
+
+// curl of the velocity field
+
+        Vz.at(i)=0.0;
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          Vz.at(i)+=detDJ[0][iloc]*u1.at(1).at(M.Vertex(i,iloc));
+          Vz.at(i)-=detDJ[1][iloc]*u1.at(0).at(M.Vertex(i,iloc));
+        }
+        Vz.at(i)=abs(Vz.at(i));
+
+// stiffness matrix
+
+        vector<vector<double> > Sz(S.nloc(),vector<double> (S.nloc(),0.0));
+        {
+          vector<double> detJ(S.ngi());
+          VVVD detDJ(ndims,VVD(S.nloc(),VD(S.ngi())));
+          for(int gi=0;gi<S.ngi();gi++){
+            double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              dxdu+=x1.at(0).at(M.Vertex(i,iloc))*S.dvalue(0,iloc,gi); // dx/du
+              dydu+=x1.at(1).at(M.Vertex(i,iloc))*S.dvalue(0,iloc,gi); // dy/du
+              dxdv+=x1.at(0).at(M.Vertex(i,iloc))*S.dvalue(1,iloc,gi); // dx/dv
+              dydv+=x1.at(1).at(M.Vertex(i,iloc))*S.dvalue(1,iloc,gi); // dy/dv
+            }
+
+            detJ.at(gi)=dxdu*dydv-dxdv*dydu;
+
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dydu*S.dvalue(1,iloc,gi))/detJ.at(gi);
+              detDJ.at(1).at(iloc).at(gi)=(-dxdv*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ.at(gi);
+            }
+          }
+
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            for(int jloc=0;jloc<S.nloc();jloc++){
+              double sij(0.0);
+              for(int gi=0;gi<S.ngi();gi++){
+                sij+=(detDJ.at(0).at(iloc).at(gi)*detDJ.at(0).at(jloc).at(gi)+detDJ.at(1).at(iloc).at(gi)*detDJ.at(1).at(jloc).at(gi))*S.wgt(gi)*detJ.at(gi);
+              }
+              Sz.at(iloc).at(jloc)=sij;
+            }
+          }
+
+        }
+
+// corner forces
+
+        for(int idim=0;idim<ndims;idim++){
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            double f0zi(0.0);
+            for(int jloc=0;jloc<S.nloc();jloc++){
+              f0zi+=Sz.at(iloc).at(jloc)*u1.at(idim).at(M.Vertex(i,jloc));
+            }
+            Fv.at(idim).at(M.Vertex(i,iloc))+=f0zi;
+            Fc.at(idim).at(i).at(iloc)=f0zi;
+          }
+        }
+      }
+
+      for(int i=0;i<M.NCells();i++){
+
+// smoothness sensor
+
+        double gp(V1.at(i)*c.at(i)/(l.at(i)*l.at(i)));
+        double alpha0(0.005);
+
+        vector<double> psi0(S.nloc());
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          double fpnorm(sqrt(Fv.at(0).at(M.Vertex(i,iloc))*Fv.at(0).at(M.Vertex(i,iloc))+Fv.at(1).at(M.Vertex(i,iloc))*Fv.at(1).at(M.Vertex(i,iloc))));
+          psi0.at(iloc)=1.0-exp(-fpnorm/alpha0/abs(gp));
+        }
+        double psi0max(*max_element(psi0.begin(),psi0.end()));
+
+// compression switch
+
+        double psi1((Cz.at(i)<0.0)?1.0:0.0);
+
+// vorticity switch
+
+        double alpha2(1.0),tmp(Vz.at(i)/max(abs(Cz.at(i)),1.0e-10));
+        double psi2(1.0/(1.0+alpha2*tmp));
+
+// viscosity coefficients
+
+        double mu(psi0max*psi1*d1.at(i)*l.at(i)*(cq*l.at(i)*abs(Cz.at(i))+psi2*cl*c.at(i)));
+        double qz(mu*abs(Cz.at(i))); // scalar coefficient, see eqn (42)
+
+// viscous forces
+
+        for(int idim=0;idim<ndims;idim++){
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            Fc.at(idim).at(i).at(iloc)=mu*Fc.at(idim).at(i).at(iloc);
+          }
+        }
+
+// shock heating
+
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          double esum(0.0);
+          for(int idim=0;idim<ndims;idim++){
+            esum+=u1.at(idim).at(M.Vertex(i,iloc))*Fc.at(idim).at(i).at(iloc);
+          }
+          eshock.at(i).at(iloc)=esum;
+        }
+
+      }
+
+    }else{
+
 // bulk q
 
-    for(int i=0;i<q.size();i++){
-      double divu((d0[i]-d1[i])/(d1[i]*dt)); // element length and divergence field
-      if(divu<0.0){
-        q.at(i)=d1[i]*l[i]*divu*((cq*l[i]*divu)-cl*c[i]);
-      }else{
-        q.at(i)=0.0; // turn off q as cell divergence indicates expansion
+      for(int i=0;i<M.NCells();i++){
+
+// compute a jacobian and determinant for the element
+
+        double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          dxdu+=x1.at(0).at(M.Vertex(i,iloc))*S.dvalue(0,iloc,0.0,0.0); // dx/du
+          dydu+=x1.at(1).at(M.Vertex(i,iloc))*S.dvalue(0,iloc,0.0,0.0); // dy/du
+          dxdv+=x1.at(0).at(M.Vertex(i,iloc))*S.dvalue(1,iloc,0.0,0.0); // dx/dv
+          dydv+=x1.at(1).at(M.Vertex(i,iloc))*S.dvalue(1,iloc,0.0,0.0); // dy/dv
+        }
+
+        double detJ(dxdu*dydv-dxdv*dydu);
+
+// deriavtives
+
+        vector<vector<double> > detDJ(ndims,vector<double> (S.nloc(),0.0));
+
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          detDJ.at(0).at(iloc)=(dydv*S.dvalue(0,iloc,0.0,0.0)-dydu*S.dvalue(1,iloc,0.0,0.0))/detJ;
+          detDJ.at(1).at(iloc)=(-dxdv*S.dvalue(0,iloc,0.0,0.0)+dxdu*S.dvalue(1,iloc,0.0,0.0))/detJ;
+        }
+
+// calculate element divergence field
+
+        double divu(0.0);
+        for(int idim=0;idim<ndims;idim++){
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            divu+=u1.at(idim).at(M.Vertex(i,iloc))*detDJ.at(idim).at(iloc);
+          }
+        }
+
+//        double divu((d0[i]-d1[i])/(d1[i]*dt)); // equivalent to above ??
+
+// artificial viscosity term
+
+        if(divu<0.0){
+          q.at(i)=d1[i]*l[i]*divu*((cq*l[i]*divu)-cl*c[i]);
+        }else{
+          q.at(i)=0.0; // turn off q as cell divergence indicates expansion
+        }
       }
+
     }
 
 //  for(int i=0;i<n;i++){
@@ -503,6 +704,16 @@ int main(){
 // insert boundary conditions
 
   bc_insert(M,S,b,b0,p,q,detDJ,detJ);
+
+// add on viscous forces
+
+  for(int idim=0;idim<ndims;idim++){
+    for(int i=0;i<n;i++){
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        b.at(idim*nnodes+M.Vertex(i,iloc))-=Fc.at(idim).at(i).at(iloc);
+      }
+    }
+  }
 
 // solve global system
 
@@ -716,7 +927,29 @@ void lineouts(Mesh const &M,Shape const &S,VD const &d,VD const &p,VD const &e,V
 
 // Sod's shock tube
 
-      return;;
+      for(int iline=0;iline<1;iline++){
+
+        switch(iline){
+
+          case(0):
+
+            lineout.x1=xmin;
+            lineout.x2=xmax;
+            lineout.y1=0.5*(ymin+ymax);
+            lineout.y2=0.5*(ymin+ymax);
+            lineout.filename="lineout_1.dat";
+            lineout.filehead="# Sod lineout from (0.0,0.5) to (1.0,0.5) : Columns are x d p e q u";
+            lineout.nsamples=200;
+
+            break;
+
+        }
+
+// append to the data structure
+
+        Lineout.push_back(lineout);
+
+      }
 
       break;
 

@@ -23,6 +23,7 @@
 #include "shape.h"
 #include "mesh.h"
 #include <cmath>
+#include <numeric> // accumulate
 
 // function signatures
 
@@ -31,7 +32,8 @@ std::string date();
 using namespace std;
 
 void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const &c,
-          VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g){
+          VVD const &u,VVD const &f,VI const &m,int step,double time,Mesh const &M,
+          VD const &g,VVD const &eshock){
 
   DBfile*dbfile;
   DBoptlist *optlist=NULL;
@@ -182,6 +184,12 @@ void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const 
   dberr=DBPutUcdvar1(dbfile,"energy","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
   dberr=DBFreeOptlist(optlist);
 
+  for(int i=0;i<nzones;i++){var2[i]=accumulate(eshock.at(i).begin(),eshock.at(i).end(),0.0);}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
+  dberr=DBPutUcdvar1(dbfile,"shock_heating","Elements",var2,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+  dberr=DBFreeOptlist(optlist);
+
   for(int i=0;i<nzones;i++){var2[i]=g.at(matlist[i]-1);}
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"");
@@ -208,6 +216,28 @@ void silo(VVD const &x,VD const &d,VD const &p,VD const &e,VD const &q,VD const 
   optlist = DBMakeOptlist(1);
   dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"cm/s");
   dberr=DBPutUcdvar1(dbfile,"velocity","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBFreeOptlist(optlist);
+
+// write viscous forces
+
+  for(long i=0;i<nnodesk;i++){var1[i]=f.at(0).at(i);}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"gcm/s/s");
+  dberr=DBPutUcdvar1(dbfile,"viscous_force_x","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBFreeOptlist(optlist);
+
+  for(long i=0;i<nnodesk;i++){var1[i]=f.at(1).at(i);}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"gcm/s/s");
+  dberr=DBPutUcdvar1(dbfile,"viscous_force_y","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBFreeOptlist(optlist);
+
+// write viscous force resultant
+
+  for(long i=0;i<nnodesk;i++){var1[i]=sqrt(f.at(0).at(i)*f.at(0).at(i)+f.at(1).at(i)*f.at(1).at(i));}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"gcm/s/s");
+  dberr=DBPutUcdvar1(dbfile,"viscous_force","Elements",var1,nnodesk,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
   dberr=DBFreeOptlist(optlist);
 
 // close the database
