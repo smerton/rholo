@@ -2,6 +2,9 @@
 
 // Author S. R. Merton
 
+#define CONTINUOUS 1
+#define DISCONTINUOUS 2
+
 #include <vector>
 
 using namespace std;
@@ -11,6 +14,7 @@ class Shape{
   public:
 
     Shape(int n);                                                  // constructor function for a new shape of order n in isoparametric coordinates
+    Shape(int n,int ngi,int t);                                    // new isoparametric shape of order n, type t=DISCONTINUOUS or t=CONTINUOUS using ngi integration points per axis
     Shape(int n,vector<vector<double> > x);                        // constructor function for a new shape of order n in global coordinates x
 
     ~Shape();                                                      // destructor to release class storage
@@ -18,6 +22,7 @@ class Shape{
 // accessor functions to member data
 
     int order() const;                                             // returns the polyhedral order of the shape
+    int type() const;                                              // returns the type of the shape
     int ndims() const;                                             // returns the number of dimensions of the shape
     int nloc() const;                                              // returns number of local nodes
     int sloc() const;                                              // returns number of nodes on the surface
@@ -36,16 +41,19 @@ class Shape{
     double coeff(int i,int j) const;                               // coefficient j in the polynomial expansion of shape i
     double integrate(int i) const;                                 // integrate shape i in global coordinates
     double integrate(int idim,int i) const;                        // integrate derivative idim of shape i in global coordinates
+    vector<double> values(vector<double> const &v) const;          // scatter values at the integration points to the nodes
+    bool contains(vector<double> const &v) const;                  // test if the point v lies inside the element
 
 // accessor function to prolongation operator
 
-    void prolongate(double*u,double*v,int p);                      // prolongation operator to map vector u[] to an order p element
+    void prolongate(double*u,double*v,int p) const;                // prolongation operator to map vector u[] to an order p element
 
   private:
 
 // member data
 
     int morder;                                         // polyhedral order of the shape
+    int mtype;                                          // type of shape can be DISCONTINUOUS or CONTINUOUS
     int mndims;                                         // number of dimensions of the shape
     int mnloc;                                          // number of local nodes
     int msloc;                                          // number of surface nodes
@@ -58,5 +66,19 @@ class Shape{
     vector<vector<double > > mdvalue[3];                // derivative values
     vector<vector<double> > mcoeff;                     // coefficients of the polynomial
     vector<vector<double> > mr;                         // coordinates of the shape function nodes
+
+// structure to define a point
+
+    struct Point{
+      double x;
+      double y;
+    };
+
+// functions to determine if a point lies inside an element
+
+    bool onSegment(Point p, Point q, Point r) const;                // check if p lies on qr
+    int orientation(Point p, Point q, Point r) const;               // orientation of triplet (p,q,r)
+    bool doIntersect(Point p1, Point q1, Point p2, Point q2) const; // p1q1 and p2q2 intersect
+    bool isInside(Point p) const;                                   // returns true if point p lies inside the element
 
 };

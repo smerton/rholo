@@ -24,6 +24,10 @@ Shape::Shape(int n){
 
   morder=n;
 
+// set the type of shape, assume CONITNUOUS
+
+  mtype=CONTINUOUS;
+
 // set the number of dimensions
 
   mndims=2; // shouldn't we be getting this from the mesh class ?
@@ -66,6 +70,18 @@ Shape::Shape(int n){
     }
   }
 
+// node coordinates
+
+  mr.resize(ndims());
+
+  double dx(2.0/morder),dy(2.0/morder);
+  for(int isuby=0,k=0;isuby<morder+1;isuby++){
+    for(int isubx=0;isubx<morder+1;isubx++,k++){
+      mr.at(0).push_back(-1.0+isubx*dx);
+      mr.at(1).push_back(-1.0+isuby*dy);
+    }
+  }
+
 // load a quadrature rule for the numerical integration of the polynomials Px
 
   QuadratureRule Q(this->order()+1);
@@ -101,17 +117,107 @@ Shape::Shape(int n){
 
 }
 
+// constructor to instantiate a new shape object of type t using ngi integration point and to set all its attributes in local coordinates
+
+Shape::Shape(int n,int ngi,int t){
+
+// set the polyhedral order
+
+  morder=n;
+
+// set the type of shape, assume CONITNUOUS
+
+  mtype=t;
+
+// set the number of dimensions
+
+  mndims=2; // shouldn't we be getting this from the mesh class ?
+
+// set number of local nodes
+
+  mnloc=(this->order()+1)*(this->order()+1);
+
+// set number of surface nodes on a face
+
+  msloc=this->order()+1;
+
+// set number of integration points adequate for the shape
+
+  int ngi_min((this->order()+1)); // min number needed
+
+  if(ngi<ngi_min){
+    cout<<"Shape::Shape(): "<<ngi_min<<" quadrature points needed, "<<ngi<<" requested."<<endl;
+    exit(1);
+  }
+
+// ngi is the number of points on-axis so we square it to obtain correct number for a 2D element
+
+  mngi=ngi*ngi;
+
+// set number of faces
+
+  mnfaces=4;
+
+// set up reflection across each face
+
+  vector<int> reflections[this->nfaces()];
+
+  reflections[0].push_back(2);
+  reflections[1].push_back(1);
+  reflections[2].push_back(2);
+  reflections[3].push_back(3);
+
+  for(int iface=0;iface<this->nfaces();iface++){
+    mreflect.push_back(reflections[iface]);
+  }
+
+// node positions
+
+  for(int j=0,k=0;j<sloc();j++){
+    for(int i=0;i<sloc();i++,k++){
+      mpos[0].push_back(i);
+      mpos[1].push_back(j);
+    }
+  }
+
+// load a quadrature rule for the numerical integration of the polynomials Px
+
+  QuadratureRule Q(ngi);
+
+// shape and derivative value at each integration point
+
+  for(int i=0;i<nloc();i++){
+    vector<double> values;
+    vector<vector<double> > dvalues(mndims);
+    for(int jpt=0;jpt<Q.npoints;jpt++){
+      for(int ipt=0;ipt<Q.npoints;ipt++){
+        values.push_back(value(i,Q.x[ipt],Q.x[jpt]));
+        for(int idim=0;idim<mndims;idim++){
+          dvalues.at(idim).push_back(dvalue(idim,i,Q.x[ipt],Q.x[jpt]));
+        }
+      }
+    }
+    mvalue.push_back(values);
+
+    for(int idim=0;idim<ndims();idim++){
+      mdvalue[idim].push_back(dvalues.at(idim));
+    }
+
+  }
+
+// quadrature weights
+
+  for(int ipt=0,gi=0;ipt<Q.npoints;ipt++){
+    for(int jpt=0;jpt<Q.npoints;jpt++,gi++){
+      mwgt.push_back(Q.w[ipt]*Q.w[jpt]);
+    }
+  }
+
+}
+
 // constructor to instantiate a new shape object and all its attributes in global coordinates
 
 Shape::Shape(int n,vector<vector<double> > x){
-
-// this is only coded for bilinear case
-
-  if(n!=1){
-    cout<<"Shape::Shape(): Only bilinear shapes can be constructed in global coordinates, n= "<<n<<endl;
-    cout<<"Shape::Shape(): Stopping"<<endl;
-    exit(1);
-  }
 
 // set the polyhedral order
 
@@ -172,11 +278,15 @@ Shape::Shape(int n,vector<vector<double> > x){
 
   Matrix A(mnloc),AI(mnloc);
 
+// loop over powers of x and y for each column of the matrix
+
   for(int iloc=0;iloc<mnloc;iloc++){
-    A.write(iloc,0,1.0);
-    A.write(iloc,1,mr.at(0).at(iloc));
-    A.write(iloc,2,mr.at(1).at(iloc));
-    A.write(iloc,3,mr.at(0).at(iloc)*mr.at(1).at(iloc));
+    for(int i=0,jloc=0;i<=morder;i++){
+      for(int j=0;j<=morder;j++,jloc++){
+        A.write(iloc,jloc,pow(mr.at(0).at(iloc),i)*pow(mr.at(1).at(iloc),j));
+      }
+    }
+
   }
 
 // check for singularities which are expected if x1=x3 and y1=y4
@@ -226,23 +336,59 @@ Shape::Shape(int n,vector<vector<double> > x){
 
 Shape::~Shape(){}
 
-/// member function to prolongate the vector u[] to a new vector v[] in the destination element
+// member function to prolongate the vector u[] of nodal values to a new vector v[] in a destination element of order p
+// this will map nodal data in vector u from the "this->" element to a new element of order p
 
-void Shape::prolongate(double*u,double*v,int p){
+void Shape::prolongate(double*u,double*v,int p) const {
 
-// create the destination element
+// create the destination element of polyhedral order p
 
-  Shape M(p);double P[this->nloc()][M.nloc()]={};
+  Shape M(p,sqrt(this->ngi()),CONTINUOUS);
 
-// form a matrix to map u to M
+// form a prolongation operator to map u[] onto destination stencil M
 
-  for(int i=0;i<M.nloc();i++){
-    v[i]=0.0;
-    for(int j=0;j<this->nloc();j++){
+  Matrix P(M.nloc(),this->nloc());
+
+  for(int iloc=0;iloc<M.nloc();iloc++){
+    for(int jloc=0;jloc<this->nloc();jloc++){
+      double pij(0.0);
       for(int gi=0;gi<M.ngi();gi++){
-        P[i][j]+=M.value(i,gi)*this->value(j,gi)*M.wgt(gi);
+        pij+=M.value(iloc,gi)*this->value(jloc,gi)*M.wgt(gi);
       }
-      v[i]+=P[i][j]*u[j];
+      P.write(iloc,jloc,pij);
+    }
+  }
+
+// form a mass matrix and its inverse on destination stencil M
+
+  Matrix MMASS(M.nloc()),MMASSI(M.nloc());
+
+  for(int iloc=0;iloc<M.nloc();iloc++){
+    for(int jloc=0;jloc<M.nloc();jloc++){
+      double nmass(0.0);
+      for(int gi=0;gi<M.ngi();gi++){
+        nmass+=M.value(iloc,gi)*M.value(jloc,gi)*M.wgt(gi);
+      }
+      MMASS.write(iloc,jloc,nmass);
+    }
+  }
+
+// invert the stencil M mass matrix
+
+  MMASSI.inverse2(&MMASS);
+
+// normalise prolongation operator to respect Galerkin orthogonality
+
+  Matrix PNORM(M.nloc(),this->nloc());
+
+  PNORM.product(&MMASSI,&P);
+
+// prolongate the source vector u[] of length this>nloc() to destination vector v[] which will be of length M.nloc()
+
+  for(int iloc=0;iloc<M.nloc();iloc++){
+    v[iloc]=0.0;
+    for(int jloc=0;jloc<this->nloc();jloc++){
+      v[iloc]+=PNORM.read(iloc,jloc)*u[jloc];
     }
   }
 
@@ -253,6 +399,7 @@ void Shape::prolongate(double*u,double*v,int p){
 // accessor functions to member data
 
 int Shape::order() const {return morder;} // returns the polyhedral order
+int Shape::type() const {return mtype;} // returns the shape type as either CONTINUOUS or DISCONTINUOUS
 int Shape::ndims() const {return mndims;} // returns the number of dimensions
 int Shape::nloc() const {return mnloc;} // returns number of local nodes
 int Shape::sloc() const {return msloc;} // returns number of nodes on the surface
@@ -264,7 +411,63 @@ int Shape::pos(int idim,int iloc) const {return mpos[idim][iloc];} // node posit
 double Shape::wgt(int gi) const {return mwgt[gi];} // quadrature weight of integration point gi
 double Shape::value(int i,int gi) const {return mvalue[i][gi];} // shape i value at Gauss point gi
 double Shape::value(int i,double u,double v) const {Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);return P1.value(u)*P2.value(v);} // shape i value at coordinate x,y
-double Shape::value(int i,vector<double> x) const {return(mcoeff.at(i).at(0)+mcoeff.at(i).at(1)*x.at(0)+mcoeff.at(i).at(2)*x.at(1)+mcoeff.at(i).at(3)*x.at(0)*x.at(1));}
+
+// scatter values at the integration points to the nodes
+// example: vector<double> arr_iloc(S.values(arr_gi));
+
+vector<double> Shape::values(vector<double> const &v) const{
+
+// no. integrations must match the no. nodes as we need a square matrix to invert
+
+  if(nloc()!=ngi()){
+    cout<<"Shape::node_values(): Number of nodes ("<<nloc()<<") does not match the number of integration points("<<ngi()<<"), stopping."<<endl;
+    exit(1);
+  }
+
+  vector<double> u(v);
+
+// store shape value at integration points in a square matrix
+
+  Matrix NMAT(nloc()),NMATI(nloc());
+  for(int gi=0;gi<ngi();gi++){
+    for(int iloc=0;iloc<nloc();iloc++){
+      NMAT.write(gi,iloc,value(iloc,gi));
+    }
+  }
+
+// invert the matrix
+
+  NMATI.inverse2(&NMAT);
+
+// perform a mat-vec to recover the nodal values
+
+  for(int iloc=0;iloc<nloc();iloc++){
+    u.at(iloc)=0.0;
+    for(int gi=0;gi<ngi();gi++){
+      u.at(iloc)+=v.at(gi)*NMATI.read(iloc,gi);
+    }
+  }
+
+  return u;
+
+}
+
+//double Shape::value(int i,vector<double> x) const {return(mcoeff.at(i).at(0)+mcoeff.at(i).at(1)*x.at(0)+mcoeff.at(i).at(2)*x.at(1)+mcoeff.at(i).at(3)*x.at(0)*x.at(1));}
+
+double Shape::value(int iloc,vector<double> x) const {
+
+  double pval(0.0);
+
+  for(int i=0,k=0;i<=morder;i++){
+    for(int j=0;j<=morder;j++,k++){
+      pval+=mcoeff.at(iloc).at(k)*pow(x.at(0),i)*pow(x.at(1),j);
+    }
+  }
+
+  return pval;
+
+}
+
 double Shape::dvalue(int idim,int i,int gi) const {return mdvalue[idim][i][gi];} // derivative i value at Gauss point gi
 double Shape::dvalue(int idim,int i,double u,double v) const {Polynomial P1(order(),pos(0,i),-1.0,1.0),P2(order(),pos(1,i),-1.0,1.0);double dval[2];dval[0]=P1.dvalue(u)*P2.value(v);dval[1]=P1.value(u)*P2.dvalue(v);return dval[idim];}// shape i derivative value at coordinate x
 double Shape::dvalue(int idim,int i,vector<double> x) const {double dx(mcoeff.at(i).at(1)+mcoeff.at(i).at(3)*x.at(1)),dy(mcoeff.at(i).at(2)+mcoeff.at(i).at(3)*x.at(0));return((idim==0)?dx:dy);} // shape i derivative value at global coordinate x
@@ -952,6 +1155,117 @@ double Shape::integrate(int i) const {
 // debug
 
   return(I1+I2+I3);
+
+}
+
+// given three collinear points (p,q,r) this function checks if point q lies on line pr
+
+bool Shape::onSegment(Point p,Point q,Point r) const {return (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) &&q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y));}
+
+// orientation of ordered triplet (p,q,r) to return 0 (p,q,r colinear), 1 (clockwise), 2 (counter-clockwise)
+
+int Shape::orientation(Point p,Point q,Point r) const{
+
+  double val((q.y-p.y)*(r.x-q.x)-(q.x-p.x)*(r.y-q.y));
+
+  return (val==0.0)?0:((val>0.0)?1:2);
+
+}
+
+// returns true if line segment 'p1q1' and 'p2q2' intersect
+
+bool Shape::doIntersect(Point p1,Point q1,Point p2,Point q2) const {
+
+// four orientations needed for general and special cases
+
+  int o1 = orientation(p1, q1, p2);
+  int o2 = orientation(p1, q1, q2);
+  int o3 = orientation(p2, q2, p1);
+  int o4 = orientation(p2, q2, q1);
+ 
+// general case
+
+  if (o1 != o2 && o3 != o4) return true;
+ 
+// special case: p1, q1 and p2 are collinear and p2 lies on segment p1q1
+
+  if (o1 == 0 && onSegment(p1, p2, q1)) return true;
+ 
+// special case: p1, q1 and p2 are collinear and q2 lies on segment p1q1
+
+  if (o2 == 0 && onSegment(p1, q2, q1)) return true;
+ 
+// special case: p2, q2 and p1 are collinear and p1 lies on segment p2q2
+
+  if (o3 == 0 && onSegment(p2, p1, q2)) return true;
+ 
+// special case: p2, q2 and q1 are collinear and q1 lies on segment p2q2
+
+  if (o4 == 0 && onSegment(p2, q1, q2)) return true;
+
+// none of the above
+
+  return false;
+
+}
+
+
+// returns true if point p lies inside the element
+// ref: geeksforgeeks.org/how-to-check-if-a-given-point-lies-inside-a-polygon
+
+bool Shape::isInside(Point p) const {
+
+// form a polygon from the node positions
+
+  Point polygon[nfaces()*(order()+1)];
+  int k=0;
+
+  for(int iloc=0;iloc<=order();iloc++,k++){polygon[k]={mr.at(0).at(iloc),mr.at(1).at(iloc)};}
+  for(int iloc=order();iloc<nloc();iloc+=(order()+1),k++){polygon[k]={mr.at(0).at(iloc),mr.at(1).at(iloc)};}
+  for(int iloc=nloc()-1;iloc>=nloc()-order()-1;iloc--,k++){polygon[k]={mr.at(0).at(iloc),mr.at(1).at(iloc)};}
+  for(int iloc=nloc()-order()-1;iloc>=0;iloc-=(order()+1),k++){polygon[k]={mr.at(0).at(iloc),mr.at(1).at(iloc)};}
+
+// create a point for line segment from p to infinity
+
+  Point extreme={10000.0, p.y};
+ 
+// sum intersections of the above line with sides of the element
+
+  int count=0,i=0;
+  do{
+
+    int next=(i+1)%mnloc;
+ 
+// check if the line segment from 'p' to 'extreme' intersects the line segment from 'polygon[i]' to 'polygon[next]'
+
+    if (doIntersect(polygon[i], polygon[next], p, extreme)){
+
+// if the point 'p' is collinear with line segment 'i-next' check if it lies on segment
+
+      if (orientation(polygon[i], p, polygon[next]) == 0)
+      return onSegment(polygon[i], p, polygon[next]);
+ 
+      count++;
+
+    }
+
+    i=next;
+
+  } while(i!=0);
+ 
+// return true if count is odd, false otherwise
+
+  return count&1; // Same as (count%2 == 1)
+
+}
+
+// tests if point v lies inside the element
+
+bool Shape::contains(vector<double> const &v) const{
+
+  Point pp{v.at(0),v.at(1)};
+
+  return isInside(pp);
 
 }
 

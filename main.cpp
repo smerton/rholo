@@ -26,8 +26,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001     // insert a macro for the first time step
-#define ENDTIME 0.201     // insert a macro for the end time
+#define DTSTART 0.001     // insert a macro for the first time step
+#define ENDTIME 0.601     // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -111,8 +111,9 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-100x1.mesh");                                 // load a new mesh from file
-  Shape S(1);                                                    // load a p1 shape function
+  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
+  Shape S(1,2,CONTINUOUS);                                       // load a p1 shape function
+  Shape NQ(S.order(),3,CONTINUOUS);                              // load a shape for tensor q
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   int const nnodes(M.NNodes());                                  // no. nodes in the mesh
@@ -144,9 +145,9 @@ int main(){
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-  test_problem=SOD;                                                    // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
-                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+//  test_problem=SOD;                                                    // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for double shock problem 
@@ -168,8 +169,8 @@ int main(){
 //  test_problem=TAYLOR;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-//  test_problem=NOH;                                                      // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
+  test_problem=NOH;                                                      // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
 
 //  test_problem=SEDOV;                                                  // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
@@ -185,14 +186,14 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
@@ -480,32 +481,32 @@ int main(){
 
 // stiffness matrix
 
-        vector<vector<double> > Sz(S.nloc(),vector<double> (S.nloc(),0.0));
+        vector<vector<double> > Sz(NQ.nloc(),vector<double> (NQ.nloc(),0.0));
         {
-          vector<double> detJ(S.ngi());
-          VVVD detDJ(ndims,VVD(S.nloc(),VD(S.ngi())));
-          for(int gi=0;gi<S.ngi();gi++){
+          vector<double> detJ(NQ.ngi());
+          VVVD detDJ(ndims,VVD(NQ.nloc(),VD(NQ.ngi())));
+          for(int gi=0;gi<NQ.ngi();gi++){
             double dxdu(0.0),dydu(0.0),dxdv(0.0),dydv(0.0);
-            for(int iloc=0;iloc<S.nloc();iloc++){
-              dxdu+=x1.at(0).at(M.Vertex(i,iloc))*S.dvalue(0,iloc,gi); // dx/du
-              dydu+=x1.at(1).at(M.Vertex(i,iloc))*S.dvalue(0,iloc,gi); // dy/du
-              dxdv+=x1.at(0).at(M.Vertex(i,iloc))*S.dvalue(1,iloc,gi); // dx/dv
-              dydv+=x1.at(1).at(M.Vertex(i,iloc))*S.dvalue(1,iloc,gi); // dy/dv
+            for(int iloc=0;iloc<NQ.nloc();iloc++){
+              dxdu+=x1.at(0).at(M.Vertex(i,iloc))*NQ.dvalue(0,iloc,gi); // dx/du
+              dydu+=x1.at(1).at(M.Vertex(i,iloc))*NQ.dvalue(0,iloc,gi); // dy/du
+              dxdv+=x1.at(0).at(M.Vertex(i,iloc))*NQ.dvalue(1,iloc,gi); // dx/dv
+              dydv+=x1.at(1).at(M.Vertex(i,iloc))*NQ.dvalue(1,iloc,gi); // dy/dv
             }
 
             detJ.at(gi)=dxdu*dydv-dxdv*dydu;
 
-            for(int iloc=0;iloc<S.nloc();iloc++){
-              detDJ.at(0).at(iloc).at(gi)=(dydv*S.dvalue(0,iloc,gi)-dydu*S.dvalue(1,iloc,gi))/detJ.at(gi);
-              detDJ.at(1).at(iloc).at(gi)=(-dxdv*S.dvalue(0,iloc,gi)+dxdu*S.dvalue(1,iloc,gi))/detJ.at(gi);
+            for(int iloc=0;iloc<NQ.nloc();iloc++){
+              detDJ.at(0).at(iloc).at(gi)=(dydv*NQ.dvalue(0,iloc,gi)-dydu*NQ.dvalue(1,iloc,gi))/detJ.at(gi);
+              detDJ.at(1).at(iloc).at(gi)=(-dxdv*NQ.dvalue(0,iloc,gi)+dxdu*NQ.dvalue(1,iloc,gi))/detJ.at(gi);
             }
           }
 
-          for(int iloc=0;iloc<S.nloc();iloc++){
-            for(int jloc=0;jloc<S.nloc();jloc++){
+          for(int iloc=0;iloc<NQ.nloc();iloc++){
+            for(int jloc=0;jloc<NQ.nloc();jloc++){
               double sij(0.0);
-              for(int gi=0;gi<S.ngi();gi++){
-                sij+=(detDJ.at(0).at(iloc).at(gi)*detDJ.at(0).at(jloc).at(gi)+detDJ.at(1).at(iloc).at(gi)*detDJ.at(1).at(jloc).at(gi))*S.wgt(gi)*detJ.at(gi);
+              for(int gi=0;gi<NQ.ngi();gi++){
+                sij+=(detDJ.at(0).at(iloc).at(gi)*detDJ.at(0).at(jloc).at(gi)+detDJ.at(1).at(iloc).at(gi)*detDJ.at(1).at(jloc).at(gi))*NQ.wgt(gi)*detJ.at(gi);
               }
               Sz.at(iloc).at(jloc)=sij;
             }
