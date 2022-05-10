@@ -26,8 +26,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.001     // insert a macro for the first time step
-#define ENDTIME 0.601     // insert a macro for the end time
+#define DTSTART 0.0001     // insert a macro for the first time step
+#define ENDTIME 0.20     // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -111,7 +111,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/sod-100x1.mesh");                                 // load a new mesh from file
   Shape S(1,2,CONTINUOUS);                                       // load a p1 shape function
   Shape NQ(S.order(),3,CONTINUOUS);                              // load a shape for tensor q
   ofstream f1,f2,f3;                                             // files for output
@@ -141,13 +141,14 @@ int main(){
   vector<vector<double> > Fv(ndims,vector<double>(nnodes,0.0));  // viscous forces
   VVVD Fc(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));           // corner forces on each cell
   VVD eshock(n,vector<double> (S.nloc(),0.0));                   // shock heating
+  bool zfds(false);                                               // use fds
   bool tensorq(true);                                            // use tensor q
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-//  test_problem=SOD;                                                    // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+  test_problem=SOD;                                                    // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for Sod's shock tube 
+                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},  // initial flux state in each material for double shock problem 
@@ -169,8 +170,8 @@ int main(){
 //  test_problem=TAYLOR;                                                 // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}}; // initial flux state in each material for Taylor problem
 
-  test_problem=NOH;                                                      // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
+//  test_problem=NOH;                                                      // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};   // initial flux state in each material for Noh problem
 
 //  test_problem=SEDOV;                                                  // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};     // initial flux state in each material for Sedov problem
@@ -186,14 +187,14 @@ int main(){
 
 // set boundary conditions on the edges of the mesh in the form (side,type,v.n) where side 0,1,2,3 = bottom,right,top,left
 
-//  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
-//  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
-//  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
-//  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
-  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
-  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
-  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
-  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
+  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
+  M.bc_set(1,VELOCITY,0.0);  // set boundary condition on right edge of mesh
+  M.bc_set(2,VELOCITY,0.0);  // set boundary condition on top edge of mesh
+  M.bc_set(3,VELOCITY,0.0);  // set boundary condition on left edge of mesh
+//  M.bc_set(0,VACUUM);  // set boundary condition on bottom edge of mesh
+//  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
+//  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
+//  M.bc_set(3,VACUUM);  // set boundary condition on left edge of mesh
 //  M.bc_set(0,VELOCITY,0.0);  // set boundary condition on bottom edge of mesh
 //  M.bc_set(1,VACUUM);  // set boundary condition on right edge of mesh
 //  M.bc_set(2,VACUUM);  // set boundary condition on top edge of mesh
@@ -409,7 +410,19 @@ int main(){
 
 // update internal energy field at the full-step
 
-    M.UpdateEnergy(e0,e1,p,q,V0,V1,m);
+    if(zfds){
+      for(int i=0;i<M.NCells();i++){
+        double edot(0.0);
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          for(int idim=0;idim<M.NDims();idim++){
+            edot+=Fc.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
+          }
+        }
+        e1.at(i)=max(1.0e-10,e0.at(i)-edot/m.at(i));
+      }
+    }else{
+      M.UpdateEnergy(e0,e1,p,q,V0,V1,m);
+    }
 
 // add on shock heating
 
@@ -725,6 +738,24 @@ int main(){
       x+=KMASSI.read(i,j)*b[j];
     }
     udot.at(i)=x;
+  }
+
+// update corner forces for FDS
+
+  if(zfds){
+    for(int i=0;i<M.NCells();i++){
+      jacobian(i,x1,M,S,detJ,detDJ);
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        double nvol(0.0);
+        for(int gi=0;gi<S.ngi();gi++){
+          nvol+=S.value(iloc,gi)*S.wgt(gi)*detJ.at(gi);
+        }
+        double nmass(nvol*d1.at(i));
+        for(int idim=0;idim<ndims;idim++){
+          Fc.at(idim).at(i).at(iloc)=udot.at(idim*nnodes+M.Vertex(i,iloc))*nmass;
+        }
+      }
+    }
   }
 
 // advance the solution
