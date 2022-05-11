@@ -26,7 +26,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001     // insert a macro for the first time step
+#define DTSTART 0.00005     // insert a macro for the first time step
 #define ENDTIME 0.20     // insert a macro for the end time
 //#define ECUT 1.0e-8     // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -140,9 +140,10 @@ int main(){
   vector<double> gamma(M.NMaterials());                          // ratio of specific heats, set from material definition
   vector<vector<double> > Fv(ndims,vector<double>(nnodes,0.0));  // viscous forces
   VVVD Fc(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));           // corner forces on each cell
+  VVVD F(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));            // mass times acceleration for FDS energy field
   VVD eshock(n,vector<double> (S.nloc(),0.0));                   // shock heating
-  bool zfds(false);                                               // use fds
-  bool tensorq(true);                                            // use tensor q
+  bool zfds(true);                                              // use fds
+  bool tensorq(false);                                           // use tensor q
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
@@ -415,7 +416,7 @@ int main(){
         double edot(0.0);
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int idim=0;idim<M.NDims();idim++){
-            edot+=Fc.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
+            edot+=F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
           }
         }
         e1.at(i)=max(1.0e-10,e0.at(i)-edot/m.at(i));
@@ -752,7 +753,7 @@ int main(){
         }
         double nmass(nvol*d1.at(i));
         for(int idim=0;idim<ndims;idim++){
-          Fc.at(idim).at(i).at(iloc)=udot.at(idim*nnodes+M.Vertex(i,iloc))*nmass;
+          F.at(idim).at(i).at(iloc)=udot.at(idim*nnodes+M.Vertex(i,iloc))*nmass;
         }
       }
     }
