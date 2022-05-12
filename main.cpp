@@ -142,7 +142,7 @@ int main(){
   VVVD Fc(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));           // corner forces on each cell
   VVVD F(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));            // mass times acceleration for FDS energy field
   VVD eshock(n,vector<double> (S.nloc(),0.0));                   // shock heating
-  bool zfds(true);                                              // use fds
+  bool zfds(false);                                              // use fds
   bool tensorq(false);                                           // use tensor q
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
@@ -416,10 +416,23 @@ int main(){
         double edot(0.0);
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int idim=0;idim<M.NDims();idim++){
-            edot+=F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
+            edot-=2.0*F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
+
+//            if(vnod1>vnod0){ // node iloc expanding: work done BY node iloc
+//              edot-=2.0*F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
+//            }else{ // node iloc contracting: work done ON node iloc
+//              edot+=2.0*F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
+//            }
+
           }
         }
-        e1.at(i)=max(1.0e-10,e0.at(i)-edot/m.at(i));
+
+        if(V1.at(i)>V0.at(i)){ // cell i expanding: work done BY the cell
+          e1.at(i)=max(1.0e-10,e0.at(i)+edot/m.at(i));
+        }else{ // cell i contracting: work done ON the cell
+          e1.at(i)=max(1.0e-10,e0.at(i)-edot/m.at(i));
+        }
+
       }
     }else{
       M.UpdateEnergy(e0,e1,p,q,V0,V1,m);
