@@ -2,9 +2,10 @@
 
 // Author S. R. Merton
 
-#define VVD vector<vector<double> > // laziness
-#define VTOL 1.0e-10                // threshold for volume errors
-#define ECUT 1.0e-8                 // cut-off on the energy field
+#define VVD vector<vector<double> >             // laziness
+#define VVVD vector<vector<vector<double> > >   // laziness
+#define VTOL 1.0e-10                            // threshold for volume errors
+#define ECUT 1.0e-8                             // cut-off on the energy field
 
 #include "mesh.h"
 #include "shape.h"
@@ -913,6 +914,30 @@ void Mesh::UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0
 
   for(int i=0;i<e0.size();i++){
     e1.at(i)=max(ECUT,e0.at(i)-((p.at(i)+q.at(i))*(V1.at(i)-V0.at(i)))/m.at(i));
+  }
+
+  return;
+
+}
+
+// update internal energy field for compatible hydro
+
+void Mesh::UpdateEnergy(VVVD const &F,VD const &e0,VD &e1,VVD const &u,VD const &m,double const &dt) const{
+
+// declare a shape function
+
+  Shape S(1);
+
+// compute energy change on each element using the corner forces
+
+  for(int i=0;i<e0.size();i++){
+    double edot(0.0);
+    for(int iloc=0;iloc<S.nloc();iloc++){
+      for(int idim=0;idim<NDims();idim++){
+        edot-=F.at(idim).at(i).at(iloc)*u.at(idim).at(Vertex(i,iloc))*dt;
+      }
+    }
+    e1.at(i)=max(1.0e-10,e0.at(i)+edot/m.at(i));
   }
 
   return;
