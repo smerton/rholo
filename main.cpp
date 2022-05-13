@@ -142,7 +142,7 @@ int main(){
   VVVD Fc(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));           // corner forces on each cell
   VVVD F(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));            // mass times acceleration for FDS energy field
   VVD eshock(n,vector<double> (S.nloc(),0.0));                   // shock heating
-  bool zfds(false);                                              // use fds
+  bool zfds(true);                                               // use fds
   bool tensorq(false);                                           // use tensor q
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
@@ -412,30 +412,24 @@ int main(){
 // update internal energy field at the full-step
 
     if(zfds){
+
+// use F.ds for change in cell energy
+
       for(int i=0;i<M.NCells();i++){
         double edot(0.0);
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int idim=0;idim<M.NDims();idim++){
-            edot-=2.0*F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
-
-//            if(vnod1>vnod0){ // node iloc expanding: work done BY node iloc
-//              edot-=2.0*F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
-//            }else{ // node iloc contracting: work done ON node iloc
-//              edot+=2.0*F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
-//            }
-
+            edot-=F.at(idim).at(i).at(iloc)*u1.at(idim).at(M.Vertex(i,iloc))*dt;
           }
         }
-
-        if(V1.at(i)>V0.at(i)){ // cell i expanding: work done BY the cell
-          e1.at(i)=max(1.0e-10,e0.at(i)+edot/m.at(i));
-        }else{ // cell i contracting: work done ON the cell
-          e1.at(i)=max(1.0e-10,e0.at(i)-edot/m.at(i));
-        }
-
+        e1.at(i)=max(1.0e-10,e0.at(i)+edot/m.at(i));
       }
     }else{
+
+// use pdV for change in cell energy
+
       M.UpdateEnergy(e0,e1,p,q,V0,V1,m);
+
     }
 
 // add on shock heating
@@ -743,6 +737,25 @@ int main(){
     }
   }
 
+// update corner forces for FDS
+
+  if(zfds){
+    for(int idim=0;idim<ndims;idim++){
+      for(int i=0;i<n;i++){
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          F.at(idim).at(i).at(iloc)=0.0;
+        }
+
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          for(int gi=0;gi<S.ngi();gi++){
+            F.at(idim).at(i).at(iloc)+=(p[i]+q[i])*detDJ[idim][iloc][gi]*detJ[gi]*S.wgt(gi)-Fc.at(idim).at(i).at(iloc);
+          }
+        }
+
+      }
+    }
+  }
+
 // solve global system
 
   vector<double> udot=vector<double>(M.NDims()*nnodes);
@@ -754,27 +767,7 @@ int main(){
     udot.at(i)=x;
   }
 
-// update corner forces for FDS
-
-  if(zfds){
-    for(int i=0;i<M.NCells();i++){
-      jacobian(i,x1,M,S,detJ,detDJ);
-      for(int iloc=0;iloc<S.nloc();iloc++){
-        double nvol(0.0);
-        for(int gi=0;gi<S.ngi();gi++){
-          nvol+=S.value(iloc,gi)*S.wgt(gi)*detJ.at(gi);
-        }
-        double nmass(nvol*d1.at(i));
-        for(int idim=0;idim<ndims;idim++){
-          F.at(idim).at(i).at(iloc)=udot.at(idim*nnodes+M.Vertex(i,iloc))*nmass;
-        }
-      }
-    }
-  }
-
 // advance the solution
-
-//  for(int i=0;i<nnodes;i++){u1.at(idim).at(i)=u0.at(idim).at(i)+udot.at(i)*dt;}
 
   for(int idim=0;idim<M.NDims();idim++){
     for(int i=0;i<nnodes;i++){
