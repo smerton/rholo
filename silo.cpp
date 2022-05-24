@@ -32,7 +32,8 @@ std::string date();
 using namespace std;
 
 void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,
-          VVD const &u,VI const &m,int step,double time,Mesh const &M,VD const &g,Shape const &S,Shape const &T){
+          VVD const &u,VVD const &f,VD const &es,VI const &m,int step,double time,Mesh const &M,VD const &g,
+          Shape const &S,Shape const &T){
 
 // local function signatures
 
@@ -345,6 +346,30 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
   dberr=DBPutUcdvar1(dbfile,"velocity","Kinematics",var1,nnodes,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
   dberr=DBFreeOptlist(optlist);
 
+// viscous force x-component
+
+  for(long i=0;i<nnodes;i++){var1[i]=f.at(0).at(i);}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"gcm/s/s");
+  dberr=DBPutUcdvar1(dbfile,"viscous_force_x","Kinematics",var1,nnodes,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBFreeOptlist(optlist);
+
+// viscous force y-component
+
+  for(long i=0;i<nnodes;i++){var1[i]=f.at(1).at(i);}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"gcm/s/s");
+  dberr=DBPutUcdvar1(dbfile,"viscous_force_y","Kinematics",var1,nnodes,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBFreeOptlist(optlist);
+
+// shock heating
+
+//  for(long i=0;i<nnodes;i++){var1[i]=es.at(i);}
+//  optlist = DBMakeOptlist(1);
+//  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
+//  dberr=DBPutUcdvar1(dbfile,"shock_heating","Kinematics",var1,nnodes,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+//  dberr=DBFreeOptlist(optlist);
+
 // release the arrays ready for the next mesh
 
   delete[] nodelist;
@@ -446,6 +471,14 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
   dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
   dberr=DBPutUcdmesh(dbfile,"Thermodynamics",ndims,NULL,coords,nnodes,nzones,"zonelist3",NULL,DB_DOUBLE,optlist);
   dberr=DBPutPointmesh(dbfile,"Thermodynamic_Nodes",ndims,coords,nnodes,DB_DOUBLE,optlist);
+
+// shock heating
+
+  for(long i=0;i<nnodes;i++){var1[i]=es.at(i);}
+  optlist = DBMakeOptlist(1);
+  dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"Mbcc");
+  dberr=DBPutUcdvar1(dbfile,"shock_heating","Thermodynamics",var1,nnodes,NULL,0,DB_DOUBLE,DB_NODECENT,optlist); 
+  dberr=DBFreeOptlist(optlist);
 
   delete[] nodelist;
   nodelist=NULL;
