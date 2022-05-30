@@ -33,7 +33,7 @@ using namespace std;
 
 void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,
           VVD const &u,VVD const &f,VD const &es,VI const &m,int step,double time,Mesh const &M,VD const &g,
-          Shape const &S,Shape const &T){
+          VD const &qdata,Shape const &S,Shape const &T){
 
 // local function signatures
 
@@ -724,44 +724,45 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 
 // acquire the local sub-cell vertices
 
+    vector<double> xtmp((nsubx+1)*(nsuby+1));
     for(int isuby=0,isub=0,k=0;isuby<=nsuby;isuby++){
       for(int isubx=0;isubx<=nsubx;isubx++,k++){
-
         if(isuby<nsuby){
           if(isubx==0){
-            xcoords[SampleNode.at(i).at(k)]=xloc.at(0);
+            xtmp.at(k)=xloc.at(0);
             isub++;
           }else if(isubx==nsubx){
-            xcoords[SampleNode.at(i).at(k)]=xloc.at(S.sloc()-1);
+            xtmp.at(k)=xloc.at(S.sloc()-1);
           }else{
             double xl(xcgi.at(isub-1)),xr(xcgi.at(isub));
-            xcoords[SampleNode.at(i).at(k)]=0.5*(xl+xr);
+            xtmp.at(k)=0.5*(xl+xr);
             isub++;
           }
         }else{
-          xcoords[SampleNode.at(i).at(k)]=xcoords[SampleNode.at(i).at(isubx)];
+          xtmp.at(k)=xtmp.at(isubx);
           isub++;
         }
 
       }
     }
 
+    vector<double> ytmp((nsubx+1)*(nsuby+1));
     for(int isuby=0,isub=0,k=0;isuby<=nsuby;isuby++){
       for(int isubx=0;isubx<=nsubx;isubx++,k++){
 
         if(isubx<nsubx){
           if(isuby==0){
-            ycoords[SampleNode.at(i).at(k)]=yloc.at(0);
+            ytmp.at(k)=yloc.at(0);
             isub++;
           }else if(isuby==nsuby){
-            ycoords[SampleNode.at(i).at(k)]=yloc.at(S.nloc()-S.sloc()-1+isuby);
+            ytmp.at(k)=yloc.at(S.nloc()-S.sloc()-1+isuby);
           }else{
             double yb(ycgi.at(isub)),yt(ycgi.at(isub-nsubx));
-            ycoords[SampleNode.at(i).at(k)]=0.5*(yb+yt);
+            ytmp.at(k)=0.5*(yb+yt);
             isub++;
           }
         }else{
-          ycoords[SampleNode.at(i).at(k)]=ycoords[SampleNode.at(i).at(k-1)];
+          ytmp.at(k)=ytmp.at(k-1);
         }
 
       }
@@ -769,50 +770,90 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 
 // convert to global coordinates to generate the mesh using a finite element method
 
+    for(int isuby=0,isub=0,k=0;isuby<=nsuby;isuby++){
+      for(int isubx=0;isubx<=nsubx;isubx++,k++){
 
-
-
-
-
-
-
-
-// debug
-    if(i==1){
-      for(int isuby=0,isub=0;isuby<=nsuby;isuby++){
-        for(int isubx=0;isubx<=nsubx;isubx++,isub++){
-
-cout<<i<<" "<<isub<<" "<<xcoords[SampleNode.at(i).at(isub)]<<" "<<ycoords[SampleNode.at(i).at(isub)]<<endl;
-//        xcoords[SampleNode.at(i).at(isub)]=xcgi.at(isub);
-//        ycoords[SampleNode.at(i).at(isub)]=ycgi.at(isub);
-
+        double xsum(0.0),ysum(0.0);
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          xsum+=S.value(iloc,xtmp.at(k),ytmp.at(k))*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+          ysum+=S.value(iloc,xtmp.at(k),ytmp.at(k))*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
         }
+
+        xcoords[SampleNode.at(i).at(k)]=xsum;
+        ycoords[SampleNode.at(i).at(k)]=ysum;
+
       }
     }
-// debug
 
   }
 
+// set up an array of length ndims pointing to the coordinate arrays
 
+  coords[0]=xcoords;
+  coords[1]=ycoords;
 
-// debug
-  cout<<"nsubs=  "<<nsubs<<endl;
-  cout<<"nsubx=  "<<nsubx<<endl;
-  cout<<"nsuby=  "<<nsuby<<endl;
-  cout<<"nzones= "<<nzones<<endl;
-  cout<<"nnodes= "<<nnodes<<endl;
-  cout<<"ndims= "<<ndims<<endl;
-  cout<<"lnodelist= "<<lnodelist<<endl;
-  exit(1);
-// debug
+// connectivities joining up the sub-cells
 
+  for(int i=0,j=0;i<M.NCells();i++){
 
+    for(int jloc=0;jloc<nsuby;jloc++){
+      for(int iloc=0;iloc<nsubx;iloc++,j+=4){
 
+// node numbers in the corners of the sub-zone
 
+        int iloc0(jloc*(nsubx+1)+iloc);
+        int iloc1(jloc*(nsubx+1)+iloc+1);
+        int iloc2((jloc+1)*(nsubx+1)+iloc);
+        int iloc3((jloc+1)*(nsubx+1)+iloc+1);
 
+// store in the node list
 
+        nodelist[j]=SampleNode.at(i).at(iloc0);
+        nodelist[j+1]=SampleNode.at(i).at(iloc1);
+        nodelist[j+2]=SampleNode.at(i).at(iloc3); // we need to flip the top 2 nodes around as the
+        nodelist[j+3]=SampleNode.at(i).at(iloc2); // nodelist goes anticlockwise around the element
 
+      }
+    }
 
+  }
+
+// zone shapes
+
+  for(int i=0;i<nshapetypes;i++){shapesize[i]=4;}
+  for(int i=0;i<nshapetypes;i++){shapecounts[i]=nzones;}
+
+// material numbers
+
+  for(int i=0;i<nmat;i++){matnos[i]=i+1;}
+  for(int i=0,k=0;i<M.NCells();i++){for(int j=0;j<nsubs;j++,k++){matlist[k]=m.at(i);}}
+  for(int i=0;i<nmat;i++){matname[i]="Air";}
+  matdims[0]=nzones;
+  matdims[1]=1;
+
+// write out connectivity information
+
+  dberr=DBPutZonelist(dbfile,"zonelist5",nzones,ndims,nodelist,lnodelist,origin,shapesize,shapecounts,nshapetypes);
+
+// write out the mesh
+
+  optlist=DBMakeOptlist(2);
+  dberr=DBAddOption(optlist,DBOPT_DTIME,&time);
+  dberr=DBAddOption(optlist,DBOPT_CYCLE,&step);
+  dberr=DBPutUcdmesh(dbfile,"Quadrature",ndims,NULL,coords,nnodes,nzones,"zonelist5",NULL,DB_DOUBLE,optlist);
+  dberr=DBPutPointmesh(dbfile,"Quadrature_Points",ndims,coords,nnodes,DB_DOUBLE,optlist);
+
+// quadrature data
+
+  if(qdata.size()!=0){
+    for(long i=0;i<nzones;i++){var1[i]=qdata.at(i);}
+    optlist = DBMakeOptlist(1);
+    dberr=DBAddOption(optlist, DBOPT_UNITS, (void*)"--");
+    dberr=DBPutUcdvar1(dbfile,"quadrature_data","Quadrature",var1,nzones,NULL,0,DB_DOUBLE,DB_ZONECENT,optlist);
+    dberr=DBFreeOptlist(optlist);
+  }
+
+// release mesh storage
 
   delete[] nodelist;
   nodelist=NULL;
