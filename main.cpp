@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001     // insert a macro for the first time step
-#define ENDTIME 0.6        // insert a macro for the end time
+#define DTSTART 0.001     // insert a macro for the first time step
+#define ENDTIME 0.6       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
@@ -75,7 +75,8 @@
 #define TIMER_MOTION 8        // timer for Lagrangian motion
 #define TIMER_ECHECK 9        // timer for energy conservation check
 #define TIMER_OUTPUT 10       // timer for output
-#define TIMER_LOCATE 11       // timer to locate untimed stuff
+#define TIMER_VISCOSITY 11    // timer for viscous terms
+#define TIMER_LOCATE 12       // timer to locate untimed stuff
 
 #include <iostream>
 #include <vector>
@@ -152,7 +153,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/noh-24x24.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/noh-12x12.mesh");                                 // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -196,7 +197,7 @@ int main(){
   vector<vector<double> > Fv(ndims,vector<double> (nknodes,0.0));// viscous forces
   VVVD Fc(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));           // corner forces on each cell
   vector<double> eshock(vector<double> (ntnodes,0.0));           // shock heating due to viscous forces
-  bool tensorq(false);                                           // use artificial viscosity tensor
+  bool tensorq(true);                                            // use artificial viscosity tensor
 
 // initialise the high res timers
 
@@ -615,50 +616,77 @@ int main(){
 
 // reset viscous forces and shock heating
 
-    Fv.at(0)=vector<double> (nknodes,0.0);
-    Fv.at(1)=vector<double> (nknodes,0.0);
-    for(long i=0;i<eshock.size();i++){eshock.at(i)=0.0;}
+  for(int idim=0;idim<ndims;idim++){Fv.at(idim)=vector<double> (Fv.at(idim).size(),0.0);}
+  eshock=vector<double>(eshock.size(),0.0);
 
 // assemble force matrix to connect thermodynamic/kinematic spaces, this can be used as rhs of both energy and momentum equations
 
-    timers.Start(TIMER_FORCE);
+  timers.Start(TIMER_FORCE);
 
     for(long k=0;k<nzeroes;k++){F.at(k)=0.0;}
 
-    for(int i=0, k=0;i<n;i++){
-      jacobian(i,xinit,x1,M,S,detJs,Js);
+    for(int i=0,k=0;i<M.NCells();i++){
+
+// update jacobian
+
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x1,M,S,detJ,detDJ);
 
-// evaluate energy, divergence, length, density, pressure, sound speed and q at each integration point
+// evaluate energy at each integration point
+
+      vector<double> egi(S.ngi());
+      for(int gi=0;gi<S.ngi();gi++){
+        egi.at(gi)=0.0;
+        for(int jloc=0;jloc<T.nloc();jloc++){
+          egi.at(gi)+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
+        }
+        egi.at(gi)=max(ECUT,egi.at(gi));
+      }
+
+// update quadrature data
 
       for(int gi=0;gi<S.ngi();gi++){
-        double egi(0.0);
-        for(int jloc=0;jloc<T.nloc();jloc++){
-          egi+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
-        }
-        egi=max(ECUT,egi);
-
-//        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type); // update element length scale at the quadrature point
         l.at(gi)=sqrt(V1.at(i))/S.order();
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
-        p.at(gi)=P(d.at(gi),egi,gamma.at(mat.at(i)-1));
+        p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
-
       }
+
+// construct force terms
+
+      for(int idim=0;idim<M.NDims();idim++){
+        for(int iloc=0;iloc<S.nloc();iloc++){
+          for(int jloc=0;jloc<T.nloc();jloc++,k++){
+            for(int gi=0;gi<S.ngi();gi++){
+              F.at(k)+=p.at(gi)*detDJ[idim][iloc][gi]*T.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+            }
+          }
+        }
+      }
+
+    }
+
+    timers.Stop(TIMER_FORCE);
 
 // artificial viscosity term
 
-      for(int gi=0;gi<S.ngi();gi++){q.at(gi)=0.0;}
+    timers.Start(TIMER_VISCOSITY);
 
-      if(tensorq){
+    q=vector<double> (S.ngi(),0.0);
 
-// tensor q implementation
+    if(tensorq){
 
-        vector<double> mu(S.ngi());
-        vector<vector<double> > sxy(S.nloc(),vector<double> (S.nloc(),0.0));
+//   tensor q
+
+      for(int i=0;i<M.NCells();i++){
+
+// update jacobian
+
+        jacobian(i,x1,M,S,detJ,detDJ);
 
 // unscaled stiffness matrix - a finite element discretisation of the grad-dot-grad operator
+
+        vector<vector<double> > Sz(S.nloc(),vector<double> (S.nloc(),0.0));
 
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int jloc=0;jloc<S.nloc();jloc++){
@@ -666,96 +694,140 @@ int main(){
             for(int gi=0;gi<S.ngi();gi++){
               sij+=(detDJ[0][iloc][gi]*detDJ[0][jloc][gi]+detDJ[1][iloc][gi]*detDJ[1][jloc][gi])*detJ.at(gi)*S.wgt(gi);
             }
-            sxy.at(iloc).at(jloc)=sij;
+            Sz.at(iloc).at(jloc)=sij;
           }
         }
 
-// corner forces
+// viscous and corner forces (viscous force is aggregated, corner force is not)
 
-        vector<vector<double> > Fz0(M.NDims(),vector<double> (S.nloc(),0.0));
-        for(int iloc=0;iloc<S.nloc();iloc++){
-          double  fxij(0.0),fyij(0.0);
-          for(int jloc=0;jloc<S.nloc();jloc++){
-            fxij+=sxy.at(iloc).at(jloc)*u1.at(0).at(M.GlobalNode_CFEM(i,jloc));
-            fyij+=sxy.at(iloc).at(jloc)*u1.at(1).at(M.GlobalNode_CFEM(i,jloc));
-          }
-          Fz0.at(0).at(iloc)=fxij;
-          Fz0.at(1).at(iloc)=fyij;
-        }
-
-// forces on the quadrature points
-
-        vector<vector<double> > fz0(M.NDims(),vector<double> (S.ngi(),0.0));
-        for(int gi=0;gi<S.ngi();gi++){
-          double  fxgi(0.0),fygi(0.0);
+        for(int idim=0;idim<ndims;idim++){
           for(int iloc=0;iloc<S.nloc();iloc++){
-            fxgi+=S.value(iloc,gi)*Fz0.at(0).at(iloc);
-            fygi+=S.value(iloc,gi)*Fz0.at(1).at(iloc);
+            double f0zi(0.0);
+            for(int jloc=0;jloc<S.nloc();jloc++){
+              f0zi+=Sz.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+            }
+            Fv.at(idim).at(M.GlobalNode_CFEM(i,iloc))+=f0zi;
+            Fc.at(idim).at(i).at(iloc)=f0zi;
           }
-          fz0.at(0).at(gi)=fxgi;
-          fz0.at(1).at(gi)=fygi;
+        }
+
+      }
+
+// we need a second loop over cell to ensure we have accumulated viscous forces Fv to the global node space
+// the second loop constructs the smoothness sensor on a reduction of Fc
+// we also need to construct the compression/vorticity switches
+// Note: we need a temporary viscous force Fvtmp as Fv is already populated and we don't want to accumulate
+// on to what is in there already from the above block of code
+
+      vector<vector<double> > Fvtmp(M.NDims(),vector<double> (nknodes,0.0));
+
+      for(int i=0,k=0;i<M.NCells();i++){
+
+// update jacobian
+
+        jacobian(i,xinit,M,S,detJ0,detDJ0);
+        jacobian(i,x1,M,S,detJ,detDJ);
+
+// evaluate energy at each integration point
+
+        vector<double> egi(S.ngi());
+        for(int gi=0;gi<S.ngi();gi++){
+          egi.at(gi)=0.0;
+          for(int jloc=0;jloc<T.nloc();jloc++){
+            egi.at(gi)+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
+          }
+          egi.at(gi)=max(ECUT,egi.at(gi));
+        }
+
+// update quadrature data
+
+        for(int gi=0;gi<S.ngi();gi++){
+          l.at(gi)=sqrt(V1.at(i))/S.order();
+          d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
+          p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
+          c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
+        }
+
+// velocity at each quadrature point
+
+        vector<vector<double> > ugi(M.NDims(),vector<double> (S.ngi(),0.0));
+        for(int idim=0;idim<ndims;idim++){
+          for(int gi=0;gi<S.ngi();gi++){
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              ugi.at(idim).at(gi)+=u1.at(idim).at(M.GlobalNode_CFEM(i,iloc))*S.value(iloc,gi);
+            }
+          }
+        }
+
+// calculate divergence field at the quadrature point
+
+        vector<double> Cz(S.ngi(),0.0);
+        for(int gi=0;gi<S.ngi();gi++){
+          for(int idim=0;idim<ndims;idim++){
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              Cz.at(gi)+=ugi.at(idim).at(gi)*detDJ.at(idim).at(iloc).at(gi);
+            }
+          }
+        }
+
+// curl of the velocity field at the quadrature point
+
+        vector<double> Vz(S.ngi(),0.0);
+        for(int gi=0;gi<S.ngi();gi++){
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            Vz.at(gi)+=detDJ.at(0).at(iloc).at(gi)*ugi.at(0).at(gi);
+            Vz.at(gi)-=detDJ.at(1).at(iloc).at(gi)*ugi.at(1).at(gi);
+          }
+          Vz.at(gi)=abs(Vz.at(gi));
         }
 
 // smoothness sensor
 
-        vector<double> psi0(vector<double> (S.ngi(),0.0));
+        vector<double> gp(S.ngi());
+        vector<vector<double> > Fvgi(M.NDims(),vector<double> (S.ngi(),0.0));
         for(int gi=0;gi<S.ngi();gi++){
-          double gp(detJ.at(gi)*S.wgt(gi)*c.at(gi)/(l.at(gi)*l.at(gi))),alpha0(0.005);
-          double fpnorm(sqrt(fz0.at(0).at(gi)*fz0.at(0).at(gi)+fz0.at(1).at(gi)*fz0.at(1).at(gi)));
-          psi0.at(gi)=(1.0-exp(-fpnorm/(alpha0*abs(gp))));
-        }
-
-        double psi0max(*max_element(psi0.begin(),psi0.end()));
-
-// divergence of the velocity field
-
-        vector<double> Cz(vector<double> (S.ngi(),0.0));
-        for(int gi=0;gi<S.ngi();gi++){
-          double divu(0.0);
-          for(int idim=0;idim<M.NDims();idim++){
-            for(int jloc=0;jloc<S.nloc();jloc++){
-              divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+          gp.at(gi)=(V1.at(i)*c.at(gi)/(l.at(gi)*l.at(gi)));
+          for(int idim=0;idim<ndims;idim++){
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              Fvgi.at(idim).at(gi)+=Fv.at(idim).at(M.GlobalNode_CFEM(i,iloc))*S.value(iloc,gi);
             }
           }
-          Cz.at(gi)=divu;
         }
 
-// curl of the velocity field
-
-        vector<double> Vz(vector<double> (S.ngi(),0.0));
+        vector<double> psi0(S.ngi());
+        double alpha0(0.005);
         for(int gi=0;gi<S.ngi();gi++){
-          double curlu(0.0);
-          for(int jloc=0;jloc<S.nloc();jloc++){
-            curlu+=detDJ[0][jloc][gi]*u1.at(1).at(M.GlobalNode_CFEM(i,jloc));
-            curlu-=detDJ[1][jloc][gi]*u1.at(0).at(M.GlobalNode_CFEM(i,jloc));
-          }
-          Vz.at(gi)=abs(curlu);
+          double fpnorm(sqrt(Fvgi.at(0).at(gi)*Fvgi.at(0).at(gi)+Fvgi.at(1).at(gi)*Fvgi.at(1).at(gi)));
+          psi0.at(gi)=(1.0-exp(-fpnorm/(alpha0*abs(gp.at(gi)))));
         }
+        double psi0max(*max_element(psi0.begin(),psi0.end()));
 
 // compression switch
 
-        vector<double> psi1(vector<double> (S.ngi(),0.0));
+        vector<double> psi1(S.ngi());
         for(int gi=0;gi<S.ngi();gi++){
           psi1.at(gi)=((Cz.at(gi)<0.0)?1.0:0.0);
         }
 
 // vorticity switch
 
-        vector<double> psi2(vector<double> (S.ngi(),0.0));
+        vector<double> psi2(S.ngi());
         for(int gi=0;gi<S.ngi();gi++){
           double alpha2(1.0),tmp(Vz.at(gi)/max(abs(Cz.at(gi)),1.0e-10));
           psi2.at(gi)=(1.0/(1.0+alpha2*tmp));
         }
 
-// viscosity coefficients
+// viscous coefficent
 
-        vector<double> qz(vector<double> (S.ngi(),0.0));
+        vector<double> mu(S.ngi()),qz(S.ngi());
         for(int gi=0;gi<S.ngi();gi++){
-          mu.at(gi)=psi0.at(gi)*psi1.at(gi)*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(Cz.at(gi))+psi2.at(gi)*cl*c.at(gi));
-          qz.at(gi)=(mu.at(gi))*abs(Cz.at(gi)); // scalar coefficient, see eqn (42)
+          mu.at(gi)=(psi0max*psi1.at(gi)*d.at(gi)*l.at(gi)*(cq*l.at(gi)*abs(Cz.at(gi))+psi2.at(gi)*cl*c.at(gi)));
+          qz.at(gi)=(mu.at(gi)*abs(Cz.at(gi))); // scalar coefficient, see eqn (42)
         }
 
 // scaled stiffness matrix
+
+        vector<vector<double> > Sz(S.nloc(),vector<double> (S.nloc(),0.0));
 
         for(int iloc=0;iloc<S.nloc();iloc++){
           for(int jloc=0;jloc<S.nloc();jloc++){
@@ -763,33 +835,105 @@ int main(){
             for(int gi=0;gi<S.ngi();gi++){
               sij+=mu.at(gi)*(detDJ[0][iloc][gi]*detDJ[0][jloc][gi]+detDJ[1][iloc][gi]*detDJ[1][jloc][gi])*detJ.at(gi)*S.wgt(gi);
             }
-            sxy.at(iloc).at(jloc)=sij;
+            Sz.at(iloc).at(jloc)=sij;
           }
         }
 
 // viscous forces
 
-        for(int iloc=0;iloc<S.nloc();iloc++){
-          double fvx(0.0),fvy(0.0);
-          for(int jloc=0;jloc<S.nloc();jloc++){
-            fvx+=sxy.at(iloc).at(jloc)*u1.at(0).at(M.GlobalNode_CFEM(i,jloc));
-            fvy+=sxy.at(iloc).at(jloc)*u1.at(1).at(M.GlobalNode_CFEM(i,jloc));
+        for(int idim=0;idim<ndims;idim++){
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            double f0zi(0.0);
+            for(int jloc=0;jloc<S.nloc();jloc++){
+              f0zi+=Sz.at(iloc).at(jloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+            }
+            Fvtmp.at(idim).at(M.GlobalNode_CFEM(i,iloc))+=f0zi;
           }
-          Fv.at(0).at(M.GlobalNode_CFEM(i,iloc))-=fvx;
-          Fv.at(1).at(M.GlobalNode_CFEM(i,iloc))-=fvy;
         }
 
 // shock heating
 
-        for(int iloc=0;iloc<S.nloc();iloc++){
-          for(int idim=0;idim<M.NDims();idim++){
-            eshock.at(M.GlobalNode_CFEM(i,iloc))+=u1.at(idim).at(M.GlobalNode_CFEM(i,iloc))*Fv.at(idim).at(M.GlobalNode_CFEM(i,iloc));
+        double ek[S.nloc()],et[T.nloc()];
+        for(int idim=0;idim<ndims;idim++){
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            ek[iloc]=Fc.at(idim).at(i).at(iloc)*u1.at(idim).at(M.GlobalNode_CFEM(i,iloc))*dt;
           }
         }
 
-      }else{
+        S.prolongate(ek,et,T.order());
+
+        for(int iloc=0;iloc<T.nloc();iloc++){
+          eshock.at(M.GlobalNode_DFEM(i,iloc))=et[iloc];
+        }
+
+// debug
+
+    for(int gi=0;gi<S.ngi();gi++){
+      double divu(0.0);
+      for(int idim=0;idim<M.NDims();idim++){
+        for(int jloc=0;jloc<S.nloc();jloc++){
+          divu+=detDJ[idim][jloc][gi]*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc));
+        }
+      }
+      q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
+    }
+
+// add on viscous forces
+
+    for(int idim=0;idim<M.NDims();idim++){
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        for(int jloc=0;jloc<T.nloc();jloc++,k++){
+          for(int gi=0;gi<S.ngi();gi++){
+            F.at(k)+=q.at(gi)*detDJ[idim][iloc][gi]*T.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+          }
+        }
+      }
+    }
+
+// debug
+
+      }
+
+// store viscous forces
+
+      for(int idim=0;idim<ndims;idim++){
+        for(long i=0;i<nknodes;i++){
+          Fv.at(idim).at(i)=Fvtmp.at(idim).at(i);
+        }
+      }
+
+    }else{
 
 // bulk q
+
+      for(int i=0,k=0;i<M.NCells();i++){
+
+// update jacobian
+
+        jacobian(i,xinit,M,S,detJ0,detDJ0);
+        jacobian(i,x1,M,S,detJ,detDJ);
+
+// evaluate energy at each integration point
+
+        vector<double> egi(S.ngi());
+        for(int gi=0;gi<S.ngi();gi++){
+          egi.at(gi)=0.0;
+          for(int jloc=0;jloc<T.nloc();jloc++){
+            egi.at(gi)+=e1.at(M.GlobalNode_DFEM(i,jloc))*T.value(jloc,gi);
+          }
+          egi.at(gi)=max(ECUT,egi.at(gi));
+        }
+
+// update quadrature data
+
+        for(int gi=0;gi<S.ngi();gi++){
+          l.at(gi)=sqrt(V1.at(i))/S.order();
+          d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
+          p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
+          c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
+        }
+
+// viscous coefficient
 
         for(int gi=0;gi<S.ngi();gi++){
           double divu(0.0);
@@ -801,25 +945,23 @@ int main(){
           q.at(gi)=M.UpdateQ(l.at(gi),d.at(gi),c.at(gi),cq,cl,divu);
         }
 
-      }
+// add on viscous forces
 
-// construct force terms
-
-      for(int idim=0;idim<M.NDims();idim++){
-        for(int iloc=0;iloc<S.nloc();iloc++){
-          for(int jloc=0;jloc<T.nloc();jloc++,k++){
-            double fgi(0.0);
-            for(int gi=0;gi<S.ngi();gi++){
-              fgi+=(p.at(gi)+q.at(gi))*detDJ[idim][iloc][gi]*T.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+        for(int idim=0;idim<M.NDims();idim++){
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            for(int jloc=0;jloc<T.nloc();jloc++,k++){
+              for(int gi=0;gi<S.ngi();gi++){
+                F.at(k)+=q.at(gi)*detDJ[idim][iloc][gi]*T.value(jloc,gi)*detJ[gi]*S.wgt(gi);
+              }
             }
-            F.at(k)+=fgi;
           }
         }
+
       }
 
     }
 
-    timers.Stop(TIMER_FORCE);
+    timers.Stop(TIMER_VISCOSITY);
 
 // assemble acceleration field
 
@@ -948,6 +1090,7 @@ int main(){
   cout<<"    Matrix Inversion                    "<<timers.Span(TIMER_INVERSE)<<"s "<<timers.Span(TIMER_INVERSE)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
   cout<<"    Energy Field Assembly               "<<timers.Span(TIMER_ENERGY)<<"s "<<timers.Span(TIMER_ENERGY)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
   cout<<"    Force Calculation                   "<<timers.Span(TIMER_FORCE)<<"s "<<timers.Span(TIMER_FORCE)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
+  cout<<"    Articial Viscosity Calculation      "<<timers.Span(TIMER_VISCOSITY)<<"s "<<timers.Span(TIMER_VISCOSITY)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
   cout<<"    Momentum Solve                      "<<timers.Span(TIMER_KSOLVE)<<"s "<<timers.Span(TIMER_KSOLVE)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
   cout<<"    CFL Calculation                     "<<timers.Span(TIMER_CFL)<<"s "<<timers.Span(TIMER_CFL)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;
   cout<<"    Graphics                            "<<timers.Span(TIMER_GRAPHICS)<<"s "<<timers.Span(TIMER_GRAPHICS)*100.0/timers.Span(TIMER_MAIN)<<"%"<<endl;

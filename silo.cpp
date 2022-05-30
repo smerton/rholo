@@ -678,6 +678,163 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
   delete[] var1;
   var1=NULL;
 
+// draw a mesh called "Quadrature" to support quadrature data
+
+  nsubs=S.ngi();                                      // number of sub-cells
+  nsubx=sqrt(nsubs);                                  // number of sub-cells on x-axis
+  nsuby=sqrt(nsubs);                                  // number of sub-cells on y-axis
+  nzones=M.NCells()*nsubs;                            // number of cells
+  nnodes=NSampleNodes(M,nsubs,SampleNode);            // number of nodes
+  ndims=M.NDims();                                    // number of dimensions
+  lnodelist=4*nzones;                                 // length of the nodelist
+  nodelist=new int[lnodelist];                        // allocate nodelist array
+  xcoords=new double[nnodes];                         // mesh vertex coordinates
+  ycoords=new double[nnodes];                         // mesh vertex coordinates
+  matlist=new int[nzones];                            // material numbers
+  elnos=new int[nzones];                              // element numbers
+  nodnos=new long[nnodes];                            // node numbers
+  var1=new double[nzones];                            // nodal/zonal variable
+
+  double dx(2.0/(S.sloc()-1));
+  vector<double> xloc(S.nloc(),-1.0),yloc(S.nloc(),-1.0);
+  vector<double> xcgi(S.ngi()),ycgi(S.ngi());
+
+// store coordinates in correct format for silo
+
+  for(int i=0;i<M.NCells();i++){
+
+// cell vertices in local coordinates
+
+    for(int jloc=0,k=0;jloc<S.sloc();jloc++){
+      for(int iloc=0;iloc<S.sloc();iloc++,k++){
+        xloc.at(k)=-1.0+iloc*dx;
+        yloc.at(k)=-1.0+jloc*dx;
+      }
+    }
+
+// aquire the centroid of each sub-cell from a finite element method
+
+    for(int gi=0;gi<S.ngi();gi++){
+      xcgi.at(gi)=0.0;ycgi.at(gi)=0.0;
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        xcgi.at(gi)+=S.value(iloc,gi)*xloc.at(iloc);
+        ycgi.at(gi)+=S.value(iloc,gi)*yloc.at(iloc);
+      }
+    }
+
+// acquire the local sub-cell vertices
+
+    for(int isuby=0,isub=0,k=0;isuby<=nsuby;isuby++){
+      for(int isubx=0;isubx<=nsubx;isubx++,k++){
+
+        if(isuby<nsuby){
+          if(isubx==0){
+            xcoords[SampleNode.at(i).at(k)]=xloc.at(0);
+            isub++;
+          }else if(isubx==nsubx){
+            xcoords[SampleNode.at(i).at(k)]=xloc.at(S.sloc()-1);
+          }else{
+            double xl(xcgi.at(isub-1)),xr(xcgi.at(isub));
+            xcoords[SampleNode.at(i).at(k)]=0.5*(xl+xr);
+            isub++;
+          }
+        }else{
+          xcoords[SampleNode.at(i).at(k)]=xcoords[SampleNode.at(i).at(isubx)];
+          isub++;
+        }
+
+      }
+    }
+
+    for(int isuby=0,isub=0,k=0;isuby<=nsuby;isuby++){
+      for(int isubx=0;isubx<=nsubx;isubx++,k++){
+
+        if(isubx<nsubx){
+          if(isuby==0){
+            ycoords[SampleNode.at(i).at(k)]=yloc.at(0);
+            isub++;
+          }else if(isuby==nsuby){
+            ycoords[SampleNode.at(i).at(k)]=yloc.at(S.nloc()-S.sloc()-1+isuby);
+          }else{
+            double yb(ycgi.at(isub)),yt(ycgi.at(isub-nsubx));
+            ycoords[SampleNode.at(i).at(k)]=0.5*(yb+yt);
+            isub++;
+          }
+        }else{
+          ycoords[SampleNode.at(i).at(k)]=ycoords[SampleNode.at(i).at(k-1)];
+        }
+
+      }
+    }
+
+// convert to global coordinates to generate the mesh using a finite element method
+
+
+
+
+
+
+
+
+
+// debug
+    if(i==1){
+      for(int isuby=0,isub=0;isuby<=nsuby;isuby++){
+        for(int isubx=0;isubx<=nsubx;isubx++,isub++){
+
+cout<<i<<" "<<isub<<" "<<xcoords[SampleNode.at(i).at(isub)]<<" "<<ycoords[SampleNode.at(i).at(isub)]<<endl;
+//        xcoords[SampleNode.at(i).at(isub)]=xcgi.at(isub);
+//        ycoords[SampleNode.at(i).at(isub)]=ycgi.at(isub);
+
+        }
+      }
+    }
+// debug
+
+  }
+
+
+
+// debug
+  cout<<"nsubs=  "<<nsubs<<endl;
+  cout<<"nsubx=  "<<nsubx<<endl;
+  cout<<"nsuby=  "<<nsuby<<endl;
+  cout<<"nzones= "<<nzones<<endl;
+  cout<<"nnodes= "<<nnodes<<endl;
+  cout<<"ndims= "<<ndims<<endl;
+  cout<<"lnodelist= "<<lnodelist<<endl;
+  exit(1);
+// debug
+
+
+
+
+
+
+
+
+
+  delete[] nodelist;
+  nodelist=NULL;
+
+  delete[] xcoords;
+  xcoords=NULL;
+
+  delete[] ycoords;
+  ycoords=NULL;
+
+  delete[] matlist;
+  matlist=NULL;
+
+  delete[] elnos;
+  elnos=NULL;
+
+  delete[] nodnos;
+  nodnos=NULL;
+
+  delete[] var1;
+  var1=NULL;
+
 // close the database
 
   dberr=DBClose(dbfile);
