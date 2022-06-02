@@ -153,7 +153,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-20x1.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/sod-100x1.mesh");                                 // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -637,6 +637,7 @@ int main(){
 
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x1,M,S,detJ,detDJ);
+      jacobian(i,xinit,x1,M,S,detJs,Js);
 
 // evaluate energy at each integration point
 
@@ -652,7 +653,7 @@ int main(){
 // update quadrature data
 
       for(int gi=0;gi<S.ngi();gi++){
-        l.at(gi)=sqrt(V1.at(i))/S.order();
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type);
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -729,6 +730,7 @@ int main(){
 
         jacobian(i,xinit,M,S,detJ0,detDJ0);
         jacobian(i,x1,M,S,detJ,detDJ);
+        jacobian(i,xinit,x1,M,S,detJs,Js);
 
 // evaluate internal energy field at each integration point
 
@@ -744,7 +746,7 @@ int main(){
 // update quadrature data
 
         for(int gi=0;gi<S.ngi();gi++){
-          l.at(gi)=sqrt(V1.at(i))/S.order();
+          l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type);
           d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
           p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
           c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -889,6 +891,7 @@ int main(){
 
         jacobian(i,xinit,M,S,detJ0,detDJ0);
         jacobian(i,x1,M,S,detJ,detDJ);
+        jacobian(i,xinit,x1,M,S,detJs,Js);
 
 // evaluate energy at each integration point
 
@@ -904,7 +907,8 @@ int main(){
 // update quadrature data
 
         for(int gi=0;gi<S.ngi();gi++){
-          l.at(gi)=sqrt(V1.at(i))/S.order();
+//          l.at(gi)=sqrt(V1.at(i))/S.order();
+          l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type);
           d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
           p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
           c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
