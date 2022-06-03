@@ -907,7 +907,6 @@ int main(){
 // update quadrature data
 
         for(int gi=0;gi<S.ngi();gi++){
-//          l.at(gi)=sqrt(V1.at(i))/S.order();
           l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type);
           d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
           p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
