@@ -726,23 +726,19 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 
     vector<double> xtmp((nsubx+1)*(nsuby+1));
     for(int isuby=0,isub=0,k=0;isuby<=nsuby;isuby++){
+      if(isuby==nsuby){isub-=nsubx;}
       for(int isubx=0;isubx<=nsubx;isubx++,k++){
-        if(isuby<nsuby){
-          if(isubx==0){
-            xtmp.at(k)=xloc.at(0);
-            isub++;
-          }else if(isubx==nsubx){
-            xtmp.at(k)=xloc.at(S.sloc()-1);
-          }else{
-            double xl(xcgi.at(isub-1)),xr(xcgi.at(isub));
-            xtmp.at(k)=0.5*(xl+xr);
-            isub++;
-          }
+
+        if(isubx==0){
+          xtmp.at(k)=xloc.at(0);
+        }else if(isubx==nsubx){
+          xtmp.at(k)=xloc.at(S.nloc()-1);
+          isub--;
         }else{
-          xtmp.at(k)=xtmp.at(isubx);
-          isub++;
+          xtmp.at(k)=0.5*(xcgi.at(isub-1)+xcgi.at(isub));
         }
 
+        isub++;
       }
     }
 
@@ -750,19 +746,13 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
     for(int isuby=0,isub=0,k=0;isuby<=nsuby;isuby++){
       for(int isubx=0;isubx<=nsubx;isubx++,k++){
 
-        if(isubx<nsubx){
-          if(isuby==0){
-            ytmp.at(k)=yloc.at(0);
-            isub++;
-          }else if(isuby==nsuby){
-            ytmp.at(k)=yloc.at(S.nloc()-S.sloc()-1+isuby);
-          }else{
-            double yb(ycgi.at(isub)),yt(ycgi.at(isub-nsubx));
-            ytmp.at(k)=0.5*(yb+yt);
-            isub++;
-          }
+        if(isuby==0){
+          ytmp.at(k)=yloc.at(0);
+        }else if(isuby==nsuby){
+          ytmp.at(k)=yloc.at(S.nloc()-1);
         }else{
-          ytmp.at(k)=ytmp.at(k-1);
+          ytmp.at(k)=0.5*(ycgi.at(isub)+ycgi.at(isub+nsubx));
+          if(isubx==nsubx){isub+=nsubx;}
         }
 
       }
