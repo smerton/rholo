@@ -28,7 +28,7 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001    // insert a macro for the first time step
+#define DTSTART 0.0001     // insert a macro for the first time step
 #define ENDTIME 0.2       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 #define NSAMPLES 1000     // number of sample points for the exact solution
@@ -125,23 +125,23 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
                VVD &u0,VVD &u1,VD &b0,VD &b1,long const &nnodes);
 
 void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                            // input overides for the Taylor-Green vortex
-                 VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
+                 VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
                  vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                  VVVD &detDJ,VD const &m);
 void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                          // input overides for the Rayleigh-Taylor instability
-                   VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
+                   VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
                    vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                    VVVD &detDJ,VD const &m);
 void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                               // input overides for the Noh stagnation shock
-              VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
+              VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
               vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
               VVVD &detDJ,VD const &m);
 void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                             // input overides for the Sedov explosion
-                VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,
+                VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
                 vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                 VVVD &detDJ,VD const &m);
 void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                         // input overides for the Saltzmann piston
-                VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &x,VD const &gamma,
+                VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &xk,VVD &xt,VD const &gamma,
                 vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                 VVVD &detDJ,VD const &m);
 
@@ -231,8 +231,8 @@ int main(){
 //  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
 
-//  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;               // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};       // initial flux state in each material for Noh problem
+//  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;             // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
 
 //  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;             // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};         // initial flux state in each material for Sedov problem
@@ -346,7 +346,7 @@ int main(){
 
 // Taylor Green vortex
 
-      init_TAYLOR(M,S,T,dpi,dinit,u0,u1,e0,e1,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_TAYLOR(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -354,7 +354,7 @@ int main(){
 
 // Rayleigh-Taylor instability
 
-      init_RAYLEIGH(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_RAYLEIGH(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -362,7 +362,7 @@ int main(){
 
 // Noh stagnation shock
 
-      init_NOH(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_NOH(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -370,7 +370,7 @@ int main(){
 
 // Sedov expanding shock
 
-      init_SEDOV(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_SEDOV(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -378,7 +378,7 @@ int main(){
 
 // Saltzmann piston
 
-      init_SALTZMANN(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
+      init_SALTZMANN(M,S,T,dpi,dinit,u0,u1,e0,e1,x0,xt0,gamma,mat,detJ0,detDJ0,detJ,detDJ,m);
 
       break;
 
@@ -612,7 +612,7 @@ int main(){
         for(int iloc=0;iloc<T.nloc();iloc++){
           double nodmass(0.25*m.at(i));
           edot[iloc]-=eshock.at(M.GlobalNode_DFEM(i,iloc))/nodmass;
-          e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc))-edot[iloc]*dt;
+          e1.at(M.GlobalNode_DFEM(i,iloc))=max(ECUT,e0.at(M.GlobalNode_DFEM(i,iloc))-edot[iloc]*dt);
         }
 
       }
@@ -2004,18 +2004,38 @@ void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ){
 
 // input overides for the Taylor-Green vortex
 
-void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_TAYLOR(): Input overides for Taylor-Green..."<<endl;
 
+// start x component of velocity field
+
+  for(long i=0;i<u0.at(0).size();i++){
+    u0.at(0).at(i)=sin(dpi*xk.at(0).at(i))*cos(dpi*xk.at(1).at(i));
+    u1.at(0).at(i)=u0.at(0).at(i);
+  }
+
+// start y component of velocity field
+
+  for(long i=0;i<u1.at(1).size();i++){
+    u0.at(1).at(i)=-cos(dpi*xk.at(0).at(i))*sin(dpi*xk.at(1).at(i));
+    u1.at(1).at(i)=u0.at(1).at(i);
+  }
+
 // start the energy field
 
-  for(int i=0;i<M.NCells();i++){
+  for(long i=0;i<M.NCells();i++){
     for(int iloc=0;iloc<T.nloc();iloc++){
-      double xval(x.at(0).at(M.GlobalNode_DFEM(i,iloc)));
-      double yval(x.at(0).at(M.GlobalNode_DFEM(i,iloc)));
-      e0.at(M.GlobalNode_DFEM(i,iloc))=(3.0*dpi/8.0)*cos(3.0*dpi*xval)*cos(dpi*yval)-cos(dpi*xval)*cos(3.0*dpi*yval);
+      double xval(xt.at(0).at(M.GlobalNode_DFEM(i,iloc)));
+      double yval(xt.at(1).at(M.GlobalNode_DFEM(i,iloc)));
+      double rho(1.0);
+      double p(0.25*rho*(cos(2.0*dpi*xval)+cos(2.0*dpi*yval))+1.0);
+
+// invert the eos to obtain internal energy
+
+      e0.at(M.GlobalNode_DFEM(i,iloc))=E(rho,p,gamma.at(mat.at(i)-1));
       e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc));
+
     }
   }
 
@@ -2025,7 +2045,7 @@ void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,V
 
 // input overides for the Rayleigh-Taylor instability
 
-void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_RAYLEIGH(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
 
@@ -2037,7 +2057,7 @@ void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi
 
 // input overides for the Noh stagnation shock
 
-void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_NOH(): Input overides for Noh..."<<endl;
 
@@ -2047,8 +2067,8 @@ void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &
 
 // correct origin for reflection
 
-  if((M.bc_edge(0)==VELOCITY)){yorig=x.at(1).at(0);} // ymin forced reflective
-  if((M.bc_edge(3)==VELOCITY)){xorig=x.at(0).at(0);} // xmin forced reflective
+  if((M.bc_edge(0)==VELOCITY)){yorig=xk.at(1).at(0);} // ymin forced reflective
+  if((M.bc_edge(3)==VELOCITY)){xorig=xk.at(0).at(0);} // xmin forced reflective
 
   double origin[2]={xorig,yorig}; // origin coordinates
 
@@ -2056,8 +2076,8 @@ void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &
 
   for(long i=0;i<u0.at(0).size();i++){
 
-    double rx(x.at(0).at(i)-origin[0]);     // radial vector component from domain origin to node
-    double ry(x.at(1).at(i)-origin[1]);     // radial vector component from domain origin to node
+    double rx(xk.at(0).at(i)-origin[0]);     // radial vector component from domain origin to node
+    double ry(xk.at(1).at(i)-origin[1]);     // radial vector component from domain origin to node
 
 // length of radial vector from domain origin to node
 
@@ -2079,7 +2099,7 @@ void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &
 
 // input overides for the Sedov explosion
 
-void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_SEDOV(): Input overides for Sedov..."<<endl;
 
@@ -2092,7 +2112,7 @@ void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD
     bool zcentre(false);
 
     for(int iloc=0;iloc<S.nloc();iloc++){
-      if( abs(x.at(0).at(M.GlobalNode_CFEM(i,iloc)))<1.0e-7 && abs(x.at(1).at(M.GlobalNode_CFEM(i,iloc)))<1.0e-7  ){
+      if( abs(xk.at(0).at(M.GlobalNode_CFEM(i,iloc)))<1.0e-7 && abs(xk.at(1).at(M.GlobalNode_CFEM(i,iloc)))<1.0e-7  ){
         zcentre=true;
       }
     }
@@ -2121,7 +2141,7 @@ void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD
 
 // input overides for the Saltzmann piston
 
-void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &x,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &xk,VVD &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
 
   cout<<"init_SALTZMANN(): Input overides for Saltzmann..."<<endl;
 
@@ -2133,12 +2153,12 @@ void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dp
 
 // perturb the mesh
 
-  for(long i=0;i<x.at(0).size();i++){
+  for(long i=0;i<xk.at(0).size();i++){
 
 // original node position
 
-    double xorig(x.at(0).at(i));
-    double yorig(x.at(1).at(i));
+    double xorig(xk.at(0).at(i));
+    double yorig(xk.at(1).at(i));
 
 // perturbation
 
@@ -2151,7 +2171,7 @@ void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dp
 // also detJ0 has already been used so will need to move a few things
 // around if we were to distort the mesh here...
 
-//    x.at(0).at(i)=w1*dx1+(10.0-w2)*dy1*sin(dpi*w1*0.01);
+//    xk.at(0).at(i)=w1*dx1+(10.0-w2)*dy1*sin(dpi*w1*0.01);
 
   }
 
