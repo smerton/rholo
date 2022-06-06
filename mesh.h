@@ -59,7 +59,8 @@ class Mesh{
   double Max(int idim) const; // returns mesh boundary maximum in dimension idim
   void UpdateCoords(VVD &x,VVD const &u,double const dt) const; // advect coordinate x a distance u*dt with velocity u
   void MapCoords(VVD const &xp,VVD &xq,int const &p,int const &q) const; // map coordinates from an order p mesh to an order q mesh
-  double UpdateLength(int const &p,double const &V,double const &l0,double const &detJs,int const &length_scale_type); // update length scale for an element of polyhedral order p, volume V and initial length l0
+  double UpdateLength(int const &p,double const &V,double const &l0,double const &detJ0,double const &detJ,double const &detJs,int const &length_scale_type); // update length scale for an element of polyhedral order p, volume V and initial length l0
+  double UpdateLength(int const &p,double const &V,double const &l0,double const &detJ0,double const &detJ,int const &length_scale_type); // update length scale for an element of polyhedral order p, volume V and initial length l0
   void UpdateVolume(VD &V,VVD const &x,int const &p) const; // update volume field V given coordinate x and polyhedral element order p
   void UpdateDensity(VD &d,VD const &V,VD const &m) const; // update denisty field d given a volume field V and a mass field m
   void UpdateEnergy(VD const &e0,VD &e1,VD const &p,VD const &q,VD const &V0,VD const &V1,VD const &m) const ; // update mesh energy field

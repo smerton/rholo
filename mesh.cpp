@@ -1021,7 +1021,7 @@ void Mesh::InitLength(VD &l0,int const &p,VD const &V,int const &ls_type) const{
     case(LS_PSEUDO_1D):
 
       for(int i=0;i<NCells();i++){
-        l0.at(i)=(Max(0)-Min(0))/((NCells()+2)*p);
+        l0.at(i)=(Max(0)-Min(0))/((NCells(0)+2)*p);
       }
 
       break;
@@ -1034,7 +1034,7 @@ void Mesh::InitLength(VD &l0,int const &p,VD const &V,int const &ls_type) const{
 
 // update element length scale, just use the same definition as for the initial length until we understand how to normalise it properly for high-order
 
-double Mesh::UpdateLength(int const &p,double const &V,double const &l0,double const &detJs,int const &ls_type){
+double Mesh::UpdateLength(int const &p,double const &V,double const &l0,double const &detJ0,double const &detJ,double const &detJs,int const &ls_type){
 
   double ls(0.0),s(1.0);
 
@@ -1066,7 +1066,52 @@ double Mesh::UpdateLength(int const &p,double const &V,double const &l0,double c
 
     case(LS_PSEUDO_1D):
 
-      ls=l0*detJs;
+      ls=l0*detJ/detJ0;
+
+      break;
+
+  }
+
+  return ls;
+
+}
+
+// update element length scale without coding for LS_DIRECTIONAL so that we don't need to compute detJs
+
+double Mesh::UpdateLength(int const &p,double const &V,double const &l0,double const &detJ0,double const &detJ,int const &ls_type){
+
+  double ls(0.0),s(1.0);
+
+  switch(ls_type){
+
+    case(LS_LOCAL):
+
+// compute length of cell locally based on cell volume
+
+      ls=sqrt(V)/p;
+
+      break;
+
+    case(LS_AVERAGE):
+
+// use initial average zone size as a smooth representation
+
+      ls=l0;
+
+      break;
+
+    case(LS_DIRECTIONAL):
+
+// use deformation of a circle into an ellipse via the lagrangian motion
+
+      cout<<"Mesh::UpdateLength(): Directional length scale requires detJs to be passed, stopping."<<endl;
+      exit(1);
+
+      break;
+
+    case(LS_PSEUDO_1D):
+
+      ls=l0*detJ/detJ0;
 
       break;
 

@@ -154,7 +154,7 @@ int main(){
 // global data
 
   Mesh M("mesh/sod-100x1.mesh");                                 // load a new mesh from file
-  Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
+  Shape S(2,4,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
@@ -478,7 +478,7 @@ int main(){
     for(int i=0;i<n;i++){
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x0,M,S,detJ,detDJ);
-      jacobian(i,xinit,x1,M,S,detJs,Js);
+//      jacobian(i,xinit,x1,M,S,detJs,Js); // for directional length scale
 
 // evaluate energy, divergence, length, density, pressure, sound speed and q at each integration point
 
@@ -492,7 +492,8 @@ int main(){
         for(int idim=0;idim<M.NDims();idim++){
           for(int jloc=0;jloc<S.nloc();jloc++){divu+=S.dvalue(idim,jloc,gi)*u1.at(idim).at(M.GlobalNode_CFEM(i,jloc))/detJ.at(gi);}
         }
-        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type); // update element length scale at the quadrature point
+//        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJ0.at(gi),detJ.at(gi),detJs.at(gi),length_scale_type); // for directional length scale
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJ0.at(gi),detJ.at(gi),length_scale_type);
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=M.UpdatePressure(d.at(gi),egi,gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -637,7 +638,7 @@ int main(){
 
       jacobian(i,xinit,M,S,detJ0,detDJ0);
       jacobian(i,x1,M,S,detJ,detDJ);
-      jacobian(i,xinit,x1,M,S,detJs,Js);
+//      jacobian(i,xinit,x1,M,S,detJs,Js); // for directional length scale
 
 // evaluate energy at each integration point
 
@@ -653,7 +654,8 @@ int main(){
 // update quadrature data
 
       for(int gi=0;gi<S.ngi();gi++){
-        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type);
+//        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJ0.at(gi),detJ.at(gi),detJs.at(gi),length_scale_type); // for directional length scale
+        l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJ0.at(gi),detJ.at(gi),length_scale_type);
         d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
         p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
         c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -730,7 +732,7 @@ int main(){
 
         jacobian(i,xinit,M,S,detJ0,detDJ0);
         jacobian(i,x1,M,S,detJ,detDJ);
-        jacobian(i,xinit,x1,M,S,detJs,Js);
+//        jacobian(i,xinit,x1,M,S,detJs,Js); // for directional length scale
 
 // evaluate internal energy field at each integration point
 
@@ -746,7 +748,8 @@ int main(){
 // update quadrature data
 
         for(int gi=0;gi<S.ngi();gi++){
-          l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type);
+//          l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJ0.at(gi),detJ.at(gi),detJs.at(gi),length_scale_type); // for directional length scale
+          l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJ0.at(gi),detJ.at(gi),length_scale_type);
           d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
           p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
           c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -891,7 +894,7 @@ int main(){
 
         jacobian(i,xinit,M,S,detJ0,detDJ0);
         jacobian(i,x1,M,S,detJ,detDJ);
-        jacobian(i,xinit,x1,M,S,detJs,Js);
+//        jacobian(i,xinit,x1,M,S,detJs,Js); // for directional length scale
 
 // evaluate energy at each integration point
 
@@ -907,7 +910,8 @@ int main(){
 // update quadrature data
 
         for(int gi=0;gi<S.ngi();gi++){
-          l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJs.at(gi),length_scale_type);
+//          l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJ0.at(gi),detJ.at(gi),detJs.at(gi),length_scale_type); // for directional length scale
+          l.at(gi)=M.UpdateLength(S.order(),V1.at(i),l0.at(i),detJ0.at(gi),detJ.at(gi),length_scale_type);
           d.at(gi)=dinit.at(i)*detJ0.at(gi)/detJ.at(gi);
           p.at(gi)=P(d.at(gi),egi.at(gi),gamma.at(mat.at(i)-1));
           c.at(gi)=M.UpdateSoundSpeed(gamma.at(mat.at(i)-1),p.at(gi),d.at(gi));
@@ -2206,6 +2210,10 @@ void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xin
 
   ke=0.5*ke;
 
+// normalise to the number of cells
+
+  ke=ke/M.NCells();
+
   return;
 
 }
@@ -2248,6 +2256,10 @@ void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xini
 
 
   }
+
+// normalise to the number of cells
+
+  ie=ie/M.NCells();
 
   return;
 
