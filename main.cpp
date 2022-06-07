@@ -112,6 +112,8 @@ void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xini
 void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,Shape const T,                    // echo some initial information
                   int const ndims, int const nmats,Mesh const &M,int const length_scale_type,
                   double const cl,double const cq);
+void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // 1D line-outs
+              VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
 void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // line-outs
               VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
 void exact(VVD const &s,VVD const &x,int const &test_problem);                                                       // exact solution where applicable
@@ -1015,6 +1017,7 @@ int main(){
   timers.Start(TIMER_OUTPUT);
   M.MapCoords(x1,xt1,S.order(),T.order()); // thermodynamic node positions
   lineouts(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
+//  lineouts_1d(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
   exact(state,x1,test_problem);
 
   timers.Stop(TIMER_OUTPUT);
@@ -1102,6 +1105,112 @@ int main(){
   cout<<"Normal termination."<<endl;
 
   return 0;
+}
+
+// this function codes for some 1D line-outs
+
+void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,VVD const &xt,VVD const &u, int const &test_problem,vector<int> const &mat,VD const &g){
+
+// file handle for output
+
+  ofstream f1;
+
+// establish the mesh limits
+
+  double xmin(*min_element(x.at(0).begin(),x.at(0).end()));
+  double xmax(*max_element(x.at(0).begin(),x.at(0).end()));
+
+  string filename;  //filename to output
+  string filehead;  // file header
+  int nsamples(10); // number of sample points on the line
+
+// open the output file for the lineout and write the header part
+
+  f1.open("lineout_1.dat");
+  f1<<"# Sod lineout from (0.0,0.5) to (1.0,0.5) : Columns are x d e p ux uy"<<endl;
+
+// a small tolerance to keep inside the cell
+
+  double tol(1.0e-20);
+
+// split each cell into nsamples divisions for sampling
+
+  for(int i=0;i<M.NCells(0);i++){
+
+    double dx(2.0-tol),dxn(dx/nsamples);
+
+// set local coordinates of the sample points
+
+    vector<double> xsample(nsamples+1),ysample(nsamples+1);
+
+    xsample.at(0)=-1.0;
+    ysample.at(0)=0.0;
+    for(int isample=0;isample<nsamples;isample++){
+      xsample.at(isample+1)=xsample.at(0)+(isample+1)*dxn;
+      ysample.at(isample+1)=ysample.at(0);
+
+    }
+
+// jacobian at each sample point
+
+    for(int isample=1;isample<=nsamples;isample++){
+      double dxdu(0.0),dxdv(0.0),dydu(0.0),dydv(0.0),dxdu0(0.0),dxdv0(0.0),dydu0(0.0),dydv0(0.0);
+      for(int iloc=0;iloc<S.nloc();iloc++){
+        dxdu0+=S.dvalue(0,iloc,xsample.at(isample),ysample.at(isample))*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dxdv0+=S.dvalue(1,iloc,xsample.at(isample),ysample.at(isample))*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dydu0+=S.dvalue(0,iloc,xsample.at(isample),ysample.at(isample))*xinit.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        dydv0+=S.dvalue(1,iloc,xsample.at(isample),ysample.at(isample))*xinit.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        dxdu+=S.dvalue(0,iloc,xsample.at(isample),ysample.at(isample))*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dxdv+=S.dvalue(1,iloc,xsample.at(isample),ysample.at(isample))*x.at(0).at(M.GlobalNode_CFEM(i,iloc));
+        dydu+=S.dvalue(0,iloc,xsample.at(isample),ysample.at(isample))*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+        dydv+=S.dvalue(1,iloc,xsample.at(isample),ysample.at(isample))*x.at(1).at(M.GlobalNode_CFEM(i,iloc));
+      }
+
+      double detJ0(dxdu0*dydv0-dxdv0*dydu0),detJ(dxdu*dydv-dxdv*dydu);
+
+// initialise values for interpolation
+
+      double interpolated_value[6]={0.0,0.0,0.0,0.0,0.0,0.0}; // ordering is x d e p ux uy
+
+// coordinate of sample point along the line-out
+
+      for(int iloc=0;iloc<S.nloc();iloc++){interpolated_value[0]+=S.value(iloc,xsample.at(isample),ysample.at(isample))*x.at(0).at(M.GlobalNode_CFEM(i,iloc));}
+
+// sample density field at the interpolation point
+
+      interpolated_value[1]=dinit.at(i)*detJ0/detJ;
+
+// sample energy field at the interpolation point
+
+      for(int iloc=0;iloc<T.nloc();iloc++){interpolated_value[2]+=T.value(iloc,xsample.at(isample),ysample.at(isample))*e.at(M.GlobalNode_DFEM(i,iloc));}
+
+// sample pressure field at the interpolation point
+
+      interpolated_value[3]=P(interpolated_value[1],interpolated_value[2],g.at(mat.at(i)-1));
+
+// sample velocity field x-component at interpolation point
+
+      for(int iloc=0;iloc<S.nloc();iloc++){interpolated_value[4]+=S.value(iloc,xsample.at(isample),ysample.at(isample))*u.at(0).at(M.GlobalNode_CFEM(i,iloc));}
+
+// sample velocity field y-component at interpolation point
+
+      for(int iloc=0;iloc<S.nloc();iloc++){interpolated_value[5]+=S.value(iloc,xsample.at(isample),ysample.at(isample))*u.at(1).at(M.GlobalNode_CFEM(i,iloc));}
+
+// output interpolated data along the line-out
+
+      for(int j=0;j<6;j++){f1<<fixed<<setprecision(10)<<interpolated_value[j]<<" ";}
+      f1<<endl;
+
+    }
+
+  }
+
+// close the output file
+
+  f1.close();
+
+  return;
+
 }
 
 // this function codes for some line-outs
