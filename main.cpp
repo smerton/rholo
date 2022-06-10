@@ -95,6 +95,7 @@
 #include <unistd.h>
 #include "riemann.h"
 #include "timer.h"
+#include "lineouts.h"
 
 // function signatures
 
@@ -111,12 +112,6 @@ void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xini
 void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,Shape const T,                       // echo some initial information
                   int const ndims, int const nmats,Mesh const &M,int const length_scale_type,
                   double const cl,double const cq);
-void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,    // choose between 1D & 2D lineouts
-              VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
-void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // 1D lineouts
-              VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
-void lineouts_2d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // 2D lineouts
-              VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
 void exact(VVD const &s,VVD const &x,int const &test_problem);                                                          // exact solution where applicable
 void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,                  // silo graphics output
           VVD const &u,VVD const &Fv,VD const &eshock,VI const &mat,int s, double t,Mesh const &M,VD const &g,
