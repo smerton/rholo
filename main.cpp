@@ -31,7 +31,6 @@
 #define DTSTART 0.0001     // insert a macro for the first time step
 #define ENDTIME 0.2       // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
-#define NSAMPLES 1000     // number of sample points for the exact solution
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
 #define VISFREQ 0.05      // frequency of the graphics dump times
@@ -93,15 +92,14 @@
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "riemann.h"
 #include "timer.h"
 #include "lineouts.h"
+#include "exact.h"
 
 // function signatures
 
 string date();                                                                                                          // function to return the date and time
 void header();                                                                                                          // header part
-void vempty(vector<double>&v);                                                                                          // empty a vector
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ);                             // calculate a jacobian and determinant
 void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &Js);                  // calculate a jacobian for the Lagrangian motion
 void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ);                                         // calculate a jacobian at the local nodes
@@ -112,7 +110,6 @@ void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xini
 void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,Shape const T,                       // echo some initial information
                   int const ndims, int const nmats,Mesh const &M,int const length_scale_type,
                   double const cl,double const cq);
-void exact(VVD const &s,VVD const &x,int const &test_problem);                                                          // exact solution where applicable
 void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,                  // silo graphics output
           VVD const &u,VVD const &Fv,VD const &eshock,VI const &mat,int s, double t,Mesh const &M,VD const &g,
           VD const &qdata,Shape const &S,Shape const &T);
@@ -1013,7 +1010,7 @@ int main(){
   timers.Start(TIMER_OUTPUT);
   M.MapCoords(x1,xt1,S.order(),T.order()); // thermodynamic node positions
   lineouts(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
-  exact(state,x1,test_problem);
+  exact(state,x1,test_problem,ENDTIME);
 
   timers.Stop(TIMER_OUTPUT);
 
@@ -1102,183 +1099,6 @@ int main(){
   return 0;
 
 }
-
-// generate an exact solution where applicable
-
-void exact(VVD const &s,VVD const &x,int const &test_problem){
-
-// file handle for output
-
-  ofstream f1;
-
-// establish the mesh limits
-
-  double xmin(*min_element(x.at(0).begin(),x.at(0).end()));
-  double xmax(*max_element(x.at(0).begin(),x.at(0).end()));
-  double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
-  double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
-
-// decalre the lineout structure
-
-  struct lineout_type {
-    double x1,y1; // start point of each line
-    double x2,y2; // end point of each line
-    string filename; //filename to output
-    string filehead; // file header
-    int nsamples; // number of sample points on each line
-  } lineout;
-
-  vector<lineout_type> Lineout;
-
-// set up an exact solution for each problems that has one
-
-  switch(test_problem){
-
-    case(TAYLOR):
-
-// Taylor Green vortex
-
-      return;;
-
-      break;
-
-    case(RAYLEIGH):
-
-// Rayleigh-Taylor instability
-
-      return;
-
-      break;
-
-    case(NOH):
-
-// Noh stagnation shock
-
-      return;;
-
-      break;
-
-    case(SEDOV):
-
-// Sedov expanding shock
-
-      return;;
-
-      break;
-
-    case(SOD):
-
-// Sod's shock tube
-
-      lineout.x1=xmin;
-      lineout.x2=xmax;
-      lineout.y1=0.5*(ymin+ymax);
-      lineout.y2=lineout.y1;
-      lineout.filename="exact.dat";
-      lineout.filehead="# Sod exact solution from (0.0,0.5) to (1.0,0.5) : Columns are x d p e u";
-      lineout.nsamples=NSAMPLES;
-
-      {
-
-        double l[4]={s.at(0)[0],s.at(0)[1],s.at(0)[3],s.at(0)[4]}; // left flux state
-        double r[4]={s.at(1)[0],s.at(1)[1],s.at(1)[3],s.at(1)[4]}; // right flux state
-        Riemann R(Riemann::exact,l,r); // start Riemann solver from initial flux states
-        vector<double> rx;vempty(rx); // sample point coordinates for the Riemann solver
-//        for(int i=0;i<NSAMPLES;i++){rx.push_back(0.0+(i*(1.0-0.0)/double(NSAMPLES)));} // sample points for the Riemann solver
-        for(int i=0;i<NSAMPLES;i++){rx.push_back(i*(xmax-xmin)/NSAMPLES);} // sample points for the Riemann solver
-        R.profile(&rx,ENDTIME); // Riemann solution at NSAMPLE sample points
-
-// append to the data structure
-
-        Lineout.push_back(lineout);
-
-        cout<<"exact(): exact solution writing to file "<<Lineout.at(0).filename<<" ..."<<endl;
-
-// open the output file for the exact solution and write the header part
-
-        f1.open(Lineout.at(0).filename);
-        f1<<Lineout.at(0).filehead<<endl;
-
-// output the exact solution
-
-        f1<<fixed<<setprecision(10);
-        for(int j=0;j<rx.size();j++){
-          f1<<rx.at(j)<<" "<<R.density(j)<<" "<<R.pressure(j)<<" "<<R.energy(j)<<" "<<R.velocity(j)<<endl;
-        }
-
-// close the output file
-
-        f1.close();
-
-      }
-
-      break;
-
-
-    case(R2R):
-
-// 123 problem
-
-      lineout.x1=xmin;
-      lineout.x2=xmax;
-      lineout.y1=0.5*(ymin+ymax);
-      lineout.y2=lineout.y1;
-      lineout.filename="exact.dat";
-      lineout.filehead="# 123 problem solution from (0.0,0.5) to (1.0,0.5) : Columns are x d p e u";
-      lineout.nsamples=NSAMPLES;
-
-      {
-
-        double l[4]={s.at(0)[0],s.at(0)[1],s.at(0)[3],s.at(0)[4]}; // left flux state
-        double r[4]={s.at(1)[0],s.at(1)[1],s.at(1)[3],s.at(1)[4]}; // right flux state
-        Riemann R(Riemann::exact,l,r); // start Riemann solver from initial flux states
-        vector<double> rx;vempty(rx); // sample point coordinates for the Riemann solver
-        for(int i=0;i<NSAMPLES;i++){rx.push_back(i*(xmax-xmin)/NSAMPLES);} // sample points for the Riemann solver
-        R.profile(&rx,ENDTIME); // Riemann solution at NSAMPLE sample points
-
-// append to the data structure
-
-        Lineout.push_back(lineout);
-
-        cout<<"exact(): exact solution writing to file "<<Lineout.at(0).filename<<" ..."<<endl;
-
-// open the output file for the exact solution and write the header part
-
-        f1.open(Lineout.at(0).filename);
-        f1<<Lineout.at(0).filehead<<endl;
-
-// output the exact solution
-
-        f1<<fixed<<setprecision(10);
-        for(int j=0;j<rx.size();j++){
-          f1<<rx.at(j)<<" "<<R.density(j)<<" "<<R.pressure(j)<<" "<<R.energy(j)<<" "<<R.velocity(j)<<endl;
-        }
-
-// close the output file
-
-        f1.close();
-
-      }
-
-      break;
-
-    case(SALTZMANN):
-
-// Saltzmann piston
-
-      return;
-
-      break;
-
-  }
-
-  return;
-
-}
-
-// empty a vector
-
-void vempty(vector<double>&v){vector<double> e;v.swap(e);return;}
 
 // return today's date
 
