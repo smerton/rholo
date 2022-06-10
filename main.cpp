@@ -99,55 +99,57 @@
 
 // function signatures
 
-string date();                                                                                                       // function to return the date and time
-void header();                                                                                                       // header part
-void vempty(vector<double>&v);                                                                                       // empty a vector
-void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ);                          // calculate a jacobian and determinant
-void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &Js);               // calculate a jacobian for the Lagrangian motion
-void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ);                                      // calculate a jacobian at the local nodes
-void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xinit,                                  // sum the global kinetic energy field
+string date();                                                                                                          // function to return the date and time
+void header();                                                                                                          // header part
+void vempty(vector<double>&v);                                                                                          // empty a vector
+void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &detDJ);                             // calculate a jacobian and determinant
+void jacobian(int const &i,VVD const &x0,VVD const &x,Mesh const &M,Shape const &S,VD &detJ,VVVD &Js);                  // calculate a jacobian for the Lagrangian motion
+void jacobian(int const &i,VVD const &x,Mesh const &M,Shape const &S,VD &detJ);                                         // calculate a jacobian at the local nodes
+void sum_ke(double &ke,VVD const &u,VD const &dinit,Mesh const &M,VVD const &xinit,                                     // sum the global kinetic energy field
             VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);
-void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,                                   // sum the global internal energy field
+void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xinit,                                      // sum the global internal energy field
             VVD const &x,Shape const &S,Shape const &T,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ);
-void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,Shape const T,                    // echo some initial information
+void initial_data(int const n, long const nknodes,long const ntnodes,Shape const S,Shape const T,                       // echo some initial information
                   int const ndims, int const nmats,Mesh const &M,int const length_scale_type,
                   double const cl,double const cq);
-void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // 1D line-outs
+void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,    // choose between 1D & 2D lineouts
               VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
-void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // line-outs
+void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // 1D lineouts
               VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
-void exact(VVD const &s,VVD const &x,int const &test_problem);                                                       // exact solution where applicable
-void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,               // silo graphics output
+void lineouts_2d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x, // 2D lineouts
+              VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
+void exact(VVD const &s,VVD const &x,int const &test_problem);                                                          // exact solution where applicable
+void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD const &V,VD const &e,                  // silo graphics output
           VVD const &u,VVD const &Fv,VD const &eshock,VI const &mat,int s, double t,Mesh const &M,VD const &g,
           VD const &qdata,Shape const &S,Shape const &T);
-void state_print(int const n,int const ndims, int const nmats, VI const &mat,                                        // output material states
+void state_print(int const n,int const ndims, int const nmats, VI const &mat,                                           // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,                                    // insert boundary conditions in to the mass matrix via row elimination
+void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,                                       // insert boundary conditions in to the mass matrix via row elimination
                VVD &u0,VVD &u1,VD &b0,VD &b1,long const &nnodes);
 
-void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                            // input overides for the Taylor-Green vortex
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                               // input overides for the Taylor-Green vortex
                  VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
                  vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                  VVVD &detDJ,VD const &m);
-void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                          // input overides for the Rayleigh-Taylor instability
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                             // input overides for the Rayleigh-Taylor instability
                    VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
                    vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                    VVVD &detDJ,VD const &m);
-void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                               // input overides for the Noh stagnation shock
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                                  // input overides for the Noh stagnation shock
               VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
               vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
               VVVD &detDJ,VD const &m);
-void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                             // input overides for the Sedov explosion
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                                // input overides for the Sedov explosion
                 VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
                 vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                 VVVD &detDJ,VD const &m);
-void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                         // input overides for the Saltzmann piston
+void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,                            // input overides for the Saltzmann piston
                 VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &xk,VVD &xt,VD const &gamma,
                 vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                 VVVD &detDJ,VD const &m);
 
-template <typename T> int sgn(T val);                                                                                // return type safe sign of the argument
+template <typename T> int sgn(T val);                                                                                   // return type safe sign of the argument
 
 using namespace std;
 
@@ -155,7 +157,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-100x1.mesh");                                 // load a new mesh from file
+  Mesh M("mesh/sod-100x1.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -1017,7 +1019,6 @@ int main(){
   timers.Start(TIMER_OUTPUT);
   M.MapCoords(x1,xt1,S.order(),T.order()); // thermodynamic node positions
   lineouts(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
-//  lineouts_1d(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
   exact(state,x1,test_problem);
 
   timers.Stop(TIMER_OUTPUT);
@@ -1105,55 +1106,197 @@ int main(){
   cout<<"Normal termination."<<endl;
 
   return 0;
+
 }
 
-// this function codes for some 1D line-outs
+
+// this function chooses between 1D and 2D lineouts
+
+void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,VVD const &xt,VVD const &u, int const &test_problem,vector<int> const &mat,VD const &g){
+
+// select 2D lineouts for 2D problems and 1D lineouts for 1D problems
+
+  switch(test_problem){
+
+    case(TAYLOR):
+
+// Taylor Green vortex
+
+      lineouts_2d(M,S,T,dinit,e,xinit,x,xt,u,test_problem,mat,g);
+
+      return;;
+
+      break;
+
+    case(RAYLEIGH):
+
+// Rayleigh-Taylor instability
+
+      lineouts_2d(M,S,T,dinit,e,xinit,x,xt,u,test_problem,mat,g);
+
+      return;
+
+      break;
+
+    case(NOH):
+
+// Noh stagnation shock
+
+      lineouts_2d(M,S,T,dinit,e,xinit,x,xt,u,test_problem,mat,g);
+
+      break;
+
+    case(SEDOV):
+
+// Sedov expanding shock
+
+      lineouts_2d(M,S,T,dinit,e,xinit,x,xt,u,test_problem,mat,g);
+
+      break;
+
+    case(SOD):
+
+// Sod's shock tube
+
+      lineouts_1d(M,S,T,dinit,e,xinit,x,xt,u,test_problem,mat,g);
+
+      break;
+
+    case(R2R):
+
+// 123 problem
+
+      lineouts_1d(M,S,T,dinit,e,xinit,x,xt,u,test_problem,mat,g);
+
+      break;
+
+    case(SALTZMANN):
+
+// Saltzmann piston
+
+      return;
+
+      break;
+
+  }
+
+  return;
+
+}
+
+// this function codes for some 1D lineouts
 
 void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,VVD const &xt,VVD const &u, int const &test_problem,vector<int> const &mat,VD const &g){
 
 // file handle for output
 
-  ofstream f1;
+  ofstream f1,f2;
 
 // establish the mesh limits
 
   double xmin(*min_element(x.at(0).begin(),x.at(0).end()));
   double xmax(*max_element(x.at(0).begin(),x.at(0).end()));
+  double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
+  double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
+  double delta(0.001);
 
-  string filename;  //filename to output
-  string filehead;  // file header
-  int nsamples(10); // number of sample points on the line
+// decalre the lineout structure
+
+  struct lineout_type {
+    double x1,y1; // start point of each line
+    double x2,y2; // end point of each line
+    string filename; //filename to output
+    string filehead; // file header
+    int nsamples; // number of sample points per cell
+    int lcentre; // cell left of mesh centre
+    int rcentre; // cell right of mesh centre
+    double xoffset; // allow an offset so we can coincide with the exact solution
+    bool zskip; // skip sample points near the centre of the mesh
+  } lineout;
+
+  vector<lineout_type> Lineout;
+
+// set up different lineouts for different problems
+
+  switch(test_problem){
+
+    case(SOD):
+
+// Sod's shock tube
+
+      lineout.x1=xmin;
+      lineout.x2=xmax;
+      lineout.y1=0.5*(ymin+ymax);
+      lineout.y2=lineout.y1;
+      lineout.filename="lineout_1.dat";
+      lineout.filehead="# Sod lineout from (0.0,0.5) to (1.0,0.5) : Columns are x d e p ux uy";
+      lineout.nsamples=5;
+      lineout.rcentre=-10000;
+      lineout.lcentre=-10000;
+      lineout.xoffset=0.0;
+      lineout.zskip=false;
+      Lineout.push_back(lineout);
+
+      break;
+
+    case(R2R):
+
+// 123 problem
+
+      lineout.x1=xmin;
+      lineout.x2=xmax;
+      lineout.y1=0.5*(ymin+ymax);
+      lineout.y2=lineout.y1;
+      lineout.filename="lineout_1.dat";
+      lineout.filehead="# 123 problem lineout from (xmin,0.5) to (xmax,0.5) : Columns are x d e p ux uy";
+      lineout.nsamples=5;
+      lineout.rcentre=M.NCells()/2;
+      lineout.lcentre=lineout.rcentre-1;
+      lineout.xoffset=0.9;
+      lineout.zskip=true;
+      Lineout.push_back(lineout);
+
+      break;
+
+  }
+
+
+// loop over the lineouts and produce the output
+
+  int iline(0);
+
+  cout<<"lineouts_1d(): Lineout "<<iline+1<<" of "<<Lineout.size()<<" writing to file "<<Lineout.at(iline).filename<<" ..."<<endl;
 
 // open the output file for the lineout and write the header part
 
-  f1.open("lineout_1.dat");
-  f1<<"# Sod lineout from (0.0,0.5) to (1.0,0.5) : Columns are x d e p ux uy"<<endl;
+  f1.open(Lineout.at(iline).filename);
+  f1<<Lineout.at(iline).filehead<<endl;
 
-// a small tolerance to keep inside the cell
+// open a file to store the cell boundaries as these might be useful to inspect for 1D problems
 
-  double tol(1.0e-20);
+  f2.open("cell_boundaries.dat");
+  f2<<"# This file contains cell boundaries."<<endl;
 
 // split each cell into nsamples divisions for sampling
 
   for(int i=0;i<M.NCells(0);i++){
 
-    double dx(2.0-tol),dxn(dx/nsamples);
+    double dxn(2.0/Lineout.at(iline).nsamples);
 
 // set local coordinates of the sample points
 
-    vector<double> xsample(nsamples+1),ysample(nsamples+1);
+    vector<double> xsample(Lineout.at(iline).nsamples+1),ysample(Lineout.at(iline).nsamples+1);
 
     xsample.at(0)=-1.0;
     ysample.at(0)=0.0;
-    for(int isample=0;isample<nsamples;isample++){
+    for(int isample=0;isample<Lineout.at(iline).nsamples;isample++){
       xsample.at(isample+1)=xsample.at(0)+(isample+1)*dxn;
       ysample.at(isample+1)=ysample.at(0);
-
     }
 
 // jacobian at each sample point
 
-    for(int isample=1;isample<=nsamples;isample++){
+    for(int isample=0;isample<=Lineout.at(iline).nsamples;isample++){
       double dxdu(0.0),dxdv(0.0),dydu(0.0),dydv(0.0),dxdu0(0.0),dxdv0(0.0),dydu0(0.0),dydv0(0.0);
       for(int iloc=0;iloc<S.nloc();iloc++){
         dxdu0+=S.dvalue(0,iloc,xsample.at(isample),ysample.at(isample))*xinit.at(0).at(M.GlobalNode_CFEM(i,iloc));
@@ -1168,11 +1311,17 @@ void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD 
 
       double detJ0(dxdu0*dydv0-dxdv0*dydu0),detJ(dxdu*dydv-dxdv*dydu);
 
+// reject sample points closest to the cell edges as this helps to avoid sharp density spikes
+
+      if(Lineout.at(iline).zskip){
+        if((((isample==0)&&(i!=Lineout.at(iline).rcentre)) || ((isample==Lineout.at(iline).nsamples) &&(i!=Lineout.at(iline).lcentre)) )){continue;}
+      }
+
 // initialise values for interpolation
 
-      double interpolated_value[6]={0.0,0.0,0.0,0.0,0.0,0.0}; // ordering is x d e p ux uy
+      double interpolated_value[6]={Lineout.at(iline).xoffset,0.0,0.0,0.0,0.0,0.0}; // ordering is x d e p ux uy
 
-// coordinate of sample point along the line-out
+// coordinate of sample point along the lineout
 
       for(int iloc=0;iloc<S.nloc();iloc++){interpolated_value[0]+=S.value(iloc,xsample.at(isample),ysample.at(isample))*x.at(0).at(M.GlobalNode_CFEM(i,iloc));}
 
@@ -1196,7 +1345,7 @@ void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD 
 
       for(int iloc=0;iloc<S.nloc();iloc++){interpolated_value[5]+=S.value(iloc,xsample.at(isample),ysample.at(isample))*u.at(1).at(M.GlobalNode_CFEM(i,iloc));}
 
-// output interpolated data along the line-out
+// output interpolated data along the lineout
 
       for(int j=0;j<6;j++){f1<<fixed<<setprecision(10)<<interpolated_value[j]<<" ";}
       f1<<endl;
@@ -1205,17 +1354,27 @@ void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD 
 
   }
 
-// close the output file
+// output cell boundaries
+
+  for(int i=0;i<M.NCells(0);i++){
+    f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(i,0))<<" -1000000.0"<<endl;
+    f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(i,0))<<" 1000000.0"<<endl;
+  }
+  f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(M.NCells()-1,S.order()))<<" -100000.0"<<endl;
+  f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(M.NCells()-1,S.order()))<<" 100000.0"<<endl;
+
+// close the output files
 
   f1.close();
+  f2.close();
 
   return;
 
 }
 
-// this function codes for some line-outs
+// this function codes for some 2D lineouts
 
-void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,VVD const &xt,VVD const &u, int const &test_problem,vector<int> const &mat,VD const &g){
+void lineouts_2d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,VVD const &xt,VVD const &u, int const &test_problem,vector<int> const &mat,VD const &g){
 
 // file handle for output
 
@@ -1229,7 +1388,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
   double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
   double delta(0.001);
 
-// decalre the line-out structure
+// decalre the lineout structure
 
   struct lineout_type {
     double x1,y1; // start point of each line
@@ -1241,7 +1400,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
   vector<lineout_type> Lineout;
 
-// set up different line-outs for different problems
+// set up different lineouts for different problems
 
   switch(test_problem){
 
@@ -1435,7 +1594,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
   for(int iline=0;iline<Lineout.size();iline++){
 
-    cout<<"lineouts(): Line-out "<<iline+1<<" of "<<Lineout.size()<<" writing to file "<<Lineout.at(iline).filename<<" ..."<<endl;
+    cout<<"lineouts_2d(): Lineout "<<iline+1<<" of "<<Lineout.size()<<" writing to file "<<Lineout.at(iline).filename<<" ..."<<endl;
 
 // open the output file for the lineout and write the header part
 
@@ -1477,7 +1636,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
     for(int ipt=0;ipt<end_point.size();ipt++){
 
-// set sample point coordinates and distance along the line-out from line-out origin
+// set sample point coordinates and distance along the lineout from lineout origin
 
       double xpt(end_point.at(ipt).at(0)),ypt(end_point.at(ipt).at(1));
       double xdist(xpt-end_point.at(0).at(0)),ydist(ypt-end_point.at(0).at(1));
@@ -1531,7 +1690,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
         double interpolated_value[6]={0.0,0.0,0.0,0.0,0.0,0.0}; // ordering is x d e p ux uy
 
-// coordinate of sample point along the line-out
+// coordinate of sample point along the lineout
 
         interpolated_value[0]=sqrt(xdist*xdist+ydist*ydist);
 
@@ -1555,7 +1714,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
         for(int iloc=0;iloc<S.nloc();iloc++){interpolated_value[5]+=S.value(iloc,xloc,yloc)*u.at(1).at(M.GlobalNode_CFEM(i,iloc));}
 
-// output interpolated data along the line-out
+// output interpolated data along the lineout
 
         for(int j=0;j<6;j++){f1<<fixed<<setprecision(10)<<interpolated_value[j]<<" ";}
         f1<<endl;
@@ -1570,7 +1729,7 @@ void lineouts(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD con
 
   }
 
-  if(Lineout.size()==0){cout<<"lineouts(): No line-outs defined for this problem."<<endl;}
+  if(Lineout.size()==0){cout<<"lineouts(): No lineouts defined for this problem."<<endl;}
 
   return;
 
@@ -1591,7 +1750,7 @@ void exact(VVD const &s,VVD const &x,int const &test_problem){
   double ymin(*min_element(x.at(1).begin(),x.at(1).end()));
   double ymax(*max_element(x.at(1).begin(),x.at(1).end()));
 
-// decalre the line-out structure
+// decalre the lineout structure
 
   struct lineout_type {
     double x1,y1; // start point of each line
