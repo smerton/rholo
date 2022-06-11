@@ -5,7 +5,6 @@
 #define VD vector<double> // vector of doubles
 #define VVD vector<VD>    // vector of VD
 #define VVVD vector<VVD>  // vector of VVD
-#define VELOCITY 3        // velocity v.n applied to boundary
 
 #include <iostream>
 #include <vector>
@@ -15,11 +14,13 @@
 #include <algorithm>   // min_element, max_element
 #include "eos.h"       // eos lookups
 #include "mesh.h"      // mesh class
+#include "matrix.h"    // matrix class (needed to include bcs.h)
 #include "shape.h"     // shape class
 #include "riemann.h"   // riemann solver
 #include "tests.h"     // test problems
 #include "line.h"      // line class
 #include "utilities.h" // vempty
+#include "bcs.h"       // VELOCITY bc definition
 
 using namespace std;
 

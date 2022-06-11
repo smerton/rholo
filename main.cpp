@@ -48,12 +48,6 @@
 #define ROW M.GlobalNode_CFEM(i,iloc)  // row address in global matrix
 #define COL M.GlobalNode_CFEM(i,jloc)  // column address in global matrix
 
-#define VACUUM 1              // vacuum boundary
-#define REFLECTIVE 2          // reflective boundary
-#define VELOCITY 3            // velocity v.n applied to boundary
-#define FLUID 4               // fluid on the boundary
-#define ACCELERATION 5        // velocity a.n applied to boundary
-
 #define TIMER_MAIN 0          // timer for main
 #define TIMER_ASSEMBLY 1      // timer for acceleration field assembly
 #define TIMER_INVERSE 2       // timer for matrix inverter
@@ -72,20 +66,21 @@
 #include <vector>
 #include <iomanip>
 #include <cmath>
-#include <fstream>   // for file io
-#include "matrix.h"  // matrix operations
-#include "shape.h"   // signature of the shape class
+#include <fstream>     // for file io
+#include "matrix.h"    // matrix operations
+#include "shape.h"     // signature of the shape class
 #include <bits/stdc++.h>
-#include "eos.h"     // eos lookups
-#include "mesh.h"    // signature of the mesh class
-#include <ctime>     // date and time
-#include <stdlib.h>  // getenv
+#include "eos.h"       // eos lookups
+#include "mesh.h"      // signature of the mesh class
+#include <ctime>       // date and time
+#include <stdlib.h>    // getenv
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
 #include "timer.h"     // high precision timers
 #include "tests.h"     // test problem inputs and exact solutions
 #include "utilities.h" // sgn
+#include "bcs.h"       // bc_insert
 
 // function signatures
 
@@ -107,8 +102,6 @@ void silo(VVD const &x,VVD const &xt,VVD const &xinit,VD const &d,VD const &l,VD
 void state_print(int const n,int const ndims, int const nmats, VI const &mat,                                           // output material states
                   VD const &d, VD const &V, VD const &m, VD const &e, VD const &p, 
                   VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,                                       // insert boundary conditions in to the mass matrix via row elimination
-               VVD &u0,VVD &u1,VD &b0,VD &b1,long const &nnodes);
 
 using namespace std;
 
@@ -1519,164 +1512,6 @@ void sum_ie(double &ie,VD const &e,VD const &dinit,Mesh const &M,VVD const &xini
 // normalise to the number of cells
 
   ie=ie/M.NCells();
-
-  return;
-
-}
-
-// function to insert boundary conditions into the mass matrix via row elimination
-
-void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,VVD &u0,VVD &u1,VD &b0,VD &b1,long const &nknodes){
-
-// loop over boundary elements and choose what type of boundary needs to be applied
-
-  cout<<"There are "<<M.NSides()<<" element sides on the mesh boundary:"<<endl;
-
-// initialise boundary vectors
-
-  fill(b0.begin(),b0.end(),0.0); // value on the boundary
-  fill(b1.begin(),b1.end(),0.0); // eliminated row
-
-// find cell sides coincident with the edges of the mesh
-
-  for(long i=0;i<M.NCells();i++){
-    for(int iside=0;iside<M.NVertices(i);iside++){
-
-      if(M.E2E(i,iside)<M.NCells()){continue;}
-
-// side iside is on a mesh edge, impose boundary conditions
-
-      string bcname;
-
-      int idim=(iside==0||iside==2)?1:0; // direction perpendicular to mesh boundary
-
-// acquire local node numbers on side iside
-
-      int local_node[S.order()+1];
-
-      switch(iside){
-
-        case(0): // bottom edge of mesh
-
-          for(int iloc=0;iloc<S.order()+1;iloc++){local_node[iloc]=iloc;}
-
-          break;
-
-        case(1): // right edge of mesh
-
-          for(int iloc=0;iloc<S.order()+1;iloc++){local_node[iloc]=iloc*(S.order()+1)+S.order();}
-
-          break;
-
-        case(2): // top edge of mesh
-
-          for(int iloc=0;iloc<S.order()+1;iloc++){local_node[iloc]=S.nloc()-S.order()-1+iloc;}
-
-          break;
-
-        case(3): // left edge of mesh
-
-          for(int iloc=0;iloc<S.order()+1;iloc++){local_node[iloc]=iloc*(S.order()+1);}
-
-          break;
-
-      }
-
-// select boundary condition type on side iside
-
-      switch(M.bc_edge(iside)){
-
-        case(VACUUM):
-
-// do nothing so mesh expands into the void
-
-          bcname="vacuum";
-
-          break;
-
-        case(REFLECTIVE):
-
-// set v.n=0 on domain boundary and impose a constraint on the acceleration field
-
-          bcname="reflective";
-
-          break;
-
-        case(VELOCITY):
-
-// set v.n=<value> on domain boundary and impose a constraint on the acceleration field
-
-          bcname="velocity";
-
-// set v.n=<value> on domain boundary
-
-          for(int isloc=0;isloc<S.order()+1;isloc++){
-            long k(M.GlobalNode_CFEM(i,local_node[isloc]));
-            u0.at(idim).at(k)=M.bc_value(iside);
-            u1.at(idim).at(k)=M.bc_value(iside);
-          }
-
-// eliminate k'th solution as we are imposing a condition on it
-
-          for(int isloc=0;isloc<S.order()+1;isloc++){
-
-            long k(M.GlobalNode_CFEM(i,local_node[isloc])); // boundary node
-            double bval(1.0e-200); // boundary value
-
-// collect known information - is this double counting ??
-
-            for(long irow=0;irow<nknodes;irow++){b1.at(idim*nknodes+irow)+=A.read(idim*nknodes+irow,idim*nknodes+k)*bval;}
-
-// store boundary value
-
-            b0.at(idim*NROWS+k)=bval;
-
-          }
-
-// modify mass matrix to restore symmetry, this is to try and avoid costly changes to the solution strategy
-
-          for(int isloc=0;isloc<S.order()+1;isloc++){
-            long k(M.GlobalNode_CFEM(i,local_node[isloc])); // boundary node
-            for(long l=0;l<M.NDims()*nknodes;l++){
-              if(l!=k){
-                A.write(l,idim*nknodes+k,0.0);
-                A.write(idim*nknodes+k,l,0.0);
-              }
-            }
-            A.write(idim*nknodes+k,idim*nknodes+k,1.0);
-          }
-
-          break;
-
-        case(FLUID):
-
-// add in additional boundary fluid masses to give zero pressure gradient across the edges of the domain
-
-          bcname="fluid";
-
-          break;
-
-        case(ACCELERATION):
-
-// impose a.n=<value> on domain boundary via row elimination of the mass matrix
-
-          bcname="acceleration";
-
-          break;
-
-        default:
-
-          bcname="undefined";
-
-          cout<<"bc_insert(): "<<bcname<<" boundary conditions not coded, stopping."<<endl;
-
-          exit(1);
-
-      }
-
-      cout<<"Edge "<<iside<<" boundary type : "<<bcname<<endl;
-    }
-  }
 
   return;
 
