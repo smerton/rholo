@@ -2,16 +2,13 @@
 
 // S. R. Merton
 
-#define VD vector<double> // vector of doubles
-#define VVD vector<VD>    // vector of VD
-#define VVVD vector<VVD>  // vector of VVD
-
 #include <iostream>
 #include <vector>
 #include <iomanip>     // floating point precision
 #include <cmath>       // for sqrt
 #include <fstream>     // for file io
 #include <algorithm>   // min_element, max_element
+#include "globals.h"   // defines
 #include "eos.h"       // eos lookups
 #include "mesh.h"      // mesh class
 #include "matrix.h"    // matrix class (needed to include bcs.h)

@@ -10,20 +10,18 @@
 #define MESHNAME "MyFirstMesh"      // name of a test mesh
 #define KNOD i*(S->nloc()-1)+k      // global node number on kinematic mesh
 #define TNOD i*S->nloc()+j          // global node number on thermodynamic mesh
-#define VD vector<double>           // vector of doubles
-#define VVD vector<vector<double> > // vector of vector of doubles
-#define VI vector<int>              // vector of ints
 
 #include <iostream>
 #include <vector>
 //#include <ctime>
 #include <filesystem>
 #include <algorithm>
+#include <cmath>
+#include "globals.h"   // defines
 #include "silo.h"
 #include "shape.h"
 #include "mesh.h"
 #include "eos.h"     // eos lookups
-#include <cmath>
 
 // function signatures
 

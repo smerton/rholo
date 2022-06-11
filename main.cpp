@@ -35,18 +35,8 @@
 //#define OUTFREQ 50      // frequency of the output print steps
 #define VISFREQ 0.05      // frequency of the graphics dump times
 #define OUTFREQ 0.01      // frequency of the output print times
-#define VD vector<double> // vector of doubles
-#define VVD vector<VD>    // vector of VD
-#define VVVD vector<VVD>  // vector of VVD
-#define VI vector<int>    // vector of ints
 #define COURANT 0.333     // Courant number for CFL condition
 #define DTSFACTOR 0.1     // safety factor on time-step control
-#define NROWS nknodes     // number of rows in the global matrix
-#define NCOLS nknodes     // number of columns in the global matrix
-#define NGI S.ngi()*n     // number of integration points on the mesh
-#define GPNT i*S.ngi()+gi // global address of integration point gi
-#define ROW M.GlobalNode_CFEM(i,iloc)  // row address in global matrix
-#define COL M.GlobalNode_CFEM(i,jloc)  // column address in global matrix
 
 #define TIMER_MAIN 0          // timer for main
 #define TIMER_ASSEMBLY 1      // timer for acceleration field assembly
@@ -67,6 +57,7 @@
 #include <iomanip>
 #include <cmath>
 #include <fstream>     // for file io
+#include "globals.h"   // defines
 #include "matrix.h"    // matrix operations
 #include "shape.h"     // signature of the shape class
 #include <bits/stdc++.h>

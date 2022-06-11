@@ -1,18 +1,5 @@
 // Export the signature of the mesh class
 
-#define VD vector<double>           // laziness
-#define VVD vector<vector<double> > // laziness
-
-#define INCLUDE_GHOSTS 1 // used in ghost updates to update ghost data as well as physical data
-#define EXCLUDE_GHOSTS 0 // used in ghost updates to update physical data only
-
-#define LS_PSEUDO_1D 1       // use a pseudo-1D length scale, best for all 1D tests on 2D meshes
-#define LS_LOCAL 2           // use sqrt(volume(t))/p in the length scale definition
-#define LS_AVERAGE 3         // use sqrt(average volume)/p in the length scale definition where average volume is locally smooth
-#define LS_DIRECTIONAL 4     // use a directional length scale definition for improved symmetry
-
-#include <vector>
-
 using namespace std;
 
 class Mesh{

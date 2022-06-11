@@ -2,14 +2,9 @@
 
 // Author S. R. Merton
 
-#define VD vector<double> // vector of doubles
-#define VVD vector<VD>    // vector of VD
-#define VVVD vector<VVD>  // vector of VVD
-#define NROWS nknodes     // number of rows in the global matrix
-#define NCOLS nknodes     // number of columns in the global matrix
-
 #include <iostream>
 #include <vector>
+#include "globals.h" // defines
 #include "matrix.h"  // matrix class
 #include "mesh.h"    // mesh class
 #include "shape.h"   // shape class

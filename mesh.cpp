@@ -2,14 +2,6 @@
 
 // Author S. R. Merton
 
-#define VVD vector<vector<double> > // laziness
-#define VTOL 1.0e-10                // threshold for volume errors
-#define ECUT 1.0e-8                 // cut-off on the energy field
-
-#include "mesh.h"
-#include "shape.h"
-#include "eos.h"     // eos lookups
-#include "matrix.h"
 #include <vector>
 #include <iostream>
 #include <fstream>
@@ -17,7 +9,12 @@
 #include <string>
 #include <algorithm>
 #include <iomanip>
-#include <cmath>     // sqrt
+#include <cmath>       // sqrt
+#include "globals.h"   // defines
+#include "mesh.h"
+#include "shape.h"
+#include "eos.h"       // eos lookups
+#include "matrix.h"
 
 using namespace std;
 
