@@ -29,7 +29,7 @@
 //
 
 #define DTSTART 0.0001     // insert a macro for the first time step
-#define ENDTIME 0.2       // insert a macro for the end time
+#define ENDTIME 0.2        // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
@@ -151,8 +151,8 @@ int main(){
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
 //                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},          // initial flux state in each material for the 123 problem 
+//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=0.0;             // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},            // initial flux state in each material for the 123 problem 
 //                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
 //  test_problem=BLASTWAVE;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0; // set overides needed to run this problem

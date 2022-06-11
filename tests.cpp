@@ -349,14 +349,13 @@ void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD 
       lineout.nsamples=5;
       lineout.rcentre=M.NCells()/2;
       lineout.lcentre=lineout.rcentre-1;
-      lineout.xoffset=0.9;
+      lineout.xoffset=0.8;
       lineout.zskip=true;
       Lineout.push_back(lineout);
 
       break;
 
   }
-
 
 // loop over the lineouts and produce the output
 
@@ -373,6 +372,9 @@ void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD 
 
   f2.open("cell_boundaries.dat");
   f2<<"# This file contains cell boundaries."<<endl;
+  f2<<"# To unlink the cells and remove the unwanted diagonal lines after plotting:"<<endl;
+  f2<<"# Use Data->Data set operations->Operation type:Split"<<endl;
+  f2<<"# Set Length to 2"<<endl;
 
 // split each cell into nsamples divisions for sampling
 
@@ -408,10 +410,14 @@ void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD 
 
       double detJ0(dxdu0*dydv0-dxdv0*dydu0),detJ(dxdu*dydv-dxdv*dydu);
 
-// reject sample points closest to the cell edges as this helps to avoid sharp density spikes
+// reject sample points close to the cell edges as this helps to avoid sharp density spikes
 
       if(Lineout.at(iline).zskip){
-        if((((isample==0)&&(i!=Lineout.at(iline).rcentre)) || ((isample==Lineout.at(iline).nsamples) &&(i!=Lineout.at(iline).lcentre)) )){continue;}
+        if((((isample==0)&&(i!=Lineout.at(iline).rcentre)) || ((isample==Lineout.at(iline).nsamples) &&(i!=Lineout.at(iline).lcentre)) )){continue;} // 123
+//        bool zskip((i!=M.NCells()/2)||(i+1!=M.NCells()/2));
+//        if(!zskip&&((abs(xsample.at(isample)+1.0)<1.0e-2)||(abs(xsample.at(isample)-1.0)<1.0e-2))){continue;}
+      }else{
+        if(((abs(xsample.at(isample)+1.0)<1.0e-2)||(abs(xsample.at(isample)-1.0)<1.0e-2))){continue;} // sod
       }
 
 // initialise values for interpolation
@@ -457,8 +463,8 @@ void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD 
     f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(i,0))<<" -1000000.0"<<endl;
     f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(i,0))<<" 1000000.0"<<endl;
   }
-  f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(M.NCells()-1,S.order()))<<" -100000.0"<<endl;
-  f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(M.NCells()-1,S.order()))<<" 100000.0"<<endl;
+  f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(M.NCells()-1,S.order()))<<" -1000000.0"<<endl;
+  f2<<setprecision(10)<<Lineout.at(iline).xoffset+x.at(0).at(M.GlobalNode_CFEM(M.NCells()-1,S.order()))<<" 1000000.0"<<endl;
 
 // close the output files
 
