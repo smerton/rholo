@@ -83,8 +83,9 @@
 #include <limits.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "timer.h"
-#include "tests.h"
+#include "timer.h"     // high precision timers
+#include "tests.h"     // test problem inputs and exact solutions
+#include "utilities.h" // sgn
 
 // function signatures
 
@@ -108,8 +109,6 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
                   VVD const &x, VVD const &u, int const &s, double const &t,VD const &gamma);
 void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ,                                       // insert boundary conditions in to the mass matrix via row elimination
                VVD &u0,VVD &u1,VD &b0,VD &b1,long const &nnodes);
-
-template <typename T> int sgn(T val);                                                                                   // return type safe sign of the argument
 
 using namespace std;
 
@@ -1682,8 +1681,3 @@ void bc_insert(Matrix &A,Mesh const &M,Shape const &S,VD const &d,VD const &detJ
   return;
 
 }
-
-// type safe function to return the sign of the argument
-
-//template <typename T> int sgn(T val) {return(T(0)<val)-(val<T(0));} // -1,0 or 1
-template <typename T> int sgn(T val) {return( (val>=T(0))?T(1):T(-1));} // -1 or 1

@@ -48,10 +48,6 @@ void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dp
                 vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
                 VVVD &detDJ,VD const &m);
 
-// empty a vector
-
-void vempty(vector<double>&v);
-
 // exact solution at t=time for various problems
 
 void exact(VVD const &s,VVD const &x,int const &test_problem,double const &time);

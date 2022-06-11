@@ -9,16 +9,17 @@
 
 #include <iostream>
 #include <vector>
-#include <iomanip>    // floating point precision
-#include <cmath>      // for sqrt
-#include <fstream>    // for file io
-#include <algorithm>  // min_element, max_element
-#include "eos.h"      // eos lookups
-#include "mesh.h"     // mesh class
-#include "shape.h"    // shape class
-#include "riemann.h"  // riemann solver
-#include "tests.h"    // test problems
-#include "line.h"     // line class
+#include <iomanip>     // floating point precision
+#include <cmath>       // for sqrt
+#include <fstream>     // for file io
+#include <algorithm>   // min_element, max_element
+#include "eos.h"       // eos lookups
+#include "mesh.h"      // mesh class
+#include "shape.h"     // shape class
+#include "riemann.h"   // riemann solver
+#include "tests.h"     // test problems
+#include "line.h"      // line class
+#include "utilities.h" // vempty
 
 using namespace std;
 
@@ -1005,8 +1006,3 @@ void exact(VVD const &s,VVD const &x,int const &test_problem,double const &time)
   return;
 
 }
-
-// function to empty a vector
-
-void vempty(vector<double>&v){vector<double> e;v.swap(e);return;}
-
