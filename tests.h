@@ -13,6 +13,41 @@
 
 #define NSAMPLES 1000         // number of sample points for Riemann solutions
 
+// input overides for the Taylor-Green vortex
+
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,
+                 VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
+                 vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+                 VVVD &detDJ,VD const &m);
+
+// input overides for the Rayleigh-Taylor instability
+
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,
+                   VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
+                   vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+                   VVVD &detDJ,VD const &m);
+
+// input overides for the Noh stagnation shock
+
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,
+              VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
+              vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+              VVVD &detDJ,VD const &m);
+
+// input overides for the Sedov explosion
+
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,
+                VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,
+                vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+                VVVD &detDJ,VD const &m);
+
+// input overides for the Saltzmann piston
+
+void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,
+                VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &xk,VVD &xt,VD const &gamma,
+                vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,
+                VVVD &detDJ,VD const &m);
+
 // empty a vector
 
 void vempty(vector<double>&v);

@@ -2,6 +2,11 @@
 
 // S. R. Merton
 
+#define VD vector<double> // vector of doubles
+#define VVD vector<VD>    // vector of VD
+#define VVVD vector<VVD>  // vector of VVD
+#define VELOCITY 3        // velocity v.n applied to boundary
+
 #include <iostream>
 #include <vector>
 #include <iomanip>    // floating point precision
@@ -16,6 +21,192 @@
 #include "line.h"     // line class
 
 using namespace std;
+
+// input overides for the Taylor-Green vortex
+
+void init_TAYLOR(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+
+  cout<<"init_TAYLOR(): Input overides for Taylor-Green..."<<endl;
+
+// start x component of velocity field
+
+  for(long i=0;i<u0.at(0).size();i++){
+    u0.at(0).at(i)=sin(dpi*xk.at(0).at(i))*cos(dpi*xk.at(1).at(i));
+    u1.at(0).at(i)=u0.at(0).at(i);
+  }
+
+// start y component of velocity field
+
+  for(long i=0;i<u1.at(1).size();i++){
+    u0.at(1).at(i)=-cos(dpi*xk.at(0).at(i))*sin(dpi*xk.at(1).at(i));
+    u1.at(1).at(i)=u0.at(1).at(i);
+  }
+
+// start the energy field
+
+  for(long i=0;i<M.NCells();i++){
+    for(int iloc=0;iloc<T.nloc();iloc++){
+      double xval(xt.at(0).at(M.GlobalNode_DFEM(i,iloc)));
+      double yval(xt.at(1).at(M.GlobalNode_DFEM(i,iloc)));
+      double rho(1.0);
+      double p(0.25*rho*(cos(2.0*dpi*xval)+cos(2.0*dpi*yval))+1.0);
+
+// invert the eos to obtain internal energy
+
+      e0.at(M.GlobalNode_DFEM(i,iloc))=E(rho,p,gamma.at(mat.at(i)-1));
+      e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc));
+
+    }
+  }
+
+  return;
+
+}
+
+// input overides for the Rayleigh-Taylor instability
+
+void init_RAYLEIGH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+
+  cout<<"init_RAYLEIGH(): Input overides for the Rayleigh-Taylor instability test not coded yet."<<endl;
+
+  exit(1);
+
+  return;
+
+}
+
+// input overides for the Noh stagnation shock
+
+void init_NOH(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+
+  cout<<"init_NOH(): Input overides for Noh..."<<endl;
+
+// set origin
+
+  double xorig(0.5*(M.Min(0)+M.Max(0))),yorig(0.5*(M.Min(1)+M.Max(1)));
+
+// correct origin for reflection
+
+  if((M.bc_edge(0)==VELOCITY)){yorig=xk.at(1).at(0);} // ymin forced reflective
+  if((M.bc_edge(3)==VELOCITY)){xorig=xk.at(0).at(0);} // xmin forced reflective
+
+  double origin[2]={xorig,yorig}; // origin coordinates
+
+// start velocity field
+
+  for(long i=0;i<u0.at(0).size();i++){
+
+    double rx(xk.at(0).at(i)-origin[0]);     // radial vector component from domain origin to node
+    double ry(xk.at(1).at(i)-origin[1]);     // radial vector component from domain origin to node
+
+// length of radial vector from domain origin to node
+
+    double rnorm(sqrt(rx*rx+ry*ry));
+
+// velocity is a radial vector from degree of freedom towards the domain origin
+
+    u0.at(0).at(i)=-rx/max(rnorm,1.0e-12);
+    u1.at(0).at(i)=u0.at(0).at(i);
+
+    u0.at(1).at(i)=-ry/max(rnorm,1.0e-12);
+    u1.at(1).at(i)=u0.at(1).at(i);
+
+  }
+
+  return;
+
+}
+
+// input overides for the Sedov explosion
+
+void init_SEDOV(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD const &xk,VVD const &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+
+  cout<<"init_SEDOV(): Input overides for Sedov..."<<endl;
+
+// load energy field
+
+  for(long i=0;i<M.NCells();i++){
+
+// find cells to be sourced by checking for nodes at the origin
+
+    bool zcentre(false);
+
+    for(int iloc=0;iloc<S.nloc();iloc++){
+      if( abs(xk.at(0).at(M.GlobalNode_CFEM(i,iloc)))<1.0e-7 && abs(xk.at(1).at(M.GlobalNode_CFEM(i,iloc)))<1.0e-7  ){
+        zcentre=true;
+      }
+    }
+
+
+    for(int iloc=0;iloc<T.nloc();iloc++){
+
+    e0.at(M.GlobalNode_DFEM(i,iloc))=0.0;
+    e1.at(M.GlobalNode_DFEM(i,iloc))=0.0;
+
+// delta function at domain origin
+
+      if(zcentre){
+//        e0.at(i)=0.3014676/0.025; // drive ~ 12.058704, from another code see ref. paper for numbers
+        e0.at(M.GlobalNode_DFEM(i,iloc))=0.25/m[i]; // place 1/4 of the drive in each of the 4 cells at the origin per unit mass
+        e1.at(M.GlobalNode_DFEM(i,iloc))=e0.at(M.GlobalNode_DFEM(i,iloc));
+      }
+
+    }
+
+  }
+
+  return;
+
+}
+
+// input overides for the Saltzmann piston
+
+void init_SALTZMANN(Mesh const &M,Shape const &S,Shape const &T,double const &dpi,VD &dinit,VVD &u0,VVD &u1,VD &e0,VD &e1,VVD &xk,VVD &xt,VD const &gamma,vector<int> const &mat,VD &detJ0,VVVD &detDJ0,VD &detJ,VVVD &detDJ,VD const &m){
+
+  cout<<"init_SALTZMANN(): Input overides for Saltzmann..."<<endl;
+
+// set some tolerances to be used here
+
+  double tol(1.0e-6);
+  double dx1(0.01);
+  double dy1(0.01);
+
+// perturb the mesh
+
+  for(long i=0;i<xk.at(0).size();i++){
+
+// original node position
+
+    double xorig(xk.at(0).at(i));
+    double yorig(xk.at(1).at(i));
+
+// perturbation
+
+    double w1(100.0*xorig+tol);
+    double w2(100.0*yorig+tol);
+
+// set new node position
+
+// mesh distortion handled by generator so we don't need to do this
+// also detJ0 has already been used so will need to move a few things
+// around if we were to distort the mesh here...
+
+//    xk.at(0).at(i)=w1*dx1+(10.0-w2)*dy1*sin(dpi*w1*0.01);
+
+  }
+
+// set initial energy field
+
+  for(int i=0;i<M.NCells();i++){
+    for(int iloc=0;iloc<T.nloc();iloc++){
+      e0.at(M.GlobalNode_DFEM(i,iloc))=0.0001;
+      e1.at(M.GlobalNode_DFEM(i,iloc))=0.0001;
+    }
+  }
+
+  return;
+
+}
 
 // functions to produce lineouts in 1D and 2D
 
