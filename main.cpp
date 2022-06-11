@@ -93,8 +93,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include "timer.h"
-#include "lineouts.h"
-#include "exact.h"
+#include "tests.h"
 
 // function signatures
 
