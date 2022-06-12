@@ -29,7 +29,7 @@
 //
 
 #define DTSTART 0.0001     // insert a macro for the first time step
-#define ENDTIME 0.1        // insert a macro for the end time
+#define ENDTIME 0.65        // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
@@ -85,7 +85,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/taylor-green-30x30.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/taylor-green-50x50.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output

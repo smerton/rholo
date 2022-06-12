@@ -9,6 +9,7 @@
 #include "mesh.h"      // mesh class
 #include "shape.h"     // shape class
 #include "riemann.h"   // riemann solver
+#include "jacobian.h"  // jacobian
 #include "tests.h"     // test problems
 
 using namespace std;
@@ -82,6 +83,10 @@ void errors(Mesh const &M,Shape const &S,Shape const &T,VVD const &xk,VVD const 
   for(int i=0;i<M.NCells();i++){
 
     double l1_i(0.0),l2_i(0.0);
+    VD detJ(S.ngi(),0.0);
+    VVVD detDJ(M.NDims(),VVD(S.nloc(),VD(S.ngi(),0.0)));
+
+    jacobian(i,xk,M,S,detJ,detDJ);
 
     h+=V.at(i);
 
@@ -109,14 +114,15 @@ void errors(Mesh const &M,Shape const &S,Shape const &T,VVD const &xk,VVD const 
 
 // contribution to norm
 
-    l1+=l1_i;
-    l2+=l2_i;
+    l1+=l1_i*V.at(i);
+    l2+=l2_i*V.at(i);
 
   }
 
   h=sqrt(h/M.NCells());
   l1/=M.NCells();
-  l2=sqrt(l2)/M.NCells();
+  l2=sqrt(l2/M.NCells());
+
 
   cout<<endl;
   cout<<"  errors(): Error Estimators (average grid spacing h= "<<h<<")"<<endl;
