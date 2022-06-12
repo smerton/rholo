@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0001     // insert a macro for the first time step
-#define ENDTIME 0.65        // insert a macro for the end time
+#define DTSTART 0.0005     // insert a macro for the first time step
+#define ENDTIME 0.75        // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
@@ -85,7 +85,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/taylor-green-50x50.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/taylor-green-10x10.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -132,6 +132,7 @@ int main(){
   VVVD Fc(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));           // corner forces on each cell
   vector<double> eshock(vector<double> (ntnodes,0.0));           // shock heating due to viscous forces
   bool tensorq(false);                                           // use artificial viscosity tensor
+  bool zmanufactured_soln(test_problem=TAYLOR);                  // use a manufactured solution (use for Taylor-Green problem)
 
 // initialise the high res timers
 
@@ -507,7 +508,40 @@ int main(){
 
 // assemble the rhs of the energy equation from the force matrix using F^T dot (ux,uy)^T
 
-      for(long iz=0;iz<nzeroes;iz++){b.at(fcol.at(iz))+=F.at(iz)*u1.at(fdim.at(iz)).at(frow.at(iz));}
+      if(zmanufactured_soln){
+        for(int i=0;i<n;i++){
+
+          jacobian(i,x1,M,S,detJ,detDJ);
+
+// coordinates of the integration points
+
+          vector<double> egi(S.ngi(),0.0);
+          for(int gi=0;gi<S.ngi();gi++){
+            double xgi(0.0),ygi(0.0);
+            for(int iloc=0;iloc<S.nloc();iloc++){
+              xgi+=x1.at(0).at(M.GlobalNode_CFEM(i,iloc))*S.value(iloc,gi);
+              ygi+=x1.at(1).at(M.GlobalNode_CFEM(i,iloc))*S.value(iloc,gi);
+            }
+
+// compute manufactured solution at the integration points
+
+           egi.at(gi)=(3.0*dpi/8.0)*((cos(3.0*dpi*xgi)*cos(dpi*ygi))-(cos(dpi*xgi)*cos(3.0*dpi*ygi)));
+
+          }
+
+// place manufactured solution on rhs of energy equation
+
+          for(int iloc=0;iloc<T.nloc();iloc++){
+            double bsum(0.0);
+            for(int gi=0;gi<S.ngi();gi++){
+              bsum-=T.value(iloc,gi)*egi.at(gi)*detJ.at(gi)*S.wgt(gi);
+            }
+            b.at(M.GlobalNode_DFEM(i,iloc))=bsum;
+          }
+        }
+      }else{
+        for(long iz=0;iz<nzeroes;iz++){b.at(fcol.at(iz))+=F.at(iz)*u1.at(fdim.at(iz)).at(frow.at(iz));}
+      }
 
 // solve the energy equation locally in each cell
 
