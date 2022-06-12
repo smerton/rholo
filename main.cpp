@@ -29,7 +29,7 @@
 //
 
 #define DTSTART 0.0001     // insert a macro for the first time step
-#define ENDTIME 0.2        // insert a macro for the end time
+#define ENDTIME 0.1        // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
@@ -59,6 +59,7 @@
 #include "utilities.h" // sgn
 #include "bcs.h"       // bc_insert
 #include "jacobian.h"  // jacobian
+#include "errors.h"    // error estimators
 
 // function signatures
 
@@ -84,7 +85,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/sod-100x1.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/taylor-green-30x30.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -142,9 +143,9 @@ int main(){
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
-                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+//  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
+//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
 //  test_problem=SODSOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;    // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for double shock problem 
@@ -159,8 +160,8 @@ int main(){
 //  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},          // initial flux state in each material for the blast wave
 //                                 {1.000t,0.000,0.000, 0.0100,1.4}};
 
-//  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
+  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
 
 //  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;             // set overides needed to run this problem
 //  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
@@ -944,6 +945,7 @@ int main(){
 // some output
 
   timers.Start(TIMER_OUTPUT);
+
   M.MapCoords(x1,xt1,S.order(),T.order()); // thermodynamic node positions
   lineouts(M,S,T,dinit,e1,xinit,x1,xt1,u1,test_problem,mat,gamma);
   exact(state,x1,test_problem,ENDTIME);
@@ -951,6 +953,8 @@ int main(){
   timers.Stop(TIMER_OUTPUT);
 
 // estimate convergence rate in the L1/L2 norms using a Riemann solution as the exact solution
+
+  errors(M,S,T,x1,xt1,u1,V1,test_problem);
 
 //  vector<double> rx;vempty(rx);  // sample points
 //  double xstart(0.0),xstop(1.0); // sample range - should be whole mesh though bc.s may artificially reduce convergence
