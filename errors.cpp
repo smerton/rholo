@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <vector>
+#include <iomanip>
 #include <cmath>       // sin/cos
 #include "globals.h"   // defines
 #include "mesh.h"      // mesh class
@@ -92,8 +93,6 @@ void errors(Mesh const &M,Shape const &S,Shape const &T,VVD const &xk,VVD const 
     h+=V.at(i);
 
 // solution and exact solution at each quadrature point
-
-//    vector<double> ugi_exact(M.NDims(),0.0),ugi(M.NDims(),0.0);
 
     for(int gi=0;gi<S.ngi();gi++){
       double xgi(0.0),ygi(0.0);
@@ -189,9 +188,9 @@ void errors(Mesh const &M,Shape const &S,Shape const &T,VVD const &xk,VVD const 
 // output errors in the L1/L2 norms
 
   cout<<endl;
-  cout<<"  Error Estimators on average grid spacing h= "<<h<<":"<<endl;
-  cout<<"    L1 norm= "<<l1<<" (relative error= "<<l1<<")"<<endl;
-  cout<<"    L2 norm= "<<l2<<" (relative error= "<<l2<<")"<<endl;
+  cout<<"  Error Estimators on average grid spacing h= "<<fixed<<setprecision(10)<<h<<":"<<endl;
+  cout<<"    L1 norm= "<<fixed<<setprecision(10)<<l1<<" (relative error= "<<l1<<")"<<endl;
+  cout<<"    L2 norm= "<<fixed<<setprecision(10)<<l2<<" (relative error= "<<l2<<")"<<endl;
 
   return;
 
