@@ -28,8 +28,8 @@
 // for graphics: convert -density 300 filename.png filename.pdf
 //
 
-#define DTSTART 0.0005     // insert a macro for the first time step
-#define ENDTIME 0.75        // insert a macro for the end time
+#define DTSTART 0.0001    // insert a macro for the first time step
+#define ENDTIME 0.20      // insert a macro for the end time
 #define ECUT 1.0e-8       // cut-off on the energy field
 //#define VISFREQ 200     // frequency of the graphics dump steps
 //#define OUTFREQ 50      // frequency of the output print steps
@@ -85,7 +85,7 @@ int main(){
 
 // global data
 
-  Mesh M("mesh/taylor-green-10x10.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/sod-100x1.mesh");                                  // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
@@ -132,7 +132,7 @@ int main(){
   VVVD Fc(ndims,VVD(n,vector<double>(S.nloc(),0.0) ));           // corner forces on each cell
   vector<double> eshock(vector<double> (ntnodes,0.0));           // shock heating due to viscous forces
   bool tensorq(false);                                           // use artificial viscosity tensor
-  bool zmanufactured_soln(test_problem=TAYLOR);                  // use a manufactured solution (use for Taylor-Green problem)
+  bool zmanufactured_soln_ie(false);                             // trigger for manufactured solution on the internal energy field
 
 // initialise the high res timers
 
@@ -144,39 +144,39 @@ int main(){
 
 // initial flux state in each material is in the form (d,ux,uy,p,gamma)
 
-//  test_problem=SOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for Sod's shock tube 
-//                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
+  test_problem=SOD;zmanufactured_soln_ie=false;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;       // set overides needed to run this problem
+  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},                                  // initial flux state in each materia
+                                 {0.125, 0.000,0.000, 0.100,5.0/3.0}};
 
-//  test_problem=SODSOD;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;    // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},      // initial flux state in each material for double shock problem 
+//  test_problem=SODSOD;zmanufactured_soln_ie=false;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0;    // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0},                                  // initial flux state in each material
 //                                 {0.125, 0.000,0.000, 0.100,5.0/3.0},
 //                                 {1.000, 0.000,0.000, 1.000,5.0/3.0}};
 
-//  test_problem=R2R;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=0.0;             // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},            // initial flux state in each material for the 123 problem 
+//  test_problem=R2R;zmanufactured_soln_ie=false;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=0.0;           // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000,-2.000,0.000, 0.400,1.4},                                      // initial flux state in each material
 //                                 {1.000, 2.000,0.000, 0.400,1.4}};
 
-//  test_problem=BLASTWAVE;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0; // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},          // initial flux state in each material for the blast wave
+//  test_problem=BLASTWAVE;zmanufactured_soln_ie=false;length_scale_type=LS_PSEUDO_1D;cl=0.5;cq=4.0/3.0; // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000,0.000,0.000, 1000.0,1.4},                                      // initial flux state in each material
 //                                 {1.000t,0.000,0.000, 0.0100,1.4}};
 
-  test_problem=TAYLOR;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;          // set overides needed to run this problem
-  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};     // initial flux state in each material for Taylor problem
+//  test_problem=TAYLOR;zmanufactured_soln_ie=true;length_scale_type=LS_AVERAGE;cl=0.0;cq=0.0;           // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,5.0/3.0}};                                 // initial flux state in each material
 
-//  test_problem=NOH;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;             // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
+//  test_problem=NOH;zmanufactured_soln_ie=false;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;             // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};                                 // initial flux state in each material
 
-//  test_problem=SEDOV;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;             // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};         // initial flux state in each material for Sedov problem
+//  test_problem=SEDOV;zmanufactured_soln_ie=false;length_scale_type=LS_LOCAL;cl=0.3;cq=1.0;             // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.4}};                                     // initial flux state in each material
 
-//  test_problem=TRIPLE;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;      // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},          // initial flux state in each material for triple-point problem
+//  test_problem=TRIPLE;zmanufactured_soln_ie=false;length_scale_type=LS_AVERAGE;cl=0.5;cq=4.0/3.0;      // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 1.000,1.5},                                      // initial flux state in each material
 //                                 {1.000, 0.000,0.000, 0.100,1.4},
 //                                 {0.125, 0.000,0.000, 0.100,1.5}};
 
-//  test_problem=SALTZMANN;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;       // set overides needed to run this problem
-//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};     // initial flux state in each material for Noh problem
+//  test_problem=SALTZMANN;zmanufactured_soln_ie=false;length_scale_type=LS_AVERAGE;cl=0.3;cq=1.0;       // set overides needed to run this problem
+//  vector<vector<double> > state={{1.000, 0.000,0.000, 0.000,5.0/3.0}};                                 // initial flux state in each material
 
 // acquire adiabatic constant for each material
 
@@ -506,39 +506,10 @@ int main(){
 
     {Matrix A(T.nloc());vector<double> b(ntnodes);double bloc[T.nloc()],edot[T.nloc()];for(long i=0;i<b.size();i++){b.at(i)=0.0;}
 
-// assemble the rhs of the energy equation from the force matrix using F^T dot (ux,uy)^T
+// assemble the rhs of the energy equation from the force matrix using F^T dot (ux,uy)^T or use a manufactured solution
 
-      if(zmanufactured_soln){
-        for(int i=0;i<n;i++){
-
-          jacobian(i,x1,M,S,detJ,detDJ);
-
-// coordinates of the integration points
-
-          vector<double> egi(S.ngi(),0.0);
-          for(int gi=0;gi<S.ngi();gi++){
-            double xgi(0.0),ygi(0.0);
-            for(int iloc=0;iloc<S.nloc();iloc++){
-              xgi+=x1.at(0).at(M.GlobalNode_CFEM(i,iloc))*S.value(iloc,gi);
-              ygi+=x1.at(1).at(M.GlobalNode_CFEM(i,iloc))*S.value(iloc,gi);
-            }
-
-// compute manufactured solution at the integration points
-
-           egi.at(gi)=(3.0*dpi/8.0)*((cos(3.0*dpi*xgi)*cos(dpi*ygi))-(cos(dpi*xgi)*cos(3.0*dpi*ygi)));
-
-          }
-
-// place manufactured solution on rhs of energy equation
-
-          for(int iloc=0;iloc<T.nloc();iloc++){
-            double bsum(0.0);
-            for(int gi=0;gi<S.ngi();gi++){
-              bsum-=T.value(iloc,gi)*egi.at(gi)*detJ.at(gi)*S.wgt(gi);
-            }
-            b.at(M.GlobalNode_DFEM(i,iloc))=bsum;
-          }
-        }
+      if(zmanufactured_soln_ie){
+        manufactured_soln_ie(M,S,T,x1,test_problem,detJ,detDJ,b);
       }else{
         for(long iz=0;iz<nzeroes;iz++){b.at(fcol.at(iz))+=F.at(iz)*u1.at(fdim.at(iz)).at(frow.at(iz));}
       }

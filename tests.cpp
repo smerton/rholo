@@ -17,6 +17,7 @@
 #include "tests.h"     // test problems
 #include "line.h"      // line class
 #include "utilities.h" // vempty
+#include "jacobian.h"  // jacobian
 #include "bcs.h"       // VELOCITY bc definition
 
 using namespace std;
@@ -994,6 +995,108 @@ void exact(VVD const &s,VVD const &x,int const &test_problem,double const &time)
         f1.close();
 
       }
+
+      break;
+
+    case(SALTZMANN):
+
+// Saltzmann piston
+
+      return;
+
+      break;
+
+  }
+
+  return;
+
+}
+
+// function to code for a manufactured solution on the internal energy field
+
+void manufactured_soln_ie(Mesh const &M,Shape const &S,Shape const &T,VVD const &x1,int const &test_problem,VD &detJ,VVVD &detDJ,VD &b){
+
+// define pi
+
+  double dpi(4.0*atan(1.0));
+
+  switch(test_problem){
+
+    case(TAYLOR):
+
+// Taylor Green vortex
+
+      for(int i=0;i<M.NCells();i++){
+
+        jacobian(i,x1,M,S,detJ,detDJ);
+
+// coordinates of the integration points
+
+        vector<double> egi(S.ngi(),0.0);
+        for(int gi=0;gi<S.ngi();gi++){
+          double xgi(0.0),ygi(0.0);
+          for(int iloc=0;iloc<S.nloc();iloc++){
+            xgi+=x1.at(0).at(M.GlobalNode_CFEM(i,iloc))*S.value(iloc,gi);
+            ygi+=x1.at(1).at(M.GlobalNode_CFEM(i,iloc))*S.value(iloc,gi);
+          }
+
+// compute manufactured solution at the integration points
+
+         egi.at(gi)=(3.0*dpi/8.0)*((cos(3.0*dpi*xgi)*cos(dpi*ygi))-(cos(dpi*xgi)*cos(3.0*dpi*ygi)));
+
+        }
+
+// place manufactured solution on rhs of energy equation
+
+        for(int iloc=0;iloc<T.nloc();iloc++){
+          double bsum(0.0);
+          for(int gi=0;gi<S.ngi();gi++){
+            bsum-=T.value(iloc,gi)*egi.at(gi)*detJ.at(gi)*S.wgt(gi);
+          }
+          b.at(M.GlobalNode_DFEM(i,iloc))=bsum;
+        }
+      }
+
+      break;
+
+    case(RAYLEIGH):
+
+// Rayleigh-Taylor instability
+
+      return;
+
+      break;
+
+    case(NOH):
+
+// Noh stagnation shock
+
+      return;;
+
+      break;
+
+    case(SEDOV):
+
+// Sedov expanding shock
+
+      return;
+
+      break;
+
+    case(SOD):
+
+// Sod's shock tube
+
+      return;
+
+      break;
+
+
+    case(R2R):
+
+// 123 problem
+
+      return;
 
       break;
 

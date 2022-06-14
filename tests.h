@@ -66,3 +66,7 @@ void lineouts_1d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD 
 
 void lineouts_2d(Mesh const &M,Shape const &S,Shape const &T,VD const &dinit,VD const &e,VVD const &xinit,VVD const &x,
               VVD const &xt,VVD const &u,int const &test_problem,vector<int> const &mat,VD const &g);
+
+// impose a manufactured solution on the internal energy field
+
+void manufactured_soln_ie(Mesh const &M,Shape const &S,Shape const &T,VVD const &x,int const &test_problem,VD &detJ,VVVD &detDJ,VD &b);
