@@ -81,20 +81,25 @@ void state_print(int const n,int const ndims, int const nmats, VI const &mat,   
 
 using namespace std;
 
-int main(){
+int main(int argc, char *argv[]){
 
 // global data
 
-  Mesh M("mesh/sod-100x1.mesh");                                  // load a new mesh from file
+  Mesh M("mesh/sod-100x1.mesh");                                 // load a new mesh from file
   Shape S(2,3,CONTINUOUS);                                       // load a shape function for the kinematics
   Shape T(1,sqrt(S.ngi()),DISCONTINUOUS);                        // load a shape function for the thermodynamics
   ofstream f1,f2,f3;                                             // files for output
+  char *meshfile("not set");                                     // mesh file
+  int orderk(2);                                                 // polyhedral order of kinematic grid
+  int ordert(orderk-1);                                          // polyhedral order of thermodynamic grid
+  int orderq(orderk+1);                                          // quadrature order (orderk must be respected)
   int const n(M.NCells()),ndims(M.NDims());                      // no. ncells and no. dimensions
   long const nknodes(M.NNodes(S.order(),S.type()));              // insert shape functions in to the mesh
   long const ntnodes(M.NNodes(T.order(),T.type()));              // insert shape functions in to the mesh
   long const nq(M.NCells()*S.ngi());                             // no. quadrature points on the mesh
   int const nmats(M.NMaterials());                               // number of materials
   double cl,cq;                                                  // linear & quadratic coefficients for bulk viscosity (for weak (cl) and strong (cq) shock control)
+  double endtime(ENDTIME);                                       // end time of simulation
   Matrix KMASS(2*NROWS),KMASSI(2*NROWS);                         // mass matrix for kinematic field
   vector<double> dinit(n),V0(n),V1(n),m(n);                      // density, volume & mass
   vector<double> e0(ntnodes),e1(ntnodes);                        // internal energy field
@@ -117,7 +122,7 @@ int main(){
   double ke(0.0),ie(0.0);                                        // kinetic and internal energy for conservation checks
   double time(0.0),dt(DTSTART);                                  // start time and time step
   int step(0);                                                   // step number
-  int test_problem(0);                                           // set later for specific test cases that may need some overides
+  int test_problem(SOD);                                         // set later for specific test cases that may need some overides
   double dpi(4.0*atan(1.0));                                     // definition of pi to double precision
   vector<double> gamma(M.NMaterials());                          // ratio of specific heats, set from material definition
   long nzeroes(0);                                               // number of non-zeroes in the CSR force matrix
@@ -133,6 +138,35 @@ int main(){
   vector<double> eshock(vector<double> (ntnodes,0.0));           // shock heating due to viscous forces
   bool tensorq(false);                                           // use artificial viscosity tensor
   bool zmanufactured_soln_ie(false);                             // trigger for manufactured solution on the internal energy field
+
+// parse argument list
+
+  if(argc>1){cout<<" main(): number of args= "<<argc-1<<endl;}
+  for(int i=1;i<argc;i++){
+    cout<<" main(): argument "<<i<<" reads: "<<argv[i]<<endl;
+    stringstream str;
+    if((argv[i]=="test_problem") || (argv[i]=="tp") || (argv[i]=="-test_problem") || (argv[i]=="-tp")){
+      str<<argv[i+1];str>>test_problem;
+    }else if((argv[i]=="endtime") || (argv[i]=="et") || (argv[i]=="-endtime") || (argv[i]=="-et")){
+      str<<argv[i+1];str>>endtime;
+    }else if((argv[i]=="cl") || (argv[i]=="-cl")){
+      str<<argv[i+1];str>>cl;
+    }else if((argv[i]=="cq") || (argv[i]=="-cq")){
+      str<<argv[i+1];str>>cq;
+    }else if((argv[i]=="tensorq") || (argv[i]=="tq") || (argv[i]=="-tensorq") || (argv[i]=="-tq")){
+      str<<argv[i+1];str>>tensorq;
+    }else if((argv[i]=="length_scale_type") || (argv[i]=="ls") || (argv[i]=="-length_scale_type") || (argv[i]=="-ls")){
+      str<<argv[i+1];str>>length_scale_type;
+    }else if((argv[i]=="meshfile") || (argv[i]=="mf") || (argv[i]=="-meshfile") || (argv[i]=="-mf")){
+      str<<argv[i+1];str>>meshfile;
+    }else if((argv[i]=="orderk") || (argv[i]=="-ok") || (argv[i]=="-orderk") || (argv[i]=="-ok")){
+      str<<argv[i+1];str>>orderk;
+    }else if((argv[i]=="ordert") || (argv[i]=="-ot") || (argv[i]=="-ordert") || (argv[i]=="-ot")){
+      str<<argv[i+1];str>>ordert;
+    }else if((argv[i]=="orderq") || (argv[i]=="-oq") || (argv[i]=="-orderq") || (argv[i]=="-oq")){
+      str<<argv[i+1];str>>orderq;
+    }
+  }
 
 // initialise the high res timers
 
